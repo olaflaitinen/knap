@@ -1,0 +1,18 @@
+{
+  "generated": "2026-09-07T19:05:46Z",
+  "tiktoken_version": "0.14.0",
+  "vocabularies": {
+    "cl100k_base": {
+      "bytes": 1681126,
+      "sha256": "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
+      "tokens": 100256,
+      "url": "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken"
+    },
+    "o200k_base": {
+      "bytes": 3613922,
+      "sha256": "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
+      "tokens": 199998,
+      "url": "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken"
+    }
+  }
+}

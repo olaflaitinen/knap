@@ -101,6 +101,10 @@ def collect_diagnostics(mojo: Path, target: str) -> list[dict]:
             "--warn-on-unstable-apis",
             "--diagnostic-format",
             "json",
+            # Tests import the library under src, so the include path
+            # is needed for them to compile at all.
+            "-I",
+            "src",
             "-o",
             "/dev/null",
             target,

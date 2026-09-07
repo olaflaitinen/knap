@@ -47,7 +47,63 @@ produce output yet.
 
 ## Unreleased
 
-Nothing yet. The next work is milestone M1, vocabulary loading and decode.
+Milestone M1, vocabulary and decode. Nothing here has been tagged or
+published, so it stays under Unreleased rather than claiming a version.
+
+No entry below changes tokenizer output, because Knap did not produce output
+before this milestone.
+
+### Added
+
+- `.tiktoken` vocabulary loading, in `src/knap/vocab.mojo`. The loader is
+  strict: a malformed line, a duplicate rank, a negative rank, a gap in the
+  merge ranks, and an empty file each raise a named error identifying the
+  line. Rank order in the file is not assumed.
+- `FlatVocab` in `src/knap/flat_vocab.mojo`, holding every token's bytes in
+  one contiguous buffer with parallel offset and length arrays. Spans are
+  validated once at construction so the decode path needs no bounds test.
+- Decode over the full token id space, byte exact. `decode_bytes` returns
+  raw bytes and is what parity is defined against; `decode` wraps them in a
+  String without validating UTF-8, because byte level BPE legitimately
+  produces partial sequences.
+- The special token registry in `src/knap/special.mojo`, with the
+  definitions for both target encodings.
+- `scripts/fetch_vocabs.py`, which reads the canonical URLs out of tiktoken's
+  own encoding constructors rather than hardcoding them, and verifies every
+  download against the merge ranks tiktoken itself loads.
+- `scripts/gen_encode_golden.py`, generating `decode_single_tokens.jsonl` for
+  both encodings, recording unassigned ids explicitly as null.
+- 22 tests across `tests/test_decode.mojo`, `tests/test_flat_vocab.mojo`,
+  `tests/test_vocab.mojo`, and `tests/test_special.mojo`.
+
+### Changed
+
+- The docstring gate now covers `src/knap` as well as `tests`. Running it on
+  tests alone left the public API, which is the surface `mojo doc` actually
+  serves, unchecked.
+- CI fetches vocabularies and generates golden fixtures before running tests,
+  and passes the include path so tests can import the library.
+
+### Fixed
+
+- Nothing. No defect from M0 reached this milestone.
+
+### Removed
+
+- Nothing.
+
+### Verified
+
+- **Decode parity.** Every token id in both encodings decodes byte
+  identically to `tiktoken.decode_single_token_bytes`: 100277 ids for
+  cl100k_base and 200019 for o200k_base, 300296 in total.
+- **The gaps.** Both encodings leave ids assigned to nothing, 16 in
+  cl100k_base and 19 in o200k_base. `tiktoken` raises for those and so does
+  Knap, which the gate asserts rather than assumes.
+- The whole suite, 26 tests, passes under `--sanitize address`.
+- EmberJson was evaluated against both acceptance criteria and passed. It is
+  not yet a dependency, because nothing imports it until the Hugging Face
+  loader exists. See `docs/ARCHITECTURE.md`.
 
 ## 0.1.0, 2026-09-07
 

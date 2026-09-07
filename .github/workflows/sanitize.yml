@@ -51,6 +51,16 @@ jobs:
       - name: Sync the pinned environment
         run: uv sync --group dev
 
+      # Vocabulary files are fetched rather than committed, so CI fetches
+      # them too. The fetch script verifies each download against the ranks
+      # tiktoken itself loads, so a substituted file fails here rather than
+      # producing a subtly wrong tokenizer.
+      - name: Fetch vocabularies
+        run: uv run python scripts/fetch_vocabs.py
+
+      - name: Generate golden fixtures
+        run: uv run python scripts/gen_encode_golden.py
+
       - name: Build and run every test under ASan
         run: |
           mkdir -p "${RUNNER_TEMP}/asan"
@@ -58,6 +68,6 @@ jobs:
             name="$(basename "$f" .mojo)"
             echo "== $f"
             uv run mojo build --sanitize address \
-              -o "${RUNNER_TEMP}/asan/${name}" "$f"
+              -I src -o "${RUNNER_TEMP}/asan/${name}" "$f"
             "${RUNNER_TEMP}/asan/${name}"
           done

@@ -133,23 +133,36 @@ implementation at M0 and the numbers are recorded in
 
 ## Current status
 
-Knap is at M0. No parity claim is supported by evidence yet, and none is made.
+Knap is at M1. **Decode parity is established and encode parity is not**, so
+no general parity claim is made yet.
 
 | Measure | Value | Milestone that fills it |
 | --- | --- | --- |
-| Vocabularies verified | None | M1 to M4 |
-| Golden fixtures generated | None | M1 to M3 |
+| Decode parity, cl100k_base | Verified, all 100277 ids | Done at M1 |
+| Decode parity, o200k_base | Verified, all 200019 ids | Done at M1 |
+| Encode parity | Not started | M3 |
 | Strings fuzzed | 0 | M4 |
-| Divergences found | Not yet measurable | M4 |
-| Strings fuzzed under ASan | 0 | M4 |
+| Divergences found | 0 so far, from decode only | M4 |
 | Fuzz seed | Not yet assigned | M4 |
-| `tiktoken` version used as reference | 0.14.0, installed and verified at M0 | M1 onward |
+| `tiktoken` version used as reference | 0.14.0 | Current |
 
-What has been verified at M0 is narrower, and worth stating precisely because
-it is the foundation the rest rests on: the pinned compiler builds and runs a
-Mojo test suite, that suite passes under `--sanitize address`, and the single
-environment holding Mojo, `tiktoken`, and `tokenizers` that M4 depends on
-resolves and imports.
+What decode parity means here, stated precisely so it is not read as more
+than it is. Every token id in the full id space of both encodings was decoded
+and compared byte for byte against `tiktoken.decode_single_token_bytes`:
+
+| Encoding | Ids checked | Assigned | Unassigned | Result |
+| --- | --- | --- | --- | --- |
+| cl100k_base | 100277 | 100261 | 16 | Byte identical, and every unassigned id raises |
+| o200k_base | 200019 | 200000 | 19 | Byte identical, and every unassigned id raises |
+
+The unassigned columns are the part worth attention. Both encodings leave
+holes in their id space, because the special tokens do not sit flush against
+the merge ranks. `tiktoken` raises for those ids and so does Knap. An
+implementation that returned empty bytes instead would pass a naive
+comparison while diverging exactly where a caller needs to be told that
+something upstream is wrong.
+
+The whole suite, 26 tests, also passes under `--sanitize address`.
 
 This table is updated after every milestone gate, per the working agreement.
 

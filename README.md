@@ -17,16 +17,16 @@ because most of what this README describes is planned rather than built.
 | Component | State | Milestone |
 | --- | --- | --- |
 | Toolchain, standards gates, CI | Working | M0, complete |
-| Vocabulary loading and decode | Not started | M1 |
+| Vocabulary loading and decode | Working, decode parity verified | M1, complete |
 | Pre-tokenizer, scalar | Not started | M2 |
 | BPE merge and encode | Not started | M3 |
 | Differential fuzzing against `tiktoken` | Not started | M4 |
 | SIMD classifier and benchmarks | Not started | M5 |
 | Packaging and Python bindings | Not started | M6 |
 
-There is no tokenizer API yet. `knap.encode` does not exist. What exists is a
-verified toolchain, the repository standard and the four scripts that enforce
-it, and a Mojo test suite that compiles and runs under the pinned compiler.
+There is no encoder yet. `knap.encode` does not exist, and it arrives at M3.
+What works today is loading either target vocabulary and decoding token ids
+back to bytes, with parity against `tiktoken` verified on every id.
 
 Nothing in this repository is a stub. Every file present is complete and
 working, and the files listed above as not started are absent rather than
@@ -39,15 +39,20 @@ correctness for speed, correctness wins.
 
 | Measure | Value |
 | --- | --- |
+| Token ids decoded and compared against `tiktoken` | 300296, every id in both encodings |
+| Decode divergences found | 0 |
 | Strings fuzzed against `tiktoken` | 0, M4 not started |
-| Divergences found | Not yet measurable |
-| Vocabularies covered | None yet, `cl100k_base` and `o200k_base` targeted |
+| Encode parity | Not established, M3 not started |
 | Known divergences | None recorded, see docs/CORRECTNESS.md |
 
-Those zeros are honest, not a formatting placeholder. Until M4 runs, no claim
-of `tiktoken` parity is supported by evidence, and this README will not make
-one. The methodology that will produce those numbers is written up in
-[docs/CORRECTNESS.md](docs/CORRECTNESS.md).
+Read that table precisely. **Decode parity is verified and encode parity is
+not**, because there is no encoder yet. Decode is also the easy half: it is a
+series of memcpy calls, and the hard problems live in pre-tokenization and
+the merge loop. A project that announced parity on the strength of the decode
+result alone would be overselling, so this one does not.
+
+The zeros are honest rather than placeholders. The methodology that will fill
+them is in [docs/CORRECTNESS.md](docs/CORRECTNESS.md).
 
 ## Performance
 
@@ -102,16 +107,28 @@ The encode and decode quickstart arrives with M3. What runs today is the
 toolchain smoke test and the repository standards gates:
 
 ```bash
-uv run mojo run tests/test_toolchain.mojo
-uv run python scripts/lint_style.py
+uv run python scripts/fetch_vocabs.py
+uv run mojo run -I src tests/test_decode.mojo
+```
+
+Decoding from Mojo, which is the whole public API today:
+
+```mojo
+from knap.vocab import load_cl100k_base
+
+def main() raises:
+    var vocabulary = load_cl100k_base(
+        "tests/fixtures/vocabs/cl100k_base.tiktoken"
+    )
+    print(vocabulary.decode([15339, 1917]))
 ```
 
 ## Supported vocabularies
 
 | Vocabulary | State | Verified against |
 | --- | --- | --- |
-| `cl100k_base` | Planned, M1 to M4 | Nothing yet |
-| `o200k_base` | Planned, M1 to M4 | Nothing yet |
+| `cl100k_base` | Loads, decodes | `tiktoken` 0.14.0, all 100277 ids |
+| `o200k_base` | Loads, decodes | `tiktoken` 0.14.0, all 200019 ids |
 | Hugging Face `tokenizer.json` | Planned, experimental | Nothing yet |
 
 Vocabulary files are downloaded by a script rather than committed, so that no

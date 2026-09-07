@@ -1,0 +1,17 @@
+{
+  "encodings": {
+    "cl100k_base": {
+      "assigned": 100261,
+      "id_space": 100277,
+      "unassigned": 16
+    },
+    "o200k_base": {
+      "assigned": 200000,
+      "id_space": 200019,
+      "unassigned": 19
+    }
+  },
+  "generated": "2026-09-07T19:16:27Z",
+  "generator": "scripts/gen_encode_golden.py",
+  "tiktoken_version": "0.14.0"
+}

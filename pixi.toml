@@ -39,7 +39,9 @@ regex = ">=2024.0.0"
 [tasks]
 # These mirror the CI gates so that a contributor can run the whole standard
 # locally with one command before opening a pull request.
-smoke = "mojo run tests/test_toolchain.mojo"
+smoke = "mojo run -I src tests/test_toolchain.mojo"
+fetch = "python scripts/fetch_vocabs.py"
+goldens = "python scripts/gen_encode_golden.py"
 lint = "python scripts/lint_style.py"
 banners = "python scripts/check_file_banners.py"
 spdx = "python scripts/check_spdx.py"

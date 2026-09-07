@@ -66,7 +66,23 @@ been verified to exist.
 
 ## Current position
 
-M0 is complete. Every condition below was observed, not inferred.
+M0 and M1 are complete. Every condition below was observed, not inferred.
+
+M1 delivered vocabulary loading, the flat token store, decode over the full
+id space, and the special token registry. Its gate, decoding every token id
+in both vocabularies byte identically against `tiktoken`, passes for all
+300296 ids. See [docs/CORRECTNESS.md](CORRECTNESS.md).
+
+| M1 condition | Evidence |
+| --- | --- |
+| `.tiktoken` loader | `src/knap/vocab.mojo`, strict on every malformed shape, 7 rejection tests. |
+| FlatVocab | `src/knap/flat_vocab.mojo`, spans validated once at construction. |
+| Decode | Byte exact over both encodings, including the gaps, which raise. |
+| Special token registry | `src/knap/special.mojo`, ids cross checked by decoding each to its own literal text. |
+| EmberJson evaluated | Passed both acceptance criteria. Decision recorded in `docs/ARCHITECTURE.md`. |
+| Suite under ASan | All 26 tests pass with `--sanitize address`. |
+
+The M0 conditions, for the record:
 
 | M0 condition | Evidence |
 | --- | --- |
@@ -94,15 +110,15 @@ the no-placeholder rule exists to prevent.
 
 | Path | Created at |
 | --- | --- |
-| `src/knap/*.mojo` (tokenizer, vocab, flat_vocab, ranks, bpe, special, cache, config, errors) | M1 to M3 |
+| `src/knap/tokenizer.mojo`, `ranks.mojo`, `bpe.mojo`, `cache.mojo`, `config.mojo` | M3, with the cache measured at M5 |
 | `src/knap/pretokenize/*.mojo` | M2, with the SIMD classifier at M5 |
 | `src/knap/hf/tokenizer_json.mojo` | After M3, experimental |
 | `tests/test_*.mojo` beyond the toolchain smoke test | Alongside the code each one tests |
 | `tests/fuzz/*` | M4 |
 | `bench/*` | M5 |
-| `scripts/fetch_vocabs.py`, `fetch_corpus.py` | M1 |
+| `scripts/fetch_corpus.py` | M2, with the corpus the pre-tokenizer gate needs |
 | `scripts/extract_patterns.py`, `gen_unicode_tables.py`, `gen_pretoken_golden.py`, `check_generated.py` | M2 |
-| `scripts/gen_encode_golden.py` | M3 |
+| `encode_expected.jsonl` output from `scripts/gen_encode_golden.py` | M3, when there is an encoder to compare |
 | `bindings/python/*` | M6 Track B, if it proves viable |
 | `docs/UNICODE.md` | M2, when there are real tables to describe |
 | `docs/BENCHMARKS.md` | M5, when there are real numbers to publish |

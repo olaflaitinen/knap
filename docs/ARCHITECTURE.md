@@ -285,29 +285,34 @@ Mojo standard library APIs are unstable unless explicitly marked stable, and
 the stable set is currently small. Eliminating unstable API use is not
 achievable today. The goal is visible exposure.
 
-Regenerate this table with `python scripts/unstable_api_inventory.py`. As
-measured on 2026-09-07 against `tests/test_toolchain.mojo`, a single file with
-four tests produced 108 unstable API uses across 22 distinct APIs:
+Regenerate this table with `python scripts/unstable_api_inventory.py`. The
+figure grows with the code: at M0 a single four-test file produced 108 uses
+across 22 APIs, and at M1 the five test files and the library they exercise
+produce **2484 uses across 50 distinct APIs**.
+
+The top of that inventory, as measured on 2026-09-07:
 
 | Unstable API | Uses | What breaks if it changes |
 | --- | --- | --- |
-| `__init__` | 67 | Construction of every value type. Effectively the whole project. |
-| `assert_equal` | 10 | Every test. Mechanical to update. |
-| `DType` | 4 | SIMD element typing, so the classifier and every table. |
-| `__getitem__` | 4 | Lane reads and buffer indexing. |
-| `uint8` | 4 | Byte typing throughout. |
-| `SIMD` | 2 | The classifier's entire vector path. |
-| `byte_length` | 2 | Byte oriented string handling, which is all of Knap. |
-| `Int` | 1 | Everything. |
-| `TestSuite`, `discover_tests`, `run` | 3 | The test runner only. |
-| `gt` | 1 | The element-wise classifier mask. See the correction above. |
-| `cast`, `reduce_add` | 2 | Mask to boundary conversion in the scanner. |
-| `simd_width_of` | 1 | Target driven lane width. |
-| `__add__`, `__sub__`, `__and__`, `__ge__`, `Tuple`, `assert_true`, `count_codepoints` | 7 | Arithmetic, comparison, and assorted helpers. |
+| `__init__` | 1292 | Construction of every value type. Effectively the whole project. |
+| `Int` | 126 | Everything. Token ids, offsets, lengths, every loop counter. |
+| `len` | 114 | Every collection traversal. |
+| `__iter__`, `__next__` | 168 | Every for loop over a list or a range. |
+| `__make_tstring` | 103 | Template strings, so every diagnostic message. |
+| `__mlir_bool__` | 88 | Every conditional. |
+| `assert_equal`, `assert_true` | 94 | The test suite only. Mechanical to update. |
+| `Error` | 56 | The error path, which is how Knap reports malformed input instead of panicking. |
+| `range` | 56 | Every loop. |
+| `UInt8` | 48 | Byte typing, the substrate of a byte level tokenizer. |
+| `__iadd__`, `__add__`, `__lt__` | 106 | Arithmetic and comparison in offset and rank handling. |
+| `append` | 42 | Buffer construction in FlatVocab and the loader. |
+| Remaining 37 APIs | 291 | SIMD, string, base64, and file access helpers. |
 
-The shape of this table is the finding. When `Int` and `__add__` are both
-unstable, an unstable API inventory cannot be an action list. It is a record
-of what a toolchain upgrade might cost.
+The shape of this table is the finding, not any individual row. When `Int`,
+`len`, `range`, and the conditional operator are all unstable, an unstable
+API inventory cannot function as an action list. It is a record of what a
+toolchain upgrade might cost, and the proportionate response is to pin the
+compiler exactly, which this project does.
 
 ## Dependency decisions
 
@@ -317,13 +322,13 @@ automatic no.
 
 | Package | Decision | Reason |
 | --- | --- | --- |
-| `EmberJson` | Deferred to M1 | Candidate for Hugging Face `tokenizer.json` parsing. Adopt only after confirming it handles large files and escaped unicode inside string values, because vocabulary files contain both. |
-| `extramojo` | Deferred to M1 | Candidate for buffered vocabulary and corpus loading. Evaluate against the standard library first. |
+| `EmberJson` | Accepted, adopted when its consumer is built | Evaluated at M1 against both acceptance criteria and it passed. A 12.2 MB document holding 600 thousand entries parsed in 521 ms, and escaped codepoints, surrogate pair emoji, CJK, escaped control characters, and escaped quotation marks all resolved to the correct keys. Version 0.3.4, Apache-2.0, pinned to `mojo-compiler >=1.0.0,<2.0a0`. It is deliberately not in `pixi.toml` yet: nothing imports it until the Hugging Face loader exists, and an unused dependency is still a dependency. |
+| `extramojo` | Not adopted | Version 0.23.0 is available and pinned to `mojo-compiler 1.0.0.*`, so it is eligible. It is not needed: the standard library reads a 3.6 MB vocabulary and builds a FlatVocab in 88 ms, which is not a bottleneck worth a dependency. Revisit only if corpus loading shows up in a benchmark. |
 | `mojo-regex` | Rejected | Pinned to compiler 0.26.2, which predates 1.0, so it is an automatic no. It is also the wrong tool, since Knap writes a specialised scanner rather than using a regex engine. Reading its source for reference remains fine. |
 | `mtest` | Rejected for now | Pinned to a 1.0.0 beta compiler. The standard library `TestSuite` is the safer default and has proven adequate. |
 | `mojo-libc` | Rejected | No genuine libc need has appeared, and none is expected. |
 
-No third party Mojo dependency is adopted as of M0. The only runtime
+No third party Mojo dependency is in use as of M1. The only runtime
 dependency is the pinned compiler itself.
 
 ## Open questions

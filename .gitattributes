@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Normalise line endings so that a clone on Windows, macOS or Linux produces
+# byte identical files. Knap's style checks compare bytes, so a CRLF checkout
+# would otherwise fail the build on Windows only.
+
+* text=auto eol=lf
+
+*.mojo   text eol=lf
+*.py     text eol=lf
+*.md     text eol=lf
+*.toml   text eol=lf
+*.yml    text eol=lf
+*.cff    text eol=lf
+*.sh     text eol=lf
+LICENSE  text eol=lf
+
+# Test fixtures are compared byte for byte. Git must never touch them.
+tests/fixtures/**      -text
+tests/golden/**        -text
+*.bin                  binary
+*.tiktoken             binary

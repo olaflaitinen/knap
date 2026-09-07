@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Continuous integration for Knap.
+#
+# Three facts about the Mojo 1.0.0 toolchain shape this file, and all three
+# were verified by running the compiler rather than assumed:
+#
+#   1. "mojo format" has no check mode. It rewrites in place, so the format
+#      gate formats and then asserts the working tree is unchanged.
+#   2. "--Werror" and "--warn-on-unstable-apis" cannot be combined. Together
+#      the build fails, because essentially the whole standard library is
+#      unstable. They therefore run as separate jobs, one gating and one
+#      reporting.
+#   3. "mojo test" does not exist. A test file is a program whose main drives
+#      a TestSuite, so tests are run with "mojo run".
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A newer push to the same branch makes an in-flight run obsolete.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned exactly. Mojo guarantees source level stability only, and its ABI
+  # is explicitly not stable.
+  MOJO_VERSION: "1.0.0"
+
+jobs:
+  standards:
+    name: Repository standards
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # These four gates need only the Python standard library and git, so
+      # they run without the Mojo toolchain and fail fast.
+      - name: Character and prose rules
+        run: python scripts/lint_style.py
+
+      - name: Source file banners
+        run: python scripts/check_file_banners.py
+
+      - name: Markdown structure
+        run: python scripts/check_md_headers.py
+
+      - name: SPDX identifiers
+        run: python scripts/check_spdx.py
+
+      # A gate that has never been observed failing is not known to work.
+      # This plants one violation per gate, asserts each is rejected, and
+      # asserts the matching clean control is accepted.
+      - name: Standards gate self test
+        run: python scripts/selftest_gates.py
+
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Confirm the pinned compiler
+        run: |
+          uv run mojo --version
+          uv run mojo --version | grep -q "Mojo ${MOJO_VERSION}"
+
+      # Record the resolved target with every run. Without it, a number or a
+      # failure from a host-tuned build is not comparable to anything.
+      - name: Record effective target
+        run: uv run mojo build --print-effective-target tests/test_toolchain.mojo
+
+      # mojo format rewrites in place, so the gate is "format, then assert
+      # nothing changed".
+      - name: Formatting
+        run: |
+          uv run mojo format .
+          git diff --exit-code
+
+      - name: Docstring gate
+        run: |
+          for f in tests/*.mojo; do
+            uv run mojo doc --Werror --diagnose-missing-doc-strings \
+              -o /dev/null "$f"
+          done
+
+      - name: Build with warnings as errors
+        run: |
+          for f in tests/*.mojo; do
+            uv run mojo build --Werror -o /dev/null "$f"
+          done
+
+      - name: Run the test suite
+        run: |
+          for f in tests/*.mojo; do
+            echo "== $f"
+            uv run mojo run "$f"
+          done
+
+  unstable-api-inventory:
+    name: Unstable API inventory (reporting only)
+    runs-on: ubuntu-24.04
+    # This job never gates a merge. Eliminating unstable API use is not
+    # achievable against Mojo 1.0.0, so the goal is a visible record of
+    # exposure, not a clean result. See docs/ARCHITECTURE.md.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Build the inventory
+        run: |
+          uv run python scripts/unstable_api_inventory.py \
+            | tee "$GITHUB_STEP_SUMMARY"

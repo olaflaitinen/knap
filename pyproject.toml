@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Primary development environment for Knap, driven by uv.
+#
+# Mojo installs as an ordinary Python package, which is what lets the Mojo
+# compiler, tiktoken and Hugging Face tokenizers share a single environment.
+# The differential fuzzing harness in milestone M4 depends on that: it drives
+# Knap and tiktoken in one process, with no subprocess boundary and no
+# ambiguity about which tiktoken produced a reference token list.
+#
+# pixi.toml provides the same toolchain for consumers who prefer pixi.
+#
+# Note on TOML ordering: every [project] key must appear before any
+# [project.<sub>] header, otherwise it silently binds to the sub-table
+# instead. authors is therefore written inline.
+
+[project]
+name = "knap"
+version = "0.1.0"
+description = "A pure Mojo byte level BPE tokenizer with exact tiktoken parity."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "EUPL-1.2"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Olaf Yunus Laitinen Imanov", email = "yunus.imanov@metropolia.fi" },
+]
+keywords = [
+    "tokenization",
+    "byte pair encoding",
+    "bpe",
+    "mojo",
+    "natural language processing",
+]
+
+# The compiler is pinned exactly. Mojo guarantees source level stability only,
+# and its ABI is explicitly not stable, so a floating compiler version would
+# silently invalidate both the committed benchmarks and any built binding.
+dependencies = [
+    "mojo==1.0.0",
+]
+
+[dependency-groups]
+# Reference implementations and baselines. These are development only: they
+# are never distributed with Knap, and no Knap source is derived from them.
+# See THIRD_PARTY_NOTICES.md for the distinction between a runtime dependency,
+# a benchmark baseline and a consulted reference implementation.
+dev = [
+    "tiktoken>=0.7.0",
+    "tokenizers>=0.20.0",
+    "regex>=2024.0.0",
+]
+
+[tool.uv]
+# Knap's source is Mojo, not Python. There is no Python package to build from
+# this project root, so uv must not try to install the project itself.
+package = false

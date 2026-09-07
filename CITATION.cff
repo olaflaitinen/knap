@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Citation metadata for Knap, in Citation File Format 1.2.0.
+# GitHub renders this as a "Cite this repository" control.
+#
+# Update "version" and "date-released" at each release, in the same commit as
+# the CHANGELOG.md entry for that release.
+
+cff-version: 1.2.0
+message: "If you use Knap in academic work, please cite it as below."
+title: "Knap: a pure Mojo byte level BPE tokenizer"
+abstract: >-
+  Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo,
+  built to produce byte identical output to tiktoken on arbitrary input.
+  Its stated goals, in order, are exact parity with the reference
+  implementation, a SIMD pre-tokenizer usable as a standalone module, and a
+  Python free tokenization path for Mojo and MAX applications. Raw merge
+  speed is explicitly not a goal, because the BPE merge loop does not
+  vectorize and the established Rust implementations are already fast.
+type: software
+authors:
+  - given-names: "Olaf Yunus"
+    family-names: "Laitinen Imanov"
+    email: "yunus.imanov@metropolia.fi"
+    orcid: "https://orcid.org/0009-0006-5184-0810"
+    affiliation: >-
+      School of Information and Communication Technology, Metropolia
+      University of Applied Sciences
+license: EUPL-1.2
+version: "0.1.0"
+date-released: "2026-09-07"
+keywords:
+  - tokenization
+  - byte pair encoding
+  - bpe
+  - mojo
+  - natural language processing

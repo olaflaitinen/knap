@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Knap uses an 80 column rule so that source matches the default width of
+# "mojo format". See docs/STYLE.md for the full standard.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 80
+
+[*.{yml,yaml,json,toml,cff}]
+indent_size = 2
+
+[*.md]
+# Trailing whitespace is not meaningful in this project's Markdown, so it is
+# trimmed like everywhere else.
+trim_trailing_whitespace = true
+
+[LICENSE]
+# The official EUPL 1.2 text is stored verbatim. No editor may reformat it.
+# See docs/STYLE.md, section on the licence exemption.
+trim_trailing_whitespace = false
+insert_final_newline = false
+max_line_length = off

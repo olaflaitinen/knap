@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Alternate development environment for Knap, driven by pixi.
+#
+# pyproject.toml is the primary environment and is what CI uses. This file is
+# kept working and tested because Mojo consumers are more likely to be on pixi
+# than on uv, and an install path that is documented but never executed is an
+# install path that is broken.
+#
+# The stable "max" channel is used deliberately, not "max-nightly". Knap pins
+# the compiler exactly, and a nightly channel would contradict that pin.
+
+[workspace]
+name = "knap"
+version = "0.1.0"
+description = "A pure Mojo byte level BPE tokenizer with exact tiktoken parity."
+authors = ["Olaf Yunus Laitinen Imanov <yunus.imanov@metropolia.fi>"]
+license = "EUPL-1.2"
+license-file = "LICENSE"
+readme = "README.md"
+channels = ["https://conda.modular.com/max/", "conda-forge"]
+platforms = ["linux-64", "osx-arm64", "linux-aarch64"]
+
+[dependencies]
+# Pinned exactly, for the reasons given in pyproject.toml. Mojo guarantees
+# source level stability only and its ABI is explicitly not stable.
+mojo = "==1.0.0"
+python = ">=3.10"
+
+[pypi-dependencies]
+# Reference implementations and benchmark baselines. Development only: they
+# are never distributed with Knap and no Knap source derives from them. See
+# THIRD_PARTY_NOTICES.md.
+tiktoken = ">=0.7.0"
+tokenizers = ">=0.20.0"
+regex = ">=2024.0.0"
+
+[tasks]
+# These mirror the CI gates so that a contributor can run the whole standard
+# locally with one command before opening a pull request.
+smoke = "mojo run tests/test_toolchain.mojo"
+lint = "python scripts/lint_style.py"
+banners = "python scripts/check_file_banners.py"
+spdx = "python scripts/check_spdx.py"
+mdcheck = "python scripts/check_md_headers.py"
+selftest = "python scripts/selftest_gates.py"
+standards = { depends-on = ["lint", "banners", "spdx", "mdcheck", "selftest"] }

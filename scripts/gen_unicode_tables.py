@@ -60,6 +60,10 @@ import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
+import hashlib
+import urllib.error
+import urllib.request
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = REPO_ROOT / "src" / "knap" / "pretokenize" / "unicode_tables.mojo"
 
@@ -85,9 +89,100 @@ CLASS_N = 7
 LETTER_CLASSES = {"Lu": CLASS_LU, "Ll": CLASS_LL, "Lt": CLASS_LT,
                   "Lm": CLASS_LM, "Lo": CLASS_LO}
 
-# The whitespace set the regex module matches for a str pattern. Enumerated
-# rather than derived: it is 25 code points, and a wrong set would silently
-# change every whitespace alternative in both patterns.
+# The Unicode version is pinned to what the reference implementation uses,
+# and that had to be measured rather than assumed.
+#
+# Three databases were in play and all three disagree. Python's unicodedata
+# carries the version bound to the interpreter, 15.0.0 here. The regex module
+# carries its own, newer one. tiktoken carries a third inside its Rust core.
+# They differ about 9568 code points for the Letter category alone.
+#
+# Parity is defined against tiktoken, so tiktoken's view is the only one that
+# counts. It was identified by probing tiktoken directly on 400 disputed code
+# points, using an input shape where the piece boundary is observable in the
+# token output. Unicode 16.0.0 matched 400 of 400. Unicode 15.1.0 matched 214,
+# the regex module 204, and unicodedata 196.
+#
+# The differential fuzzer in milestone M4 found this. A corpus of natural
+# language never contains these code points, which is exactly why fuzzing is
+# a separate milestone. See docs/UNICODE.md.
+UNICODE_VERSION = "16.0.0"
+
+UCD_URL = (
+    "https://www.unicode.org/Public/{version}/ucd/UnicodeData.txt"
+)
+
+# Cached rather than committed, for the same reason vocabularies are: the
+# data is third party and its provenance should be a recorded download, not
+# an unexplained blob in the tree.
+UCD_CACHE = REPO_ROOT / "tests" / "fixtures" / "ucd"
+
+
+def load_unicode_data() -> dict[int, str]:
+    """Fetch and parse the pinned Unicode Character Database.
+
+    Returns:
+        A mapping from code point to its general category.
+
+    Raises:
+        SystemExit: if the database cannot be fetched or parsed.
+
+    UnicodeData.txt abbreviates large blocks with a First and Last pair
+    instead of listing every code point, so those ranges are expanded here.
+    Missing that would silently drop entire CJK and Hangul blocks, which are
+    the two largest letter ranges in the standard.
+    """
+    UCD_CACHE.mkdir(parents=True, exist_ok=True)
+    path = UCD_CACHE / f"UnicodeData-{UNICODE_VERSION}.txt"
+
+    if not path.exists():
+        url = UCD_URL.format(version=UNICODE_VERSION)
+        print(f"  fetching {url}")
+        try:
+            with urllib.request.urlopen(url, timeout=120) as response:
+                body = response.read()
+        except (urllib.error.URLError, OSError) as exc:
+            raise SystemExit(
+                f"gen_unicode_tables: could not fetch {url}: {exc}"
+            )
+        path.write_bytes(body)
+
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    print(f"  UnicodeData {UNICODE_VERSION}, sha256 {digest[:16]}")
+
+    categories: dict[int, str] = {}
+    pending: tuple[int, str] | None = None
+    for line in raw.decode("utf-8").splitlines():
+        fields = line.split(";")
+        if len(fields) < 3:
+            continue
+        code_point = int(fields[0], 16)
+        name = fields[1]
+        category = fields[2]
+
+        if name.endswith(", First>"):
+            pending = (code_point, category)
+            continue
+        if name.endswith(", Last>") and pending is not None:
+            for value in range(pending[0], code_point + 1):
+                categories[value] = pending[1]
+            pending = None
+            continue
+        categories[code_point] = category
+
+    if len(categories) < 100000:
+        raise SystemExit(
+            f"gen_unicode_tables: only {len(categories)} code points parsed "
+            "from UnicodeData.txt, which cannot be right"
+        )
+    return categories
+
+
+# The whitespace set the reference matches for a text pattern. Enumerated
+# rather than derived, and verified against the reference: it is 25 code
+# points, and a wrong set would change four of the eight alternatives in
+# cl100k_base and three of the seven in o200k_base.
 WHITESPACE = (
     0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0x85, 0xA0, 0x1680,
     0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007,
@@ -97,16 +192,15 @@ WHITESPACE = (
 ASCII_LIMIT = 128
 
 
-def class_of(code_point: int) -> int:
-    """Return the Knap class for one code point.
+def class_of(category: str) -> int:
+    """Return the Knap class for one Unicode general category.
 
     Args:
-        code_point: The code point to classify.
+        category: A two letter general category such as Lu or Nd.
 
     Returns:
         One of the CLASS_ constants above.
     """
-    category = unicodedata.category(chr(code_point))
     if category in LETTER_CLASSES:
         return LETTER_CLASSES[category]
     if category.startswith("M"):
@@ -122,9 +216,11 @@ def build_classes() -> bytearray:
     Returns:
         A byte per code point, holding its class.
     """
+    categories = load_unicode_data()
     classes = bytearray(MAX_CODE_POINT)
-    for code_point in range(MAX_CODE_POINT):
-        classes[code_point] = class_of(code_point)
+    for code_point, category in categories.items():
+        if code_point < MAX_CODE_POINT:
+            classes[code_point] = class_of(category)
     return classes
 
 
@@ -213,7 +309,7 @@ def render(runs: list[tuple[int, int, int]], classes: bytearray) -> str:
     add("# Generator   : scripts/gen_unicode_tables.py")
     add(
         "# Upstream    : Unicode Character Database "
-        f"{unicodedata.unidata_version}, via Python unicodedata"
+        f"{UNICODE_VERSION}, the version tiktoken uses"
     )
     add(f"# Generated   : {today}")
     add("# NOTE        : This file is generated. Manual edits will be")
@@ -281,10 +377,19 @@ def render(runs: list[tuple[int, int, int]], classes: bytearray) -> str:
     add('"""Number, any of the Unicode general categories Nd, Nl, and No."""')
     add("")
     add(
-        f'comptime UNICODE_VERSION: StaticString = '
+        f'comptime UNICODE_SOURCE: StaticString = '
+        f'"Unicode {UNICODE_VERSION}"'
+    )
+    add('"""Unicode version these tables follow, matching the reference."""')
+    add("")
+    add(
+        f'comptime INTERPRETER_UNICODE_VERSION: StaticString = '
         f'"{unicodedata.unidata_version}"'
     )
-    add('"""Version of the Unicode Character Database these tables came from."""')
+    add(
+        '"""Unicode version of the generating interpreter. Recorded because'
+    )
+    add('it differs from the reference and is deliberately not used."""')
     add("")
     add(f"comptime RUN_COUNT: Int = {len(runs)}")
     add('"""Number of sorted class runs in the tables below."""')
@@ -603,9 +708,21 @@ def main() -> int:
     )
 
     assigned = sum(1 for value in classes if value != CLASS_OTHER)
+    drifted = sum(
+        1
+        for code_point in range(MAX_CODE_POINT)
+        if not (0xD800 <= code_point <= 0xDFFF)
+        and unicodedata.category(chr(code_point)).startswith(("L", "M", "N"))
+        != (classes[code_point] != CLASS_OTHER)
+    )
     print(
-        f"  Unicode {unicodedata.unidata_version}: {assigned} classified "
-        f"code points in {len(runs)} runs"
+        f"  Unicode {UNICODE_VERSION}: {assigned} classified code points in "
+        f"{len(runs)} runs"
+    )
+    print(
+        f"  this interpreter carries Unicode "
+        f"{unicodedata.unidata_version} and disagrees about {drifted} code "
+        "points, which is why it is not used"
     )
     print(f"  encoded table size: {len(rendered)} characters of source")
     print(f"gen_unicode_tables: wrote {OUTPUT.relative_to(REPO_ROOT)}")

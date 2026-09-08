@@ -45,7 +45,7 @@ from knap.pretokenize.unicode_tables import (
     CLASS_N,
     CLASS_OTHER,
     RUN_COUNT,
-    UNICODE_VERSION,
+    UNICODE_SOURCE,
     class_of_code_point,
     is_letter,
     is_mark,
@@ -66,13 +66,15 @@ def test_tables_carry_their_provenance() raises:
     Raises:
         Error: if either constant is missing or implausible.
 
-    A table that does not name its Unicode version cannot be told apart from
-    a table generated against a different one, which is how a silent
-    behaviour change slips in during a toolchain upgrade.
+    A table that does not name its source cannot be told apart from a table
+    built against a different Unicode version, which is how a silent
+    behaviour change slips in during an upgrade. The source matters more
+    than usual here: the tables follow the reference engine's view, not the
+    interpreter's, and the two disagree about several thousand code points.
     """
     assert_true(
-        String(UNICODE_VERSION).byte_length() > 0,
-        String("the tables must record their Unicode version"),
+        String(UNICODE_SOURCE).byte_length() > 0,
+        String("the tables must record which engine's view they follow"),
     )
     assert_true(RUN_COUNT > 1000, String("run count looks implausibly small"))
 

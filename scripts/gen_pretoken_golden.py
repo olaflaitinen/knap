@@ -49,6 +49,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "corpus"
 GOLDEN_ROOT = REPO_ROOT / "tests" / "golden"
 CORPUS = REPO_ROOT / "bench" / "corpus" / "mixed.txt"
@@ -57,6 +58,81 @@ ENCODINGS = ("cl100k_base", "o200k_base")
 
 ESCAPE = 0
 MAX_INLINE_LENGTH = 255
+
+
+# The property names the two patterns use, and nothing else. Substituting a
+# name the patterns do not contain would be dead code that looks like
+# coverage.
+SUBSTITUTED_PROPERTIES = ("L", "N", "Lu", "Lt", "Lm", "Lo", "Ll", "M")
+
+
+def rewrite_properties(pattern: str) -> str:
+    """Replace every Unicode property escape with an explicit class.
+
+    Args:
+        pattern: The pattern as tiktoken publishes it.
+
+    Returns:
+        An equivalent pattern whose character classes come from the pinned
+        Unicode version.
+
+    Raises:
+        SystemExit: if the pattern uses a property this does not handle,
+            which would silently leave the reference on the wrong Unicode
+            version.
+
+    This is the fix for a real defect. The regex module carries its own
+    Unicode database, tiktoken carries a different one, and leaving the
+    property escapes in place meant the reference boundaries were computed
+    against the wrong version. The corpus gate passed anyway because natural
+    language does not contain the disputed code points; the differential
+    fuzzer found it immediately. See docs/UNICODE.md.
+
+    Substitution is context sensitive: inside a character class the ranges
+    are spliced bare, and outside one they are wrapped in brackets.
+    """
+    from ucd import UNICODE_VERSION, class_body
+
+    bodies = {name: class_body(name) for name in SUBSTITUTED_PROPERTIES}
+
+    out: list[str] = []
+    index = 0
+    in_class = False
+
+    while index < len(pattern):
+        if pattern.startswith("\\p{", index):
+            close = pattern.index("}", index)
+            name = pattern[index + 3 : close]
+            if name not in bodies:
+                raise SystemExit(
+                    f"gen_pretoken_golden: the pattern uses property "
+                    f"'{name}', which is not substituted. Add it rather than "
+                    "leaving the reference on the wrong Unicode version."
+                )
+            body = bodies[name]
+            out.append(body if in_class else "[" + body + "]")
+            index = close + 1
+            continue
+
+        character = pattern[index]
+        if character == "\\":
+            out.append(pattern[index : index + 2])
+            index += 2
+            continue
+        if character == "[":
+            in_class = True
+        elif character == "]":
+            in_class = False
+        out.append(character)
+        index += 1
+
+    rewritten = "".join(out)
+    if "\\p{" in rewritten:
+        raise SystemExit(
+            "gen_pretoken_golden: a property escape survived rewriting"
+        )
+    print(f"  reference pinned to Unicode {UNICODE_VERSION}")
+    return rewritten
 
 
 def compiled_patterns() -> dict:
@@ -68,10 +144,13 @@ def compiled_patterns() -> dict:
     Raises:
         SystemExit: if either dependency is missing.
 
-    The patterns come from tiktoken rather than from the generated Mojo
-    constant, so that this reference is independent of anything Knap
-    generated. Comparing Knap against a file Knap produced would prove
-    nothing.
+    The pattern text comes from tiktoken rather than from the generated Mojo
+    constant, so this reference is independent of anything Knap generated.
+    Comparing Knap against a file Knap produced would prove nothing.
+
+    The property escapes are then rewritten against the pinned Unicode
+    version, because the regex module's own database does not match the one
+    tiktoken uses.
     """
     try:
         import regex
@@ -83,7 +162,9 @@ def compiled_patterns() -> dict:
         ) from exc
 
     return {
-        name: regex.compile(tiktoken.get_encoding(name)._pat_str)
+        name: regex.compile(
+            rewrite_properties(tiktoken.get_encoding(name)._pat_str)
+        )
         for name in ENCODINGS
     }
 

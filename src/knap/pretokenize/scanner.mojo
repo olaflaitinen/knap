@@ -57,6 +57,14 @@ from .classifier import (
     has,
     is_letter_or_number,
 )
+from .classifier_simd import (
+    CLASS_ASCII_LOWER,
+    CLASS_ASCII_UPPER,
+    CLASS_LETTER,
+    CLASS_PUNCTUATION,
+    CLASS_WHITESPACE,
+    ascii_run,
+)
 from .utf8 import decode_at
 
 
@@ -119,6 +127,30 @@ def _fold_ascii(code_point: Int) -> Int:
     return code_point
 
 
+def _fast_forward[kind: Int](data: Span[UInt8, _], start: Int) -> Int:
+    """Advance over whole vectors of ASCII bytes in one class.
+
+    Parameters:
+        kind: One of the classifier's CLASS_ constants.
+
+    Args:
+        data: The bytes being scanned.
+        start: Offset to begin at.
+
+    Returns:
+        How many bytes the vectorised scan consumed, which is zero when the
+        vectorised path is compiled out.
+
+    Every caller must continue with its ordinary scalar loop afterwards.
+    This only ever consumes whole vectors of bytes that are unambiguously
+    ASCII and in class, so what it returns is always a prefix of what the
+    scalar loop would have consumed on its own. That is what makes the two
+    paths identical by construction rather than by testing, though
+    tests/test_classifier_parity.mojo tests it anyway.
+    """
+    return ascii_run[kind](data, start)
+
+
 def _whitespace_run_end(data: Span[UInt8, _], start: Int) -> Int:
     """Return the offset just past the maximal whitespace run at start.
 
@@ -129,7 +161,7 @@ def _whitespace_run_end(data: Span[UInt8, _], start: Int) -> Int:
     Returns:
         The end offset, equal to start when there is no whitespace.
     """
-    var position = start
+    var position = start + _fast_forward[CLASS_WHITESPACE](data, start)
     while True:
         var step = read(data, position)
         if step.width == 0 or not has(step.flags, FLAG_WHITESPACE):
@@ -219,6 +251,7 @@ def _match_punctuation(
         position += first.width
 
     var run_start = position
+    position += _fast_forward[CLASS_PUNCTUATION](data, position)
     while True:
         var step = read(data, position)
         if step.width == 0:
@@ -447,6 +480,7 @@ def _match_cl100k_letters(data: Span[UInt8, _], start: Int) -> Int:
         position += first.width
 
     var letters_start = position
+    position += _fast_forward[CLASS_LETTER](data, position)
     while True:
         var step = read(data, position)
         if step.width == 0 or not has(step.flags, FLAG_LETTER):
@@ -637,7 +671,9 @@ def _match_o200k_alt0(data: Span[UInt8, _], start: Int) -> Int:
             if kept < len(upper_offsets):
                 lower_start = upper_offsets[kept]
 
-            var lower_end = lower_start
+            var lower_end = lower_start + _fast_forward[CLASS_ASCII_LOWER](
+                data, lower_start
+            )
             while True:
                 var step = read(data, lower_end)
                 if step.width == 0 or not has(step.flags, FLAG_LOWERISH):
@@ -680,7 +716,9 @@ def _match_o200k_alt1(data: Span[UInt8, _], start: Int) -> Int:
                 continue
             position += width
 
-        var upper_end = position
+        var upper_end = position + _fast_forward[CLASS_ASCII_UPPER](
+            data, position
+        )
         while True:
             var step = read(data, upper_end)
             if step.width == 0 or not has(step.flags, FLAG_UPPERISH):
@@ -691,7 +729,9 @@ def _match_o200k_alt1(data: Span[UInt8, _], start: Int) -> Int:
             # The upper-ish run is required. Retry without the prefix.
             continue
 
-        var lower_end = upper_end
+        var lower_end = upper_end + _fast_forward[CLASS_ASCII_LOWER](
+            data, upper_end
+        )
         while True:
             var step = read(data, lower_end)
             if step.width == 0 or not has(step.flags, FLAG_LOWERISH):

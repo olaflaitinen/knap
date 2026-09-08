@@ -25,11 +25,12 @@
 ## Contents
 
 1. [Which properties are needed](#which-properties-are-needed)
-2. [One class per code point](#one-class-per-code-point)
-3. [Generation procedure](#generation-procedure)
-4. [Representation and lookup cost](#representation-and-lookup-cost)
-5. [Why the tables are strings](#why-the-tables-are-strings)
-6. [Verification](#verification)
+2. [Which Unicode version](#which-unicode-version)
+3. [One class per code point](#one-class-per-code-point)
+4. [Generation procedure](#generation-procedure)
+5. [Representation and lookup cost](#representation-and-lookup-cost)
+6. [Why the tables are strings](#why-the-tables-are-strings)
+7. [Verification](#verification)
 
 ---
 
@@ -64,9 +65,76 @@ in `o200k_base`.
 
 | | Value |
 | --- | --- |
-| Unicode version | 15.0.0, from Python `unicodedata` |
-| Code points classified | 140385 of 1114112 |
+| Unicode version | 16.0.0, from the Unicode Character Database |
+| Code points classified | 145440 of 1114112 |
+| Runs after collapsing | 2391 |
 | Whitespace code points | 25 |
+
+## Which Unicode version
+
+The tables are built from the Unicode Character Database 16.0.0, downloaded
+from `unicode.org` and checked against a recorded digest. They are not built
+from the interpreter's `unicodedata` module.
+
+That is not a preference. It is the resolution of a bug, and the reasoning
+is recorded here because the obvious choice is the wrong one.
+
+### Three versions in one process
+
+A differential fuzzing run diverged after 19288 inputs. Chasing it turned up
+three different opinions about Unicode inside a single process:
+
+| Component | Which Unicode it answers from |
+| --- | --- |
+| Python `unicodedata`, CPython 3.12 | 15.0.0 |
+| The `regex` module | its own bundled tables, not 15.0.0 |
+| The tables tiktoken's pre-tokenization actually matches against | 16.0.0 |
+
+The generated tables came from `unicodedata`, so they were 15.0.0. The
+reference they were being compared against was not. Roughly six hundred code
+points changed general category between the two releases, and every one of
+them is a potential pre-token boundary in the wrong place.
+
+### The first fix was also wrong
+
+Regenerating against the `regex` module's view looked obviously correct.
+`regex` is what tiktoken uses to compile its pattern, so its tables are the
+ones doing the matching. That change moved the divergence instead of
+removing it.
+
+The lesson worth keeping: two components agreeing that a third is wrong is
+not evidence, and a fix that changes a symptom is not a fix. What was
+missing was a measurement.
+
+### How the version was actually established
+
+Every code point whose general category differs between Unicode 15.0.0 and
+16.0.0 was enumerated. Each was placed into an input shaped so that its
+category alone decides where a boundary falls, the smallest such shape being
+
+$$X \mathbin{+} \texttt{"<a"}$$
+
+because the character after $X$ starts a new alternative only if $X$ is not
+a letter. Each input was handed to tiktoken, and the boundary it chose was
+compared against the boundary predicted under each candidate version.
+
+| Prediction from | Inputs agreeing |
+| --- | --- |
+| Unicode 16.0.0 | 400 of 400 |
+| Unicode 15.0.0 | fewer, and the disagreements were the changed code points |
+
+That is why the tables are pinned to 16.0.0 and to a digest rather than to
+whatever the interpreter happens to ship. The version a dependency reports
+is a claim; the version it behaves as is a measurement, and only the second
+one decides parity.
+
+### What this costs
+
+The digest is checked on every generation, so an upstream file that changes
+under the same URL fails loudly rather than silently regenerating different
+tables. When tiktoken eventually moves to a later Unicode, this document and
+`scripts/ucd.py` are the two places that change, and the probe above is the
+procedure for establishing which version it moved to.
 
 ## One class per code point
 
@@ -99,14 +167,21 @@ value loses nothing.
 `src/knap/pretokenize/unicode_tables.mojo`. The procedure is deliberately
 simple, because a clever generator is a place for bugs to hide.
 
-1. Classify all 1114112 code points using `unicodedata.category`.
-2. Collapse the result into maximal runs of constant class.
-3. Discard runs of class OTHER. Unassigned and punctuation code points are
+1. Download `UnicodeData.txt` for the pinned version, verify its SHA-256
+   digest, and cache it. A mismatch is a hard failure, because a file that
+   changed under the same URL would otherwise regenerate different tables
+   without anyone noticing.
+2. Parse it, expanding the `First` and `Last` marker pairs. Large blocks
+   such as the CJK ideographs and the private use areas appear as two lines
+   rather than as one line per code point, and a parser that misses this
+   silently loses tens of thousands of letters.
+3. Collapse the result into maximal runs of constant class.
+4. Discard runs of class OTHER. Unassigned and punctuation code points are
    the majority, and a search that finds no containing run can simply report
    OTHER.
-4. Emit the surviving runs as three parallel hex strings, plus a direct
+5. Emit the surviving runs as three parallel hex strings, plus a direct
    128 entry table for ASCII.
-5. Emit an exhaustive reference of one hex digit per code point, for the
+6. Emit an exhaustive reference of one hex digit per code point, for the
    test to check against.
 
 The Unicode version is recorded in the generated file's banner. A table that
@@ -136,17 +211,21 @@ $$T_{\text{table}} = O(1)$$
 with one index into a block table and one index inside the block, and stores
 a stage one entry per block plus the deduplicated blocks themselves.
 
-Measured on Unicode 15.0.0:
+Measured on Unicode 16.0.0. Two sizes are given because they are not the
+same question: the data column is how many bytes the structure holds, and
+the source column is how many characters that becomes in the generated file,
+which is what the compiler has to chew through. Everything here is emitted
+as hex text for the reason in the next section, so source is twice data.
 
-| Representation | Size | Lookup | Detail |
-| --- | --- | --- | --- |
-| Sorted runs, binary search | 2342 runs, about 21 KB | $O(\log 2342)$, roughly 11 comparisons | Chosen |
-| Two stage, 256 code point blocks | 135 unique blocks, 43264 bytes | $O(1)$ | Measured, not chosen |
-| Two stage, 128 byte blocks | 224 blocks, 46080 bytes | $O(1)$ | Worse on both counts |
-| Two stage, 512 byte blocks | 90 blocks, 50432 bytes | $O(1)$ | Worse on size |
+| Representation | Data | Source | Lookup | Detail |
+| --- | --- | --- | --- | --- |
+| Sorted runs, binary search | 2391 runs, 15542 bytes | 31083 characters | $O(\log 2391)$, at most 12 comparisons | Chosen |
+| Two stage, 128 code point blocks | 231 blocks, 38272 bytes | 76544 characters | $O(1)$ | Measured, not chosen |
+| Two stage, 256 code point blocks | 141 blocks, 40448 bytes | 80896 characters | $O(1)$ | Worse on size |
+| Two stage, 512 code point blocks | 95 blocks, 50816 bytes | 101632 characters | $O(1)$ | Worse still |
 
-The two stage table wins on asymptotic lookup cost and loses on size by
-roughly a factor of two. What settles the choice is a third fact that neither
+The two stage table wins on asymptotic lookup cost and loses on size by a
+factor of about two and a half. What settles the choice is a third fact that neither
 column shows: **the scanner reaches these tables only on non-ASCII input.**
 ASCII resolves through a direct 128 entry table, and real text is dominated
 by ASCII. Paying double the memory to speed up the documented slow path is

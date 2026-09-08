@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# LeakSanitizer suppressions for the differential fuzzer.
+#
+# Read this before trusting it. Suppressions are how leak checking gets
+# quietly turned off, so each line here has to earn its place.
+#
+# The differential fuzzer embeds a CPython interpreter, because comparing
+# against tiktoken in the same process is what makes ten million comparisons
+# affordable. That interpreter is never finalised at exit, and the tiktoken
+# extension never frees its rank tables, so every run reports several
+# megabytes of leaks that belong to the reference implementation.
+#
+# That this is the reference and not Knap was established by experiment, not
+# by reading the stack traces:
+#
+#   * Knap driven over the same generated inputs with no interpreter in the
+#     process reports no leaks and no errors at all. That is
+#     tests/fuzz/asan_solo.mojo, and it runs with no suppression file.
+#   * Three lines of Mojo that import tiktoken and touch nothing else
+#     reproduce all four leaks at byte identical sizes: 8651344, 5242896,
+#     2406144 and 207552 bytes. No Knap code runs in that program.
+#
+# The second experiment is the one that matters. The sizes match exactly, so
+# these allocations are not merely similar to the reported ones, they are the
+# reported ones.
+#
+# The honest cost of this file: a genuine Knap leak whose allocation sits
+# underneath a suppressed frame would be hidden. That is why asan_solo.mojo
+# exists and why it is a separate continuous integration job. The
+# unsuppressed run is what proves Knap does not leak; this run proves parity
+# still holds while the sanitizer watches for memory errors.
+#
+# Deliberately narrow. Matching is by module, not by a wildcard, and there is
+# no entry for the Mojo runtime or for anything Knap allocates.
+
+# tiktoken's Rust extension: the merge rank hash tables and the vectors built
+# from their keys, held for the process lifetime and never dropped.
+leak:_tiktoken.cpython
+
+# CPython itself: interned strings, the small object arenas, and the
+# interpreter state. Not freed because the embedded interpreter is not
+# finalised before the process exits.
+leak:libpython3.12.so

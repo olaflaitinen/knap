@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# The milestone M4 differential fuzzing gate.
+#
+# Separate from ci.yml because it is long: ten million generated inputs per
+# encoding takes about half an hour, and the sanitizer pass on top of that is
+# slower still. Too slow for every push, and far too valuable to drop, since
+# this is the gate that found the Unicode version mismatch no corpus of
+# natural language would ever have surfaced.
+
+name: Differential fuzzing
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      total:
+        description: "Inputs per encoding"
+        required: false
+        default: "10000000"
+
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  differential:
+    name: Knap against tiktoken
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Fetch vocabularies
+        run: uv run python scripts/fetch_vocabs.py
+
+      # Both implementations run in one process, so there is no subprocess
+      # boundary and no ambiguity about which tiktoken produced a reference.
+      - name: Fuzz
+        run: |
+          uv run python tests/fuzz/run_fuzz.py \
+            --total "${{ github.event.inputs.total || '10000000' }}" \
+            --shard 1000000
+
+      # A memory error can produce correct output on one run and corruption
+      # on the next, so a subset runs again under the address sanitizer.
+      - name: Fuzz under the address sanitizer
+        run: |
+          uv run python tests/fuzz/run_fuzz.py --total 100000 \
+            --shard 50000 --sanitize address
+
+      - name: Upload the run reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-reports
+          path: tests/fuzz/last_run*.json

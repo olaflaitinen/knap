@@ -4,19 +4,31 @@
 # Sanitizer runs for Knap.
 #
 # These are not optional for this project. Knap does raw pointer arithmetic in
-# FlatVocab, unaligned SIMD loads in the classifier, and multi-threaded batch
-# encoding. Those are exactly the three things that produce silent corruption
-# rather than a clean failure, and a memory error can produce correct output
-# on one run and corruption on the next.
+# FlatVocab and unaligned SIMD loads in the classifier. Those are exactly the
+# things that produce silent corruption rather than a clean failure, and a
+# memory error can produce correct output on one run and corruption on the
+# next.
 #
 # A divergence found under a sanitizer is a different and more urgent class of
 # bug than a plain divergence. docs/CORRECTNESS.md records which mode found
 # each one.
 #
-# The thread sanitizer job is deliberately absent until milestone M5. Nothing
-# in the repository is multi-threaded yet, and a TSan job with nothing
-# concurrent to inspect reports success while proving nothing. It is added in
-# the same change that introduces parallel batch encoding.
+# There is no thread sanitizer job, and the reason changed during the project.
+# It was originally deferred until parallel batch encoding existed. Parallel
+# batch encoding does not exist, because Mojo 1.0.0 has no working task
+# parallelism: there is no parallelize, and TaskGroup aborts at runtime. So
+# nothing in the repository is multi-threaded, a TSan job would inspect
+# nothing and report success, and that is worse than an absent job because it
+# looks like coverage. It is added in the same change that introduces
+# concurrency, whenever the toolchain permits one.
+#
+# Two address sanitizer jobs, not one, and the split is the important part.
+# The full suite job below runs Knap alone. The differential fuzzer embeds a
+# CPython interpreter to reach tiktoken, and neither CPython nor the tiktoken
+# extension frees its tables at exit, so that run needs a suppression file and
+# lives in fuzz.yml. A suppression can hide a real leak sitting under a
+# suppressed frame, so the run that proves Knap does not leak has to be the
+# one with no suppressions at all. That is knap-alone.
 
 name: Sanitizers
 
@@ -77,3 +89,42 @@ jobs:
               -I src -o "${RUNNER_TEMP}/asan/${name}" "$f"
             "${RUNNER_TEMP}/asan/${name}"
           done
+
+  knap-alone:
+    name: Address sanitizer, no interpreter present
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Fetch vocabularies
+        run: uv run python scripts/fetch_vocabs.py
+
+      - name: Generate golden fixtures
+        run: |
+          uv run python scripts/gen_encode_golden.py
+          uv run python scripts/gen_unicode_tables.py
+          uv run python scripts/gen_pretoken_golden.py
+
+      # No suppression file is passed, and none is wanted. This driver never
+      # imports a Python module, so every allocation in the process is Knap's
+      # and any leak reported here has exactly one owner. This is the job
+      # that makes the claim; the suppressed differential run in fuzz.yml
+      # only shows that parity survives with the sanitizer watching.
+      - name: Build the solo driver
+        run: uv run mojo build --sanitize address -I src -I tests/fuzz -o "${RUNNER_TEMP}/asan_solo" tests/fuzz/asan_solo.mojo
+
+      - name: Drive Knap over generated input, cl100k_base
+        run: |
+          "${RUNNER_TEMP}/asan_solo" 7 50000 tests/fixtures/vocabs/cl100k_base.tiktoken cl100k_base
+
+      - name: Drive Knap over generated input, o200k_base
+        run: |
+          "${RUNNER_TEMP}/asan_solo" 11 50000 tests/fixtures/vocabs/o200k_base.tiktoken o200k_base

@@ -199,15 +199,19 @@ subject to the character rules like everything else.
 
 ### What the branch protection actually enforces
 
-`main` carries a ruleset, and it is worth knowing what it does before you
-find out by being refused.
+`main` carries two rulesets, and the split between them is the whole design.
 
-| Rule | Effect |
+| Ruleset | Bypass |
 | --- | --- |
-| Deletion blocked | `main` cannot be deleted. |
-| Force push blocked | `main` cannot be rewritten, by anyone, including the maintainer. This is the rule that matters most in a single maintainer repository, because the realistic accident is a stray `--force` rather than a malicious push. |
-| Pull request required | Direct pushes to `main` are refused. Open a branch and a pull request. |
-| Status checks required | A pull request cannot merge until the continuous integration and sanitizer jobs pass. |
+| `main integrity, no bypass for anyone` | None. Not the maintainer, not anyone. |
+| `main, bypassable by the maintainer` | Repository admin. |
+
+| Rule | Ruleset | Effect |
+| --- | --- | --- |
+| Deletion blocked | Integrity | `main` cannot be deleted. |
+| Force push blocked | Integrity | `main` cannot be rewritten, by anyone, including the maintainer. |
+| Pull request required | Bypassable | Direct pushes to `main` are refused for everyone except the maintainer. |
+| Status checks required | Bypassable | A pull request cannot merge until the continuous integration and sanitizer jobs pass. |
 
 Approvals are not required, and that is deliberate rather than an oversight.
 There is one maintainer, GitHub does not let anyone approve their own pull
@@ -215,10 +219,15 @@ request, and a rule requiring approval would leave every pull request from
 the maintainer permanently unmergeable. `.github/CODEOWNERS` exists so that
 the requirement can be turned on the moment there is a second reviewer.
 
-The maintainer can bypass the pull request and status check rules, and does,
-for documentation and release chores. The two structural rules, no deletion
-and no force push, apply to everyone with no exception. That split is the
-point: convenience where a mistake is cheap, no exceptions where it is not.
+Two rulesets rather than one, because a bypass in GitHub applies to a whole
+ruleset rather than to a rule. Putting all four rules in one bypassable set
+would have exempted the maintainer from the force push block as well, which
+is exactly backwards: in a single maintainer repository the realistic
+accident is a stray `--force`, not a malicious push, and the person most
+likely to make it is the person the bypass would exempt.
+
+So the split is: convenience where a mistake is cheap and recoverable,
+no exception at all where it is neither.
 
 ---
 

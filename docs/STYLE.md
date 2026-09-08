@@ -6,6 +6,15 @@
 
 # Knap Style Standard
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+            srcset="assets/knap_logo_transparent_white.svg">
+    <img src="assets/knap_logo_transparent_black.svg"
+         alt="Knap" width="240">
+  </picture>
+</p>
+
 | Field | Value |
 | --- | --- |
 | Document | `docs/STYLE.md` |
@@ -48,16 +57,16 @@ whether an unfamiliar construct is a language feature or a project invention.
 
 ## Character and prose rules
 
-These apply to every tracked file, with exactly three exemptions.
+These apply to every tracked file, with exactly four exemptions.
 
 | Rule | Detail |
 | --- | --- |
 | No em-dash | Not in code, comments, documentation, commit messages, test names, or error strings. Use a comma, a colon, parentheses, or split into two sentences. |
 | No emoji | Not in README, commit messages, CLI output, badges, or section headers. |
-| ASCII only | Every file is ASCII, subject to the three exemptions below. |
+| ASCII only | Every file is ASCII, subject to the four exemptions below. |
 | No exclamation marks | In documentation prose. Code and inline code spans are unaffected. |
 
-The three exemptions, and only these three:
+The four exemptions, and only these four:
 
 1. `LICENSE`, which holds the official EUPL 1.2 English text. It is a legal
    instrument and it legitimately contains typographic characters. It must
@@ -67,6 +76,16 @@ The three exemptions, and only these three:
    emoji, and invalid UTF-8. Constraining them would defeat their purpose.
 3. LaTeX source inside math spans, for the rare command that requires a
    non-ASCII character. This exemption is applied per span, not per file.
+4. Raster artwork under `docs/assets/`. A PNG is not text, so asking whether
+   it is valid UTF-8 is a category error rather than a standard. The
+   exemption is by file type inside that one directory rather than by
+   directory, so the vector artwork beside it is still checked like any other
+   text file and a stray non-ASCII SVG would still be caught.
+
+The fourth exemption was added when the project gained a wordmark. It is
+recorded as an addition rather than folded in silently, because the previous
+three were described as the only three and somebody comparing an old copy of
+this document with a new one deserves to see that the count changed and why.
 
 Enforced by `scripts/lint_style.py`.
 
@@ -191,6 +210,42 @@ rather than a document.
 Both exemptions are from the table and the footer only. Both still carry the
 licence header, as an HTML comment that is invisible when rendered, and both
 remain subject to every heading and link rule.
+
+### The wordmark
+
+Every document listed in `scripts/check_md_headers.py` carries the wordmark
+immediately beneath its first level heading, and nothing else may come
+between the two. `README.md` renders it at 420 pixels; every other document
+at 240.
+
+It is placed as a `<picture>` element with two sources rather than as a plain
+image, because the mark is a single colour wordmark on a transparent
+background: the ink version disappears on a dark page and the white version
+disappears on a light one. The reader's colour scheme chooses.
+
+```text
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+            srcset="assets/knap_logo_transparent_white.svg">
+    <img src="assets/knap_logo_transparent_black.svg"
+         alt="Knap" width="240">
+  </picture>
+</p>
+```
+
+The path is relative to the document. The vector files are used rather than
+the raster ones wherever a renderer supports them, which on a forge is
+everywhere.
+
+`.github/PULL_REQUEST_TEMPLATE.md` does not carry it. Its body is copied into
+the description of every pull request, and a mark reproduced there would
+appear hundreds of times in places nobody chose to put it.
+
+Never resize the mark below 160 pixels of wordmark width. The typeface is
+hairline weight and the strokes break up below that. The full brand
+specification, including clear space and the colour values, is in
+[BRAND.md](BRAND.md).
 
 The header, in this order:
 

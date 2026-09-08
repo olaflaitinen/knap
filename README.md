@@ -6,6 +6,15 @@
 
 # Knap
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+            srcset="docs/assets/knap_logo_transparent_white.svg">
+    <img src="docs/assets/knap_logo_transparent_black.svg"
+         alt="Knap" width="420">
+  </picture>
+</p>
+
 Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo, built
 to produce byte identical output to `tiktoken` on arbitrary input.
 

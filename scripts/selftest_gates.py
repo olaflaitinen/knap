@@ -88,6 +88,15 @@ CLEAN_MARKDOWN = """\
 
 # Self Test Fixture
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+            srcset="../docs/assets/knap_logo_transparent_white.svg">
+    <img src="../docs/assets/knap_logo_transparent_black.svg"
+         alt="Knap" width="240">
+  </picture>
+</p>
+
 | Field | Value |
 | --- | --- |
 | Document | `{path}` |
@@ -148,7 +157,7 @@ class Case:
 
 
 def build_cases() -> list[Case]:
-    """Construct the four cases the M0 gate requires to be demonstrated.
+    """Construct the cases the M0 gate requires to be demonstrated.
 
     Each case pairs a violation with a control that differs only in the one
     property under test. Keeping the difference minimal is what makes a pass
@@ -160,6 +169,7 @@ def build_cases() -> list[Case]:
     nobanner_py = ".gate_selftest/planted_no_banner.py"
     nospdx_py = ".gate_selftest/planted_no_spdx.py"
     bad_md = ".gate_selftest/planted_no_footer.md"
+    nomark_md = ".gate_selftest/planted_no_wordmark.md"
     good_md = ".gate_selftest/clean_document.md"
 
     clean_py = (
@@ -199,6 +209,14 @@ def build_cases() -> list[Case]:
         "## Document control"
     )[0]
 
+    # Violation 5: a document with the wordmark removed and nothing else
+    # touched. The picture element is one contiguous block, so removing it
+    # cleanly is a matter of dropping the lines between the title and the
+    # metadata table.
+    marked = CLEAN_MARKDOWN.format(path=nomark_md)
+    head, _, tail = marked.partition('<p align="center">')
+    no_wordmark_md = head + tail.partition("</p>\n\n")[2]
+
     return [
         Case(
             gate="lint_style.py",
@@ -221,6 +239,14 @@ def build_cases() -> list[Case]:
             label="Markdown document with no footer",
             bad_name=bad_md,
             bad_text=no_footer_md,
+            good_name=good_md,
+            good_text=clean_md,
+        ),
+        Case(
+            gate="check_md_headers.py",
+            label="Markdown document with no wordmark",
+            bad_name=nomark_md,
+            bad_text=no_wordmark_md,
             good_name=good_md,
             good_text=clean_md,
         ),

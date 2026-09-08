@@ -6,6 +6,15 @@
 
 # Changelog
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+            srcset="docs/assets/knap_logo_transparent_white.svg">
+    <img src="docs/assets/knap_logo_transparent_black.svg"
+         alt="Knap" width="240">
+  </picture>
+</p>
+
 | Field | Value |
 | --- | --- |
 | Document | `CHANGELOG.md` |

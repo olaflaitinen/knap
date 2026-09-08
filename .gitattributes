@@ -21,3 +21,10 @@ tests/fixtures/**      -text
 tests/golden/**        -text
 *.bin                  binary
 *.tiktoken             binary
+
+# Brand artwork. The vector files are text and are normalised like any other
+# text file. The raster ones are not, and Git must not rewrite their bytes.
+*.svg                  text eol=lf
+*.png                  binary
+*.jpg                  binary
+*.ico                  binary

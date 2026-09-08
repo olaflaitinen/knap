@@ -5,8 +5,9 @@
 #               non-ASCII bytes, and exclamation marks in documentation prose.
 # Stage       : Repository standard enforcement, see docs/STYLE.md
 # Depends on  : git, for the tracked file list. Python standard library only.
-# Invariants  : Exactly three exemptions exist (LICENSE, tests/fixtures, LaTeX
-#               math spans). Adding a fourth changes docs/STYLE.md as well.
+# Invariants  : Exactly four exemptions exist (LICENSE, tests/fixtures, LaTeX
+#               math spans, raster artwork under docs/assets). Adding a
+#               fifth changes docs/STYLE.md as well.
 # -----------------------------------------------------------------------------
 # Author      : Olaf Yunus Laitinen Imanov <yunus.imanov@metropolia.fi>
 # ORCID       : 0009-0006-5184-0810
@@ -47,7 +48,7 @@ EM_DASH = chr(0x2014)
 # -----------------------------------------------------------------------------
 # The three exemptions
 #
-# These are the only three exemptions permitted by docs/STYLE.md section 2.1.
+# These are the only four exemptions permitted by docs/STYLE.md section 2.1.
 # Each is named and explained here so a future reader sees why it exists
 # before deciding to remove it. Removing the LICENSE exemption in particular
 # would mangle a legal instrument.
@@ -65,6 +66,16 @@ EXEMPT_LICENCE = "LICENSE"
 # contain multilingual text, emoji, and invalid UTF-8. Constraining them to
 # ASCII would defeat their entire purpose.
 EXEMPT_FIXTURE_PREFIX = "tests/fixtures/"
+
+# Exemption 4, added when the project gained a wordmark.
+#
+# docs/assets/ holds the brand artwork. The vector files are ASCII and are
+# checked like any other text file; the raster ones are not text at all, and
+# asking whether a PNG is valid UTF-8 is a category error rather than a
+# standard. The exemption is therefore by file type inside one directory,
+# not by directory, so that a stray non-ASCII SVG would still be caught.
+EXEMPT_ARTWORK_PREFIX = "docs/assets/"
+EXEMPT_ARTWORK_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico")
 
 # Exemption 3. LaTeX inside math spans. This one is applied per span rather
 # than per file, by strip_math_spans below, for the rare command that needs a
@@ -168,7 +179,11 @@ def is_exempt_path(relative_path: str) -> bool:
     # like any other prose.
     if relative_path.endswith(".md"):
         return False
-    return relative_path.startswith(EXEMPT_FIXTURE_PREFIX)
+    if relative_path.startswith(EXEMPT_FIXTURE_PREFIX):
+        return True
+    if relative_path.startswith(EXEMPT_ARTWORK_PREFIX):
+        return relative_path.endswith(EXEMPT_ARTWORK_SUFFIXES)
+    return False
 
 
 # -----------------------------------------------------------------------------
@@ -323,7 +338,8 @@ def check_characters(
                     column,
                     "non-ascii",
                     f"non-ASCII character U+{ord(character):04X}; only "
-                    "LICENSE, tests/fixtures, and LaTeX math are exempt",
+                    "LICENSE, tests/fixtures, LaTeX math, and raster artwork "
+                    "under docs/assets are exempt",
                 )
             )
     return findings
@@ -424,7 +440,8 @@ def check_file(relative_path: str) -> list[Finding]:
                 1,
                 "encoding",
                 f"file is not valid UTF-8 ({exc.reason} at byte {exc.start}); "
-                "only tests/fixtures may hold raw bytes",
+                "only tests/fixtures and raster artwork under "
+                "docs/assets may hold raw bytes",
             )
         ]
     return check_text(relative_path, text)

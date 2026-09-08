@@ -92,6 +92,22 @@ REQUIRED_FOOTER_FIELDS = (
 FOOTER_HEADING = "## Document control"
 END_MARKER_PREFIX = "<!-- End of document:"
 
+# The wordmark, required immediately beneath the first level heading of every
+# document that carries a metadata table. Section 2.4 of docs/STYLE.md fixes
+# the form; this fixes that the form is actually there.
+#
+# Checked rather than trusted for the ordinary reason: a rule that lives only
+# in a style document is a rule that half the files eventually stop following,
+# and the half that stops is never the half anybody looks at.
+WORDMARK_LIGHT = "knap_logo_transparent_black.svg"
+WORDMARK_DARK = "knap_logo_transparent_white.svg"
+
+# Below this the hairline strokes of the typeface break up. The supplied files
+# include the clear space, so the wordmark itself is 86.4 percent of the
+# rendered width, and 160 pixels of wordmark needs 186 pixels of image. See
+# docs/BRAND.md.
+WORDMARK_MINIMUM_WIDTH = 186
+
 # A Contents list is required once a document has this many top level
 # sections, and is omitted below that.
 CONTENTS_THRESHOLD = 3
@@ -432,6 +448,83 @@ def check_links(
     return problems
 
 
+def check_wordmark(
+    relative_path: str, lines: list[str], title_index: int
+) -> list[Problem]:
+    """Check that the wordmark sits directly beneath the title.
+
+    Args:
+        relative_path: The document being checked.
+        lines: Its lines, without line endings.
+        title_index: Index of the first level heading.
+
+    Returns:
+        Any problems found.
+
+    Three things are checked and each has failed somewhere in some project.
+    That the mark is present at all. That the paths resolve from this
+    document, since the correct relative prefix differs between the
+    repository root, docs, and bindings. And that it is not rendered below
+    the size at which a hairline typeface stops being legible, which is the
+    one a reviewer never notices because it looks fine on their screen.
+    """
+    problems: list[Problem] = []
+
+    # The block sits between the title and whatever follows it. Read a
+    # generous window rather than a fixed offset, so reformatting the block
+    # does not become a failure.
+    window = "\n".join(lines[title_index : title_index + 14])
+
+    if WORDMARK_LIGHT not in window or WORDMARK_DARK not in window:
+        problems.append(
+            Problem(
+                relative_path,
+                title_index + 1,
+                "the wordmark must follow the title, as a picture element "
+                f"naming both {WORDMARK_LIGHT} and {WORDMARK_DARK}",
+            )
+        )
+        return problems
+
+    for asset in (WORDMARK_LIGHT, WORDMARK_DARK):
+        for line in lines[title_index : title_index + 14]:
+            if asset not in line:
+                continue
+            start = line.find('"', line.find(asset) - 200)
+            reference = line[line.find('"', 0) + 1 : line.rfind('"')]
+            if asset not in reference:
+                reference = asset
+            target = (REPO_ROOT / relative_path).parent / reference
+            if not target.is_file():
+                problems.append(
+                    Problem(
+                        relative_path,
+                        title_index + 1,
+                        f"the wordmark path '{reference}' does not resolve "
+                        "from this document",
+                    )
+                )
+            break
+
+    for line in lines[title_index : title_index + 14]:
+        if "width=" not in line:
+            continue
+        digits = "".join(c for c in line.split("width=")[1] if c.isdigit())
+        if digits and int(digits) < WORDMARK_MINIMUM_WIDTH:
+            problems.append(
+                Problem(
+                    relative_path,
+                    title_index + 1,
+                    f"the wordmark is rendered at {digits} pixels; below "
+                    f"{WORDMARK_MINIMUM_WIDTH} the hairline strokes break "
+                    "up. See docs/BRAND.md.",
+                )
+            )
+        break
+
+    return problems
+
+
 def check_document(relative_path: str) -> list[Problem]:
     """Check one Markdown document against the whole section 2.4 standard."""
     absolute = REPO_ROOT / relative_path
@@ -490,6 +583,7 @@ def check_document(relative_path: str) -> list[Problem]:
         None,
     )
     if title_index is not None:
+        problems.extend(check_wordmark(relative_path, lines, title_index))
         table = parse_two_column_table(lines, title_index + 1, mask)
         problems.extend(
             check_table_fields(

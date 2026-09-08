@@ -39,6 +39,7 @@ input inject control tokens into a prompt, so the default is to raise.
 """
 
 from .bpe import merge_piece
+from .cache import PieceCache
 from .errors import special_token_disallowed
 from .pretokenize.scanner import scan_cl100k, scan_o200k
 from .ranks import RankTable
@@ -109,12 +110,27 @@ struct Tokenizer(Movable):
         else:
             scan_o200k(data, ends)
 
-    def encode_segment(self, data: Span[UInt8, _], mut out: List[Int]) raises:
+    def _encode_segment[
+        use_cache: Bool
+    ](
+        self,
+        data: Span[UInt8, _],
+        mut out: List[Int],
+        mut cache: PieceCache,
+    ) raises:
         """Encode a segment that contains no special tokens.
+
+        Parameters:
+            use_cache: Whether to consult the piece cache. Compile time, so
+                the uncached path carries no branch at all rather than a
+                predictable one.
 
         Args:
             data: The segment bytes.
             out: Buffer receiving the token ids, in order.
+            cache: The piece cache. Ignored entirely when use_cache is
+                False, which is why the uncached callers can pass a cache
+                built with zero capacity.
 
         Raises:
             Error: if the scanner or the merge loop fails.
@@ -123,14 +139,74 @@ struct Tokenizer(Movable):
         independently. Piece boundaries matter here beyond tidiness: the
         merge loop can only join bytes inside one piece, so the pieces
         determine which merges are even reachable.
+
+        One implementation serves both the cached and the uncached paths on
+        purpose. Two copies of this loop would be two places for the piece
+        boundary arithmetic to drift, and the cached path would stop being
+        testable against the uncached one.
         """
         var ends = List[Int]()
         self._scan(data, ends)
 
         var start = 0
         for index in range(len(ends)):
-            merge_piece(self.ranks, data, start, ends[index], out)
-            start = ends[index]
+            var end = ends[index]
+
+            comptime if use_cache:
+                var entry = cache.lookup(data, start, end)
+                if entry >= 0:
+                    cache.record_hit()
+                    cache.append_value(entry, out)
+                    start = end
+                    continue
+
+                cache.record_miss()
+                # Merged into its own buffer rather than straight into out,
+                # because the cache has to store this piece's ids on their
+                # own and out already holds everything before it.
+                var produced = List[Int]()
+                merge_piece(self.ranks, data, start, end, produced)
+                cache.insert(data, start, end, Span(produced))
+                for slot in range(len(produced)):
+                    out.append(produced[slot])
+            else:
+                merge_piece(self.ranks, data, start, end, out)
+
+            start = end
+
+    def encode_segment(self, data: Span[UInt8, _], mut out: List[Int]) raises:
+        """Encode a segment that contains no special tokens, without a cache.
+
+        Args:
+            data: The segment bytes.
+            out: Buffer receiving the token ids, in order.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+
+        This is the reference path. Every cached result is asserted equal to
+        what this produces, in tests/test_cache.mojo.
+        """
+        var scratch = PieceCache(0)
+        self._encode_segment[False](data, out, scratch)
+
+    def encode_segment_cached(
+        self,
+        data: Span[UInt8, _],
+        mut out: List[Int],
+        mut cache: PieceCache,
+    ) raises:
+        """Encode a segment that contains no special tokens, with a cache.
+
+        Args:
+            data: The segment bytes.
+            out: Buffer receiving the token ids, in order.
+            cache: The caller's piece cache, updated in place.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+        """
+        self._encode_segment[True](data, out, cache)
 
     def encode_ordinary_bytes(self, data: Span[UInt8, _]) raises -> List[Int]:
         """Encode bytes, treating any special token literal as ordinary text.
@@ -166,6 +242,44 @@ struct Tokenizer(Movable):
             Error: if the scanner or the merge loop fails.
         """
         return self.encode_ordinary_bytes(text.as_bytes())
+
+    def encode_ordinary_bytes_cached(
+        self, data: Span[UInt8, _], mut cache: PieceCache
+    ) raises -> List[Int]:
+        """Encode bytes with a piece cache, ignoring special token literals.
+
+        Args:
+            data: The bytes to encode.
+            cache: The caller's piece cache, updated in place.
+
+        Returns:
+            The token ids, identical to what encode_ordinary_bytes returns
+            for the same input.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+        """
+        var out = List[Int]()
+        self.encode_segment_cached(data, out, cache)
+        return out^
+
+    def encode_ordinary_cached(
+        self, text: String, mut cache: PieceCache
+    ) raises -> List[Int]:
+        """Encode text with a piece cache, ignoring special token literals.
+
+        Args:
+            text: The text to encode.
+            cache: The caller's piece cache, updated in place.
+
+        Returns:
+            The token ids, identical to what encode_ordinary returns for the
+            same input.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+        """
+        return self.encode_ordinary_bytes_cached(text.as_bytes(), cache)
 
     def _find_special(
         self, data: Span[UInt8, _], from_offset: Int, allowed: List[Int]
@@ -210,12 +324,22 @@ struct Tokenizer(Movable):
 
         return (best_offset, best_index)
 
-    def encode_bytes(
-        self, data: Span[UInt8, _], allowed_special: List[String]
+    def _encode_bytes[
+        use_cache: Bool
+    ](
+        self,
+        data: Span[UInt8, _],
+        allowed_special: List[String],
+        mut cache: PieceCache,
     ) raises -> List[Int]:
         """Encode bytes, handling special tokens.
 
+        Parameters:
+            use_cache: Whether the segments between markers consult the
+                piece cache.
+
         Args:
+            cache: The piece cache, ignored when use_cache is False.
             data: The bytes to encode.
             allowed_special: Literal texts of the special tokens permitted in
                 the input. Every other special token this encoding defines is
@@ -262,16 +386,89 @@ struct Tokenizer(Movable):
         while position < len(data):
             var hit = self._find_special(data, position, allowed_indices)
             if hit[0] == -1:
-                self.encode_segment(data[position : len(data)], out)
+                self._encode_segment[use_cache](
+                    data[position : len(data)], out, cache
+                )
                 break
 
             if hit[0] > position:
-                self.encode_segment(data[position : hit[0]], out)
+                self._encode_segment[use_cache](
+                    data[position : hit[0]], out, cache
+                )
             out.append(self.vocabulary.specials.id_at(hit[1]))
             var name = self.vocabulary.specials.name_at(hit[1])
             position = hit[0] + name.byte_length()
 
         return out^
+
+    def encode_bytes(
+        self, data: Span[UInt8, _], allowed_special: List[String]
+    ) raises -> List[Int]:
+        """Encode bytes, handling special tokens, without a cache.
+
+        Args:
+            data: The bytes to encode.
+            allowed_special: Literal texts of the special tokens permitted in
+                the input.
+
+        Returns:
+            The token ids.
+
+        Raises:
+            Error: if a disallowed special token appears in the input, or if
+                an allowed name is not a special token of this encoding.
+        """
+        var scratch = PieceCache(0)
+        return self._encode_bytes[False](data, allowed_special, scratch)
+
+    def encode_bytes_cached(
+        self,
+        data: Span[UInt8, _],
+        allowed_special: List[String],
+        mut cache: PieceCache,
+    ) raises -> List[Int]:
+        """Encode bytes, handling special tokens, with a piece cache.
+
+        Args:
+            data: The bytes to encode.
+            allowed_special: Literal texts of the special tokens permitted in
+                the input.
+            cache: The caller's piece cache, updated in place.
+
+        Returns:
+            The token ids, identical to what encode_bytes returns for the
+            same input.
+
+        Raises:
+            Error: if a disallowed special token appears in the input, or if
+                an allowed name is not a special token of this encoding.
+
+        The refusal path is shared with the uncached form rather than
+        repeated here. A second copy of a security relevant check is a
+        second place for it to be weakened by accident.
+        """
+        return self._encode_bytes[True](data, allowed_special, cache)
+
+    def encode_cached(
+        self,
+        text: String,
+        allowed_special: List[String],
+        mut cache: PieceCache,
+    ) raises -> List[Int]:
+        """Encode text, handling special tokens, with a piece cache.
+
+        Args:
+            text: The text to encode.
+            allowed_special: Literal texts of the permitted special tokens.
+            cache: The caller's piece cache, updated in place.
+
+        Returns:
+            The token ids.
+
+        Raises:
+            Error: if a disallowed special token appears in the input.
+        """
+        return self.encode_bytes_cached(text.as_bytes(), allowed_special, cache)
 
     def encode(
         self, text: String, allowed_special: List[String]

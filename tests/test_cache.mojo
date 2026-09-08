@@ -414,7 +414,12 @@ def test_an_empty_cache_reports_no_hit_rate() raises:
 
 
 def main() raises:
-    """Run the piece cache suite."""
+    """Run the piece cache suite.
+
+    Raises:
+        Error: if any test fails, which is how a failing suite becomes a
+            failing process.
+    """
     TestSuite.discover_tests[__functions_in_module()]().run()
 
 

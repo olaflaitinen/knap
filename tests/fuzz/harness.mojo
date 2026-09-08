@@ -147,6 +147,10 @@ def check_round_trip(
         An empty string when the round trip held, or a description of the
         first difference.
 
+    Raises:
+        Error: if encoding or decoding fails outright, which is a defect
+            rather than a property of the input.
+
     This is the check applied to input the reference cannot accept. It is a
     weaker property than parity and is reported as such, but it would still
     catch a byte being dropped, replaced, or reordered.
@@ -177,6 +181,9 @@ def check_parity(
     Returns:
         An empty string when the two agree, or a description of the first
         difference.
+
+    Raises:
+        Error: if either implementation fails to encode the input.
 
     Ordinary encoding is compared, so a special token literal in the input
     is treated as text by both sides. The allowed and disallowed paths are
@@ -216,6 +223,9 @@ def any_marker_present(
 
     Returns:
         True when at least one marker occurs.
+
+    Raises:
+        Error: if the special token registry cannot be read.
     """
     for index in range(tokenizer.vocabulary.specials.count()):
         var name = tokenizer.vocabulary.specials.name_at(index)
@@ -236,6 +246,10 @@ def check_special_handling(
     Returns:
         An empty string when the behaviour was correct, or a description of
         what went wrong.
+
+    Raises:
+        Error: if encoding fails for a reason other than the refusal this
+            check is looking for.
 
     Two things are asserted, and the first is the security relevant one.
 
@@ -298,6 +312,10 @@ def check_one(
 
     Returns:
         An empty string when everything held, or the first failure.
+
+    Raises:
+        Error: if a check fails for a reason other than a divergence, such
+            as the reference implementation refusing the input outright.
 
     Which checks apply depends on the input. Valid UTF-8 gets full parity
     plus round tripping; everything else gets round tripping only. Both

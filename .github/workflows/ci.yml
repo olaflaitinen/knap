@@ -122,9 +122,12 @@ jobs:
       # mojo doc actually serves, unchecked.
       - name: Docstring gate
         run: |
-          for f in src/knap/*.mojo tests/*.mojo; do
+          # Every Mojo file, not two directories of them. The narrower
+          # glob missed tests/fuzz, bench and bindings entirely, and all
+          # three had docstring errors in them when this was widened.
+          for f in $(git ls-files '*.mojo'); do
             uv run mojo doc --Werror --diagnose-missing-doc-strings \
-              -I src -o /dev/null "$f"
+              -I src -I tests/fuzz -I bench -o /dev/null "$f"
           done
 
       - name: Build with warnings as errors

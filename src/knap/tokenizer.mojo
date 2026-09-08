@@ -339,11 +339,11 @@ struct Tokenizer(Movable):
                 piece cache.
 
         Args:
-            cache: The piece cache, ignored when use_cache is False.
             data: The bytes to encode.
             allowed_special: Literal texts of the special tokens permitted in
                 the input. Every other special token this encoding defines is
                 disallowed, and its presence is an error.
+            cache: The piece cache, ignored when use_cache is False.
 
         Returns:
             The token ids.

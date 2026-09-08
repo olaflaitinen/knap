@@ -103,10 +103,14 @@ struct KnapTokenizer(Movable, Writable):
         """Construct from Python arguments.
 
         Args:
-            self: The slot to fill.
             args: Positional arguments: the vocabulary path and the encoding
                 name.
             kwargs: Ignored.
+
+        Returns:
+            The constructed tokenizer, written into the out parameter. Mojo
+            treats an out parameter as a result rather than an argument, so
+            it is documented here rather than above.
 
         Raises:
             Error: if the arguments are wrong, the encoding is unknown, or

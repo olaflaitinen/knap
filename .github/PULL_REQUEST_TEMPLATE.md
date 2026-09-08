@@ -58,6 +58,7 @@ right does not pass a gate**, and neither does a tick added in anticipation.
 - [ ] `python scripts/check_spdx.py`
 - [ ] `python scripts/check_generated.py`
 - [ ] `python scripts/selftest_gates.py`
+- [ ] `python scripts/check_fuzz_claims.py`
 - [ ] `mojo format .` leaves the working tree unchanged
 - [ ] `mojo doc --Werror --diagnose-missing-doc-strings` is clean
 

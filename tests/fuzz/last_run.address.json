@@ -1,0 +1,31 @@
+{
+  "aborted_shards": 0,
+  "base_seed": 1,
+  "divergences": 0,
+  "elapsed_seconds": 103.3,
+  "encodings": [
+    "cl100k_base",
+    "o200k_base"
+  ],
+  "generated": "2026-09-08T17:14:22Z",
+  "lsan_suppressions": "tests/fuzz/lsan.supp",
+  "sanitizer": "address",
+  "shard_seeds": [
+    1,
+    1000004,
+    2000007,
+    3000010,
+    1,
+    1000004,
+    2000007,
+    3000010
+  ],
+  "shard_size": 25000,
+  "tiktoken_version": "0.14.0",
+  "totals": {
+    "compared": 166766,
+    "divergences": 0,
+    "generated": 200000,
+    "round_tripped": 33234
+  }
+}

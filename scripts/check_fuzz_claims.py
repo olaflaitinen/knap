@@ -1,0 +1,247 @@
+# =============================================================================
+# Project     : Knap, a pure Mojo byte level BPE tokenizer
+# File        : scripts/check_fuzz_claims.py
+# Purpose     : Checks every documented fuzzing figure against the committed
+#               run reports.
+# Stage       : Milestone M4, differential fuzzing. See docs/ROADMAP.md
+# Depends on  : tests/fuzz/last_run.json and last_run.address.json.
+# Invariants  : A number quoted in prose must equal the number in the report
+#               that produced it. Nothing here reads the code; it compares
+#               two artefacts that are supposed to agree.
+# -----------------------------------------------------------------------------
+# Author      : Olaf Yunus Laitinen Imanov <yunus.imanov@metropolia.fi>
+# ORCID       : 0009-0006-5184-0810
+# Affiliation : School of Information and Communication Technology,
+#               Metropolia University of Applied Sciences
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+# =============================================================================
+"""Check that the documented fuzzing numbers match the committed reports.
+
+Five documents quote figures from the differential fuzzer: how many inputs
+were generated, how many were compared against the reference, how many were
+round trip checked only, how many divergences were found, and which seeds
+produced all of that. Those figures are the project's central evidence, and
+they are typed into prose by hand.
+
+A number typed by hand next to a number produced by a machine will drift.
+Usually it drifts in the flattering direction, because the flattering
+direction is the one nobody re-checks. This script removes the possibility
+by comparing the two mechanically.
+
+It reads the run reports, derives the figures they imply, and requires each
+one to appear in the documents that quote it. It does not check prose for
+sense, only for arithmetic honesty.
+
+    python scripts/check_fuzz_claims.py
+
+Exit status is 0 when every documented figure matches its report.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+FUZZ_DIR = REPO_ROOT / "tests" / "fuzz"
+
+PLAIN_REPORT = FUZZ_DIR / "last_run.json"
+SANITIZED_REPORT = FUZZ_DIR / "last_run.address.json"
+
+
+def load(path: Path) -> dict:
+    """Read one run report.
+
+    Args:
+        path: The report to read.
+
+    Returns:
+        Its contents.
+
+    Raises:
+        SystemExit: if it is missing or unreadable, since there is nothing
+            to check against without it.
+    """
+    if not path.is_file():
+        raise SystemExit(
+            f"check_fuzz_claims: {path.relative_to(REPO_ROOT)} is missing. "
+            "Run 'python tests/fuzz/run_fuzz.py' first."
+        )
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"check_fuzz_claims: cannot read {path}: {exc}")
+
+
+def documents() -> list[str]:
+    """List the documents that may quote a fuzzing figure.
+
+    Returns:
+        Repository relative paths.
+
+    Fixed rather than discovered. A new document that quotes these numbers
+    should be added here deliberately, because the point of the list is that
+    somebody decided each entry belongs on it.
+    """
+    return [
+        "README.md",
+        "CHANGELOG.md",
+        "docs/CORRECTNESS.md",
+        "docs/ROADMAP.md",
+    ]
+
+
+def build_claims(plain: dict, sanitized: dict) -> list[tuple[str, str]]:
+    """Derive the figures the documents are required to quote.
+
+    Args:
+        plain: The unsanitized run report.
+        sanitized: The address sanitizer run report.
+
+    Returns:
+        Pairs of the figure as it must appear in prose, and a description of
+        what it is, for the failure message.
+
+    Returns strings rather than integers because the check is a substring
+    search over prose. Every figure here is large enough that an accidental
+    match somewhere unrelated is not a realistic concern.
+    """
+    totals = plain["totals"]
+    sanitized_totals = sanitized["totals"]
+
+    claims = [
+        (str(totals["generated"]), "inputs generated, both encodings"),
+        (str(totals["compared"]), "inputs compared against the reference"),
+        (str(totals["round_tripped"]), "inputs round trip checked only"),
+        (str(plain["base_seed"]), "base seed of the unsanitized run"),
+        (str(plain["shard_size"]), "shard size of the unsanitized run"),
+        (
+            str(sanitized_totals["generated"]),
+            "inputs generated under the address sanitizer",
+        ),
+        (
+            str(sanitized["shard_size"]),
+            "shard size of the sanitized run",
+        ),
+        (plain["tiktoken_version"], "reference implementation version"),
+    ]
+    return claims
+
+
+def check_divergences(plain: dict, sanitized: dict) -> list[str]:
+    """Verify that both runs actually found nothing.
+
+    Args:
+        plain: The unsanitized run report.
+        sanitized: The address sanitizer run report.
+
+    Returns:
+        A list of problems, empty when both runs were clean.
+
+    Separate from the substring checks because this one is not about
+    documentation. A report claiming zero divergences while recording a
+    failed shard is the exact failure this project already had once, and it
+    is worth refusing to pass rather than merely refusing to quote.
+    """
+    problems: list[str] = []
+    for name, report in (("plain", plain), ("sanitized", sanitized)):
+        if report["divergences"] != 0:
+            problems.append(
+                f"the {name} run recorded {report['divergences']} divergences"
+            )
+        if report["totals"]["divergences"] != 0:
+            problems.append(
+                f"the {name} run's shards reported"
+                f" {report['totals']['divergences']} divergences"
+            )
+        if report.get("aborted_shards", 0) != 0:
+            problems.append(
+                f"the {name} run aborted {report['aborted_shards']} shards,"
+                " so its totals cover less than they appear to"
+            )
+        expected = report["totals"]["compared"] + report["totals"][
+            "round_tripped"
+        ]
+        if expected != report["totals"]["generated"]:
+            problems.append(
+                f"the {name} run generated {report['totals']['generated']}"
+                f" inputs but accounted for {expected} of them"
+            )
+    if sanitized["sanitizer"] != "address":
+        problems.append(
+            "last_run.address.json was not produced by an address sanitizer"
+            f" run, it says {sanitized['sanitizer']!r}"
+        )
+    return problems
+
+
+def tracked_text(paths: list[str]) -> dict[str, str]:
+    """Read each document, preferring the committed copy of the tree.
+
+    Args:
+        paths: Repository relative paths.
+
+    Returns:
+        Path to contents.
+
+    Raises:
+        SystemExit: if a document is missing.
+    """
+    out: dict[str, str] = {}
+    for relative in paths:
+        path = REPO_ROOT / relative
+        if not path.is_file():
+            raise SystemExit(f"check_fuzz_claims: {relative} is missing")
+        out[relative] = path.read_text(encoding="utf-8")
+    return out
+
+
+def main() -> int:
+    """Compare every documented fuzzing figure against its report."""
+    plain = load(PLAIN_REPORT)
+    sanitized = load(SANITIZED_REPORT)
+
+    problems = check_divergences(plain, sanitized)
+
+    claims = build_claims(plain, sanitized)
+    texts = tracked_text(documents())
+    corpus = "\n".join(texts.values())
+
+    for figure, description in claims:
+        if figure not in corpus:
+            problems.append(
+                f"no document quotes {figure}, the {description}. Either the"
+                " reports moved and the prose did not, or the prose was"
+                " never updated."
+            )
+
+    print(f"check_fuzz_claims: {len(claims)} figures checked against")
+    print(f"  {PLAIN_REPORT.relative_to(REPO_ROOT)}")
+    print(f"  {SANITIZED_REPORT.relative_to(REPO_ROOT)}")
+    for figure, description in claims:
+        state = "found" if figure in corpus else "MISSING"
+        print(f"  {state:>7}  {figure:>12}  {description}")
+
+    if problems:
+        print()
+        for problem in problems:
+            print(f"  FAIL {problem}", file=sys.stderr)
+        print(
+            f"check_fuzz_claims: {len(problems)} problems", file=sys.stderr
+        )
+        return 1
+
+    print("check_fuzz_claims: every documented figure matches its report.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+# =============================================================================
+# End of file: scripts/check_fuzz_claims.py
+# =============================================================================

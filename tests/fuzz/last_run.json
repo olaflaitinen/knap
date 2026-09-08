@@ -1,0 +1,43 @@
+{
+  "aborted_shards": 0,
+  "base_seed": 20260908,
+  "divergences": 0,
+  "elapsed_seconds": 1293.1,
+  "encodings": [
+    "cl100k_base",
+    "o200k_base"
+  ],
+  "generated": "2026-09-08T17:12:21Z",
+  "lsan_suppressions": null,
+  "sanitizer": "none",
+  "shard_seeds": [
+    20260908,
+    21260911,
+    22260914,
+    23260917,
+    24260920,
+    25260923,
+    26260926,
+    27260929,
+    28260932,
+    29260935,
+    20260908,
+    21260911,
+    22260914,
+    23260917,
+    24260920,
+    25260923,
+    26260926,
+    27260929,
+    28260932,
+    29260935
+  ],
+  "shard_size": 1000000,
+  "tiktoken_version": "0.14.0",
+  "totals": {
+    "compared": 16661834,
+    "divergences": 0,
+    "generated": 20000000,
+    "round_tripped": 3338166
+  }
+}

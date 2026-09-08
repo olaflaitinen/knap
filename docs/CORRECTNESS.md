@@ -6,6 +6,15 @@
 
 # Knap Correctness
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+            srcset="assets/knap_logo_transparent_white.svg">
+    <img src="assets/knap_logo_transparent_black.svg"
+         alt="Knap" width="240">
+  </picture>
+</p>
+
 | Field | Value |
 | --- | --- |
 | Document | `docs/CORRECTNESS.md` |
@@ -226,12 +235,19 @@ cannot be replayed is an anecdote:
 
 | Run | Base seed | Shards | Shard size | Elapsed |
 | --- | --- | --- | --- | --- |
-| Differential, both encodings | 20260908 | 10 per encoding | 1000000 | 1961 seconds |
-| Differential under the address sanitizer | 1 | 4 per encoding | 25000 | 246 seconds |
+| Differential, both encodings | 20260908 | 10 per encoding | 1000000 | 1293 seconds |
+| Differential under the address sanitizer | 1 | 4 per encoding | 25000 | 103 seconds |
 
-The sanitizer run is about twelve times slower per input, at roughly 815
-inputs per second against the unsanitized run's 10200. That ratio is the
+The sanitizer run is about eight times slower per input, at roughly 1942
+inputs per second against the unsanitized run's 15468. That ratio is the
 reason the sanitized subset is a subset.
+
+Both runs were repeated after the merge rank table stopped allocating on
+every lookup, and both produced counts identical to the runs before it, to
+the input. That is what a deterministic generator should do, and it is also
+twenty million inputs of evidence that the rewrite changed no output. The
+elapsed times fell from 1961 and 246 seconds, which is the same speedup the
+benchmarks report from a different direction.
 
 What decode parity means here, stated precisely so it is not read as more
 than it is. Every token id in the full id space of both encodings was decoded

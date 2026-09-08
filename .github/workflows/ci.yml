@@ -147,6 +147,101 @@ jobs:
             uv run mojo run -I src "$f"
           done
 
+  scalar-and-simd:
+    name: Both classifier builds agree
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Fetch vocabularies
+        run: uv run python scripts/fetch_vocabs.py
+
+      - name: Generate references
+        run: |
+          uv run python scripts/gen_encode_golden.py
+          uv run python scripts/gen_unicode_tables.py
+          uv run python scripts/gen_pretoken_golden.py
+
+      # The scalar classifier is the reference and the default. The
+      # vectorised one is off by default because it measured slower, but it
+      # is still compiled and tested, so it cannot rot into something that
+      # no longer agrees.
+      - name: Tests with the vectorised classifier
+        run: |
+          for f in tests/*.mojo; do
+            case "$f" in
+              *_corpus.mojo) continue ;;
+            esac
+            uv run mojo run -I src -D KNAP_SIMD=1 "$f"
+          done
+
+  python-bindings:
+    name: Python bindings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Fetch vocabularies
+        run: uv run python scripts/fetch_vocabs.py
+
+      # Built here rather than shipped. The Mojo ABI is not stable, so a
+      # binary artefact is only valid for the toolchain that produced it.
+      - name: Build the extension
+        run: uv run python bindings/python/build.py
+
+      - name: Test the bindings against tiktoken
+        run: uv run python bindings/python/tests/test_bindings.py
+
+  mojo-package:
+    name: Mojo package builds and imports
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      # Track A of the distribution milestone. A package that builds but
+      # cannot be imported without the source tree is not a package.
+      - name: Precompile and import without the source tree
+        run: |
+          mkdir -p "${RUNNER_TEMP}/pkg"
+          uv run mojo precompile src/knap -o "${RUNNER_TEMP}/pkg/knap.mojopkg"
+          cat > "${RUNNER_TEMP}/smoke.mojo" <<'SMOKE'
+          from knap.flat_vocab import FlatVocab
+
+          def main() raises:
+              var data = List[UInt8]()
+              data.append(UInt8(72))
+              data.append(UInt8(105))
+              var offsets: List[Int] = [0]
+              var lengths: List[Int] = [2]
+              var vocabulary = FlatVocab(data^, offsets^, lengths^)
+              print(vocabulary.decode([0]))
+          SMOKE
+          uv run mojo run -I "${RUNNER_TEMP}/pkg" "${RUNNER_TEMP}/smoke.mojo"
+
   unstable-api-inventory:
     name: Unstable API inventory (reporting only)
     runs-on: ubuntu-24.04

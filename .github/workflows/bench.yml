@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Benchmark smoke run for Knap.
+#
+# Read this before quoting anything this workflow prints.
+#
+# THE NUMBERS THIS JOB PRODUCES ARE NOT PUBLISHABLE. It runs on a shared
+# GitHub hosted runner: the CPU model varies between runs, the machine is
+# virtualised, and neighbouring workloads are invisible. Throughput measured
+# there is a measurement of the runner, not of the tokenizer. Every figure in
+# docs/BENCHMARKS.md comes from bench/run_all.sh on a described machine, and
+# the document names that machine for exactly this reason.
+#
+# So what is this job for. Benchmarks rot faster than tests, because nothing
+# fails when they stop compiling: they are not part of the test suite, and
+# nobody runs them between releases. This job runs the whole suite at a small
+# size and requires it to complete. It catches a benchmark that no longer
+# builds, a corpus slice that no longer resolves, and the offsets in the Mojo
+# harness and the Python baselines drifting apart, which would silently make
+# every baseline comparison invalid.
+#
+# It is deliberately not on push. A benchmark suite in the push path is an
+# invitation to start reading its output as a result.
+
+name: Benchmark smoke
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      megabytes:
+        description: "Input size in megabytes"
+        required: false
+        default: "2"
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: The suite still runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Fetch vocabularies
+        run: uv run python scripts/fetch_vocabs.py
+
+      - name: Fetch the corpus
+        run: uv run python scripts/fetch_corpus.py
+
+      # The offsets are checked inside run_all.sh, which exits non zero when
+      # they disagree. Checked here as well, on its own, so the failure names
+      # itself instead of arriving as a benchmark that did not run.
+      - name: The corpus offsets agree across languages
+        run: |
+          mojo_offset="$(grep -oP 'comptime PROSE_OFFSET: Int = \K[0-9]+' bench/harness.mojo)"
+          py_offset="$(grep -oP '^PROSE_OFFSET = \K[0-9]+' bench/baselines/corpus_slice.py)"
+          echo "harness.mojo     : ${mojo_offset}"
+          echo "corpus_slice.py  : ${py_offset}"
+          test "${mojo_offset}" = "${py_offset}"
+
+      - name: Run the suite at a small size
+        run: bash bench/run_all.sh "${{ github.event.inputs.megabytes || '2' }}"
+
+      # Uploaded so a regression in what the suite can even run is visible,
+      # not so the figures can be compared between runs. They cannot.
+      - name: Upload the run, for inspection only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-smoke-not-publishable
+          path: bench/results/

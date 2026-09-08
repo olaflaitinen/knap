@@ -1,0 +1,146 @@
+# Knap benchmark run
+# timestamp        : 20260908T162902Z
+# input megabytes  : 4
+#
+# --- machine ---
+# cpu model        : AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx
+# logical cores    : 8
+# memory total     : 2949352 kB
+# kernel           : Linux 6.6.87.2-microsoft-standard-WSL2
+#
+# --- versions ---
+# mojo             : Mojo 1.0.0 (ed45d567)
+# python           : 3.12.3
+# tiktoken         : 0.14.0
+# tokenizers       : 0.23.2
+# rs-bpe           : 0.1.0
+#
+# --- effective build target ---
+# Effective target configuration:
+#   --target-triple x86_64-unknown-linux-gnu
+#   --target-cpu znver1
+#   --target-features +adx,+aes,+avx,+avx2,+bmi,+bmi2,+clflushopt,+clzero,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sha,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+sse4a,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves,-mwaitx
+#
+# --- corpus ---
+# corpus bytes     : 115343371
+# corpus offset    : 30408704, past the generated hazard section
+# corpus sha256    : cbcf49647ddbf333590224687d095b3cbafba06a9dec6971adac781310203fb9
+
+## knap encode
+# corpus offset: 30408704
+# input bytes: 4194296
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=encode_cl100k_base kind=throughput samples=5 bytes=4194296 tokens=1223017 mean_ns=2231178084 stddev_ns=98332751 cv=0.04407212130765288 mb_per_s=1.7927714502997987 tokens_per_s=548148.5357181875 bytes_per_token=3.4294666386485226
+BENCH name=encode_o200k_base kind=throughput samples=5 bytes=4194296 tokens=1091823 mean_ns=2108038137 stddev_ns=76977065 cv=0.03651597408177627 mb_per_s=1.8974952589320584 tokens_per_s=517933.22940248117 bytes_per_token=3.8415530722470583
+
+## knap encode, vectorised classifier
+# corpus offset: 30408704
+# input bytes: 4194296
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=encode_cl100k_base kind=throughput samples=5 bytes=4194296 tokens=1223017 mean_ns=1985188555 stddev_ns=43047425 cv=0.021684300847677033 mb_per_s=2.0149181088712926 tokens_per_s=616070.9502514452 bytes_per_token=3.4294666386485226
+BENCH name=encode_o200k_base kind=throughput samples=5 bytes=4194296 tokens=1091823 mean_ns=2319213100 stddev_ns=165849126 cv=0.07151094749873936 mb_per_s=1.7247196345435118 tokens_per_s=470773.0393148631 bytes_per_token=3.8415530722470583
+
+## knap piece cache, uncached against cold and warm
+# corpus offset: 30408704
+# input bytes: 4194296
+# warmup iterations: 1
+# measured iterations: 5
+# cache capacity: 262144
+BENCH name=encode_uncached_cl100k_base kind=throughput samples=5 bytes=4194296 tokens=1223017 mean_ns=2131578972 stddev_ns=244112199 cv=0.11452177105806677 mb_per_s=1.8765396086178188 tokens_per_s=573761.0549905985 bytes_per_token=3.4294666386485226
+BENCH name=encode_cold_cache_cl100k_base kind=throughput samples=5 bytes=4194296 tokens=1223017 mean_ns=827516435 stddev_ns=14639893 cv=0.01769136263579195 mb_per_s=4.833731630645479 tokens_per_s=1477936.8083700363 bytes_per_token=3.4294666386485226
+# cold_cache_cl100k_base entries: 77630
+# cold_cache_cl100k_base hits: 804584
+# cold_cache_cl100k_base misses: 77726
+# cold_cache_cl100k_base rejected: 96
+# cold_cache_cl100k_base hit rate: 0.9119062461039771
+# cold_cache_cl100k_base bytes held: 8900994
+BENCH name=encode_warm_cache_cl100k_base kind=throughput samples=5 bytes=4194296 tokens=1223017 mean_ns=320652117 stddev_ns=10152757 cv=0.03166284154438586 mb_per_s=12.474554676386706 tokens_per_s=3814155.384086667 bytes_per_token=3.4294666386485226
+# warm_cache_cl100k_base entries: 77630
+# warm_cache_cl100k_base hits: 5215654
+# warm_cache_cl100k_base misses: 78206
+# warm_cache_cl100k_base rejected: 576
+# warm_cache_cl100k_base hit rate: 0.9852270366046704
+# warm_cache_cl100k_base bytes held: 8900994
+BENCH name=encode_uncached_o200k_base kind=throughput samples=5 bytes=4194296 tokens=1091823 mean_ns=2179835146 stddev_ns=142467618 cv=0.06535706103780609 mb_per_s=1.8349976499729626 tokens_per_s=500874.1151381662 bytes_per_token=3.8415530722470583
+BENCH name=encode_cold_cache_o200k_base kind=throughput samples=5 bytes=4194296 tokens=1091823 mean_ns=872367335 stddev_ns=33941932 cv=0.038907844566899386 mb_per_s=4.585215661401738 tokens_per_s=1251563.3669373342 bytes_per_token=3.8415530722470583
+# cold_cache_o200k_base entries: 77702
+# cold_cache_o200k_base hits: 804105
+# cold_cache_o200k_base misses: 77798
+# cold_cache_o200k_base rejected: 96
+# cold_cache_o200k_base hit rate: 0.9117839490284079
+# cold_cache_o200k_base bytes held: 8668362
+BENCH name=encode_warm_cache_o200k_base kind=throughput samples=5 bytes=4194296 tokens=1091823 mean_ns=367101587 stddev_ns=24832588 cv=0.06764500482081248 mb_per_s=10.896145660268642 tokens_per_s=2974171.283589404 bytes_per_token=3.8415530722470583
+# warm_cache_o200k_base entries: 77702
+# warm_cache_o200k_base hits: 5213140
+# warm_cache_o200k_base misses: 78278
+# warm_cache_o200k_base rejected: 576
+# warm_cache_o200k_base hit rate: 0.9852066119138575
+# warm_cache_o200k_base bytes held: 8668362
+
+## knap short string latency
+# samples per class: 2000
+# warmup per class: 200
+# percentile method: nearest rank, no interpolation
+BENCH name=latency_about_10_tokens kind=latency samples=2000 mean_ns=14462 stddev_ns=9399 cv=0.6499272221884264 p50_ns=10270 p90_ns=29867 p99_ns=44375
+BENCH name=latency_about_50_tokens kind=latency samples=2000 mean_ns=122380 stddev_ns=145143 cv=1.186003613111618 p50_ns=53211 p90_ns=335259 p99_ns=629950
+BENCH name=latency_about_200_tokens kind=latency samples=2000 mean_ns=507388 stddev_ns=607126 cv=1.1965714924847781 p50_ns=238425 p90_ns=1285831 p99_ns=2015672
+
+## knap batch, single thread
+stack trace was not collected. Enable stack trace collection with environment variable `MODULAR_DEBUG=stack-trace-on-error`
+Unhandled exception caught during execution: knap bench: the corpus has 4095949 bytes but the batch needs 4096000
+
+## knap decode, footnote metric only
+# corpus offset: 30408704
+# tokens to decode: 2445932
+# warmup iterations: 2
+# measured iterations: 10
+# note: decode is a footnote metric, not a headline
+BENCH name=decode_cl100k_base kind=throughput samples=10 bytes=8388578 tokens=2445932 mean_ns=49980466 stddev_ns=1790514 cv=0.0358242917851383 mb_per_s=160.06195824026415 tokens_per_s=48937758.22037741 bytes_per_token=3.4296039301174357
+
+## knap pre-tokenization, scalar classifier, the default
+# classifier: scalar
+# corpus offset: 30408704
+# input bytes: 4194296
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=pretokenize_cl100k_base_scalar kind=throughput samples=5 bytes=4194296 tokens=882310 mean_ns=165577793 stddev_ns=4319160 cv=0.026085387260008794 mb_per_s=24.157782806915147 tokens_per_s=5328673.500730443 bytes_per_token=4.753766816651743
+BENCH name=pretokenize_o200k_base_scalar kind=throughput samples=5 bytes=4194296 tokens=881903 mean_ns=203628448 stddev_ns=8616220 cv=0.04231344163229951 mb_per_s=19.643583231930112 tokens_per_s=4330942.00636353 bytes_per_token=4.755960689554294
+
+## knap pre-tokenization, vectorised classifier
+# classifier: simd
+# corpus offset: 30408704
+# input bytes: 4194296
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=pretokenize_cl100k_base_simd kind=throughput samples=5 bytes=4194296 tokens=882310 mean_ns=184487018 stddev_ns=3999882 cv=0.021681104754069012 mb_per_s=21.6817009490614 tokens_per_s=4782504.512995035 bytes_per_token=4.753766816651743
+BENCH name=pretokenize_o200k_base_simd kind=throughput samples=5 bytes=4194296 tokens=881903 mean_ns=244556450 stddev_ns=37192592 cv=0.15208182869592868 mb_per_s=16.35611066807603 tokens_per_s=3606132.6447792337 bytes_per_token=4.755960689554294
+
+## baseline tiktoken
+# tiktoken 0.14.0
+# input bytes: 4194296
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=encode_cl100k_base kind=throughput samples=5 bytes=4194296 tokens=1223017 mean_ns=658332264 stddev_ns=70538818 cv=0.10714774668109774 mb_per_s=6.075947639936285 tokens_per_s=1857750.3570655924 bytes_per_token=3.4294666386485226
+BENCH name=encode_o200k_base kind=throughput samples=5 bytes=4194296 tokens=1091823 mean_ns=466085854 stddev_ns=43649426 cv=0.09365104429978155 mb_per_s=8.582093476650831 tokens_per_s=2342536.2295226096 bytes_per_token=3.8415530722470583
+BENCH name=latency_about_10_tokens kind=latency samples=2000 mean_ns=5837 stddev_ns=3174 cv=0.5437817995626131 p50_ns=5500 p90_ns=6873 p99_ns=11662
+BENCH name=latency_about_50_tokens kind=latency samples=2000 mean_ns=20243 stddev_ns=6041 cv=0.29843259831852376 p50_ns=19156 p90_ns=23114 p99_ns=48493
+BENCH name=latency_about_200_tokens kind=latency samples=2000 mean_ns=73886 stddev_ns=12796 cv=0.1731902945323704 p50_ns=70995 p90_ns=89791 p99_ns=125980
+BENCH name=decode_cl100k_base kind=throughput samples=10 bytes=4194296 tokens=1223017 mean_ns=66833720 stddev_ns=10566920 cv=0.15810762167596823 mb_per_s=59.84991328726731 tokens_per_s=18299400.253049504 bytes_per_token=3.4294666386485226
+
+## baseline rs-bpe
+# rs-bpe, entry point rs_bpe.bpe.openai
+# input bytes: 4194296
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=encode_cl100k_base kind=throughput samples=5 bytes=4194296 tokens=1223017 mean_ns=468189233 stddev_ns=24771404 cv=0.05290895713165365 mb_per_s=8.543537716522987 tokens_per_s=2612227.9492916064 bytes_per_token=3.4294666386485226 note=identical_to_tiktoken
+BENCH name=encode_o200k_base kind=throughput samples=5 bytes=4194296 tokens=1091823 mean_ns=543445618 stddev_ns=108347250 cv=0.19937091635808607 mb_per_s=7.360428042294402 tokens_per_s=2009074.9886119328 bytes_per_token=3.8415530722470583 note=identical_to_tiktoken
+
+## baseline hugging face tokenizers
+# tokenizers 0.23.2
+# input bytes: 4194296
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=encode_cl100k_base kind=throughput samples=5 bytes=4194296 tokens=1948788 mean_ns=6395542563 stddev_ns=426837282 cv=0.06673980795595719 mb_per_s=0.625434407042577 tokens_per_s=304710.3479967881 bytes_per_token=2.1522587372253934 note=approximate
+

@@ -1,0 +1,45 @@
+# Knap benchmark run
+# timestamp        : 20260908T155249Z
+# input megabytes  : 16
+#
+# --- machine ---
+# cpu model        : AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx
+# logical cores    : 8
+# memory total     : 2949356 kB
+# kernel           : Linux 6.6.87.2-microsoft-standard-WSL2
+#
+# --- versions ---
+# mojo             : Mojo 1.0.0 (ed45d567)
+# python           : 3.12.3
+# tiktoken         : 0.14.0
+# tokenizers       : 0.23.2
+# rs-bpe           : 0.1.0
+#
+# --- effective build target ---
+# Effective target configuration:
+#   --target-triple x86_64-unknown-linux-gnu
+#   --target-cpu znver1
+#   --target-features +adx,+aes,+avx,+avx2,+bmi,+bmi2,+clflushopt,+clzero,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sha,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+sse4a,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves,-mwaitx
+#
+# --- corpus ---
+# corpus bytes     : 115343371
+# corpus offset    : 30408704, past the generated hazard section
+# corpus sha256    : cbcf49647ddbf333590224687d095b3cbafba06a9dec6971adac781310203fb9
+
+## knap encode
+# corpus offset: 30408704
+# input bytes: 16777209
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=encode_cl100k_base kind=throughput samples=5 bytes=16777209 tokens=5223598 mean_ns=51120480191 stddev_ns=1338450183 cv=0.026182269382931698 mb_per_s=0.31298597478445184 tokens_per_s=102182.09962820131 bytes_per_token=3.211810901221725
+BENCH name=encode_o200k_base kind=throughput samples=5 bytes=16777209 tokens=4258828 mean_ns=51813345917 stddev_ns=2275013304 cv=0.043907863201564604 mb_per_s=0.3088006196289365 tokens_per_s=82195.5796254848 bytes_per_token=3.9393957680375915
+
+## knap encode, vectorised classifier
+# corpus offset: 30408704
+# input bytes: 16777209
+# warmup iterations: 1
+# measured iterations: 5
+BENCH name=encode_cl100k_base kind=throughput samples=5 bytes=16777209 tokens=5223598 mean_ns=47899560344 stddev_ns=5015701154 cv=0.10471288501634991 mb_per_s=0.33403215414168963 tokens_per_s=109053.15126990926 bytes_per_token=3.211810901221725
+BENCH name=encode_o200k_base kind=throughput samples=5 bytes=16777209 tokens=4258828 mean_ns=55990154966 stddev_ns=6105967013 cv=0.10905429744902427 mb_per_s=0.28576440508047574 tokens_per_s=76063.87234632515 bytes_per_token=3.9393957680375915
+
+## knap piece cache, uncached against cold and warm

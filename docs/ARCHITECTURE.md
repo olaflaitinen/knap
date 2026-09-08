@@ -27,16 +27,17 @@
 1. [Purpose](#purpose)
 2. [Encoding pipeline](#encoding-pipeline)
 3. [The merge rule](#the-merge-rule)
-4. [Cost model](#cost-model)
-5. [Core data structures](#core-data-structures)
-6. [The scanner](#the-scanner)
-7. [Alternation ordering](#alternation-ordering)
-8. [Why single documents are not parallelized](#why-single-documents-are-not-parallelized)
-9. [Generated files](#generated-files)
-10. [Toolchain ground truth](#toolchain-ground-truth)
-11. [Unstable API inventory](#unstable-api-inventory)
-12. [Dependency decisions](#dependency-decisions)
-13. [Open questions](#open-questions)
+4. [Where the time actually went](#where-the-time-actually-went)
+5. [Cost model](#cost-model)
+6. [Core data structures](#core-data-structures)
+7. [The scanner](#the-scanner)
+8. [Alternation ordering](#alternation-ordering)
+9. [Why single documents are not parallelized](#why-single-documents-are-not-parallelized)
+10. [Generated files](#generated-files)
+11. [Toolchain ground truth](#toolchain-ground-truth)
+12. [Unstable API inventory](#unstable-api-inventory)
+13. [Dependency decisions](#dependency-decisions)
+14. [Open questions](#open-questions)
 
 ---
 
@@ -130,6 +131,51 @@ Ties cannot occur, because ranks are unique per merge in both target
 vocabularies. Where a pair is unranked it is simply not a candidate, which is
 what makes termination guaranteed: every round strictly reduces $|s|$ by one.
 
+## Where the time actually went
+
+The cost model below was written before anything was measured, and it was
+right about the shape of the pipeline and wrong about what dominates it. The
+correction is kept here rather than folded away, because the way it was found
+is reusable and the way it was missed is common.
+
+The rank table was a `Dict[String, Int]`. A `String` key owns its bytes, so
+every lookup copied the byte range being asked about into a fresh allocation
+before anything was compared. The merge loop is quadratic in the piece
+length, so a five byte piece paid ten allocations to ask ten questions about
+bytes the caller already held in a buffer.
+
+Replacing it with `ByteMap`, a map keyed on a borrowed span with its keys in
+a flat arena, nearly doubled encode throughput and halved the 110 MB parity
+gate, with byte identical output.
+
+| Measure | Before | After |
+| --- | --- | --- |
+| Encode, `cl100k_base` | 1.79 MB/s | 3.44 MB/s |
+| Encode, `o200k_base` | 1.90 MB/s | 3.21 MB/s |
+| 110 MB encode parity gate | 208.5 s | 105.8 s |
+
+**It was invisible for three milestones, and the reason is the interesting
+part.** Every benchmark before this read a prefix of the mixed corpus, and
+the corpus opens with a large generated hazard section whose pieces are about
+two bytes long. At two bytes the quadratic term barely engages and the
+allocation barely shows. The section is exactly the right input for the
+correctness gates, which is why it exists and why it is first. It is the
+wrong input for a throughput measurement, and nothing said so until the
+piece cache reported a 99.99 percent hit rate from 127 distinct pieces in two
+megabytes of text, which is not a number any real corpus produces.
+
+The lesson generalises past this project: a benchmark that reads the start of
+a file is measuring whatever happens to be at the start of that file.
+
+The merge loop itself is unchanged and is still quadratic in the piece
+length. Removing an allocation is a much smaller claim than replacing a clear
+algorithm with a heap, and if the quadratic term ever becomes the cost there
+will be a number saying so first.
+
+`ByteMap` is shared by the rank table and the piece cache. Both ask the same
+question, what integer is stored against this byte range, and both are
+handed a range inside a buffer they do not own.
+
 ## Cost model
 
 ### Merge loop
@@ -157,6 +203,29 @@ vector iterations, followed by a scalar tail of $n \bmod W$ bytes. $W$ is
 taken from the target at compile time and is never hardcoded. On the
 development machine described under
 [Toolchain ground truth](#toolchain-ground-truth), $W = 32$ for byte lanes.
+
+That model is correct and its conclusion was still wrong, which is the point
+worth keeping. It assumes the classifier is handed $n$ bytes. It is handed a
+pre-token, and pre-tokens on real text average about four bytes, so
+
+$$n < W \quad\text{for the overwhelming majority of calls,}$$
+
+which makes every vector iteration a masked load over mostly empty lanes plus
+the fixed cost of setting one up. So the model predicts a loss.
+
+**The measurement does not confirm one, and it does not refute one either.**
+Over five repetitions the scalar and vectorised paths differ by less than one
+standard deviation on both encodings. This machine cannot resolve the
+difference. The classifier is therefore off unless `-D KNAP_SIMD=1` is
+passed, on the ground that an unmeasurable gain does not justify a second
+implementation of a load bearing function, rather than on the ground that it
+lost. The numbers are in [docs/BENCHMARKS.md](BENCHMARKS.md).
+
+Two earlier versions of this section quoted confident losses, of 5 to 7
+percent and of 52 percent. Both came from a benchmark reading the corpus's
+generated hazard section rather than prose. Both were wrong, and the model
+above is the reason they were believed: a prediction that agrees with a bad
+measurement is the hardest kind of bad measurement to catch.
 
 ### Piece cache
 
@@ -289,11 +358,27 @@ match produces different pieces and therefore different tokens. `tiktoken`
 handles this with boundary adjustment logic, and reproducing that correctly
 is a project of its own.
 
-Batches are parallelized across documents instead. That is where the
+Batches would be parallelized across documents instead. That is where the
 throughput is anyway, and it is trivially correct.
 
-This paragraph exists so the constraint is not optimised away later by
-someone who does not know why it is here.
+**They are not, and the reason is the toolchain rather than the design.**
+Mojo 1.0.0 has no `parallelize`, and `TaskGroup` aborts at runtime with
+
+```text
+LLVM ERROR: destroying a non-available AsyncValue is not implemented
+```
+
+so batch encoding runs on one thread. That is recorded here, and in the
+benchmark document beside the batch numbers, because a single threaded batch
+result invites the reader to assume a choice was made. None was. When task
+parallelism works, batching across documents is the change, and the
+correctness argument above is already the argument for why it is safe and
+why splitting inside a document is not.
+
+This section exists so neither constraint is optimised away later by someone
+who does not know why it is here. The within-document rule is a correctness
+constraint and must survive. The across-document one is a toolchain
+limitation and should not.
 
 ## Generated files
 
@@ -350,6 +435,15 @@ Corrections to widely held assumptions, each verified by compiling:
 | Large collection literals are fine | They are not. A `List[UInt8]` literal of 34560 elements did not finish compiling in ten minutes. The same data as a `StaticString` compiled in 5.7 seconds, which is why the Unicode tables are strings. |
 | The formatter leaves generated files alone | It does not. It splits long string literals across lines, so a generator must format its own output or the drift check reports permanent failure. |
 | `open(path, "r").read()` can read any file | Only text. Binary references need `read_bytes()`, and there is no `"rb"` mode. |
+| `Path.read_text()` returns the file's bytes as text | It applies universal newline translation, silently turning every carriage return and line feed pair into a single line feed. This produced a false failure in the M2 reference generator, where the scanner was right and the reference was wrong. Anything compared byte for byte must use `read_bytes()`. |
+| Compiler defines are read through a `std.defines` module | There is no such module. The compiler's own `-D` help text points at one. The working spelling is `std.sys.is_defined["KEY"]()`, evaluated at compile time. |
+| Mojo 1.0.0 has working task parallelism | It does not, for this workload. There is no `parallelize`, and `TaskGroup` aborts at runtime with `LLVM ERROR: destroying a non-available AsyncValue is not implemented`. Batch encoding is single threaded because nothing else is available, which is a fact rather than a design choice. See [Why single documents are not parallelized](#why-single-documents-are-not-parallelized). |
+| `mojo doc` accepts any well formed docstring | It requires a `Raises:` section on every function that can raise, and a docstring on every struct field and every `comptime` constant. Omitting one is an error, not a warning. |
+| Exporting a type to Python needs only the type | `PythonModuleBuilder.add_type` requires `Writable`, and reflection cannot derive it when a field is not itself `Writable`, so both `write_to` and `write_repr_to` must be written by hand. The failure without them is a constraint error inside the bindings library that never names your type. |
+| Mojo has module level global variables | It does not. A registry of loaded tokenizers at module scope is impossible, so exported state lives inside an exported type. |
+| A method reached through the automatic downcast pointer can mutate | It cannot. Not a limitation for Knap, since every tokenizer method is read only after loading, but it constrains what a binding can expose. |
+| `mojo precompile` produces a `.mojopkg` | That extension is deprecated in 1.0.0 and warns. The current artefact is `.mojoc`. |
+| A conda recipe may reference files above its own directory | `license_file: ../LICENSE` fails. The path must resolve inside the recipe directory. |
 
 The SIMD comparison correction is the most dangerous of these, because the
 wrong form still compiles in some expressions and silently computes something
@@ -363,31 +457,40 @@ the stable set is currently small. Eliminating unstable API use is not
 achievable today. The goal is visible exposure.
 
 Regenerate this table with `python scripts/unstable_api_inventory.py`. The
-figure grows with the code: at M0 a single four-test file produced 108 uses
-across 22 APIs, and at M1 the five test files and the library they exercise
-produce **2484 uses across 50 distinct APIs**.
+figure grows with the code:
 
-The top of that inventory, as measured on 2026-09-07:
+| Milestone | Targets compiled | Unstable uses | Distinct APIs |
+| --- | --- | --- | --- |
+| M0 | 1 | 108 | 22 |
+| M1 | 5 | 2484 | 50 |
+| M6 | 14 | 17220 | 78 |
+
+The top of that inventory, as measured on 2026-09-08:
 
 | Unstable API | Uses | What breaks if it changes |
 | --- | --- | --- |
-| `__init__` | 1292 | Construction of every value type. Effectively the whole project. |
-| `Int` | 126 | Everything. Token ids, offsets, lengths, every loop counter. |
-| `len` | 114 | Every collection traversal. |
-| `__iter__`, `__next__` | 168 | Every for loop over a list or a range. |
-| `__make_tstring` | 103 | Template strings, so every diagnostic message. |
-| `__mlir_bool__` | 88 | Every conditional. |
-| `assert_equal`, `assert_true` | 94 | The test suite only. Mechanical to update. |
-| `Error` | 56 | The error path, which is how Knap reports malformed input instead of panicking. |
-| `range` | 56 | Every loop. |
-| `UInt8` | 48 | Byte typing, the substrate of a byte level tokenizer. |
-| `__iadd__`, `__add__`, `__lt__` | 106 | Arithmetic and comparison in offset and rank handling. |
-| `append` | 42 | Buffer construction in FlatVocab and the loader. |
-| Remaining 37 APIs | 291 | SIMD, string, base64, and file access helpers. |
+| `__init__` | 8147 | Construction of every value type. Effectively the whole project. |
+| `__mlir_bool__` | 1327 | Every conditional. |
+| `Int` | 1055 | Everything. Token ids, offsets, lengths, every loop counter. |
+| `__eq__` | 560 | Every comparison, including every parity assertion. |
+| `UInt8` | 498 | Byte typing, the substrate of a byte level tokenizer. |
+| `__iter__`, `__next__` | 663 | Every for loop over a list or a range. |
+| `len` | 429 | Every collection traversal. |
+| `__add__`, `__iadd__`, `__sub__`, `__lt__`, `__ge__` | 1223 | Arithmetic and comparison in offset and rank handling. |
+| `__make_tstring` | 330 | Template strings, so every diagnostic message. |
+| `range` | 221 | Every loop. |
+| `append` | 199 | Buffer construction in FlatVocab and the loader. |
+| `Error` | 184 | The error path, which is how Knap reports malformed input instead of panicking. |
+| `SIMD`, `DType`, `uint8`, `simd_width_of`, `lt`, `reduce_and` | 516 | The vectorised classifier and the toolchain assertions. |
+| `is_defined` | 7 | Compile time selection between the scalar and vectorised classifiers. |
+| Remaining APIs | the balance of 17220 | String, base64, dictionary, and file access helpers. |
 
 The shape of this table is the finding, not any individual row. When `Int`,
 `len`, `range`, and the conditional operator are all unstable, an unstable
-API inventory cannot function as an action list. It is a record of what a
+API inventory cannot function as an action list. The count rising from 108 to
+17220 across the project measures how much code was written, not how much
+risk was added: the distinct API count went from 22 to 78, and the newcomers
+are the SIMD and file access helpers, not a new class of exposure. It is a record of what a
 toolchain upgrade might cost, and the proportionate response is to pin the
 compiler exactly, which this project does.
 
@@ -412,10 +515,12 @@ dependency is the pinned compiler itself.
 
 | Question | Status | Resolve by |
 | --- | --- | --- |
-| Can Mojo 1.0.0 build an importable Python extension module? | Not yet investigated. The fallback is `mojo build --emit shared-lib` loaded through `ctypes`, and the public API is being designed with a flat C compatible surface so that path stays open. | M6 Track B. Record the finding here as a fact with a date, not as an assumption. |
+| Can Mojo 1.0.0 build an importable Python extension module? | **Yes.** Resolved 2026-09-08. `PythonModuleBuilder` produces a real CPython extension, so the `ctypes` fallback was never built and the flat C surface it would have needed was never added. Three constraints were found while doing it, all recorded under [Toolchain ground truth](#toolchain-ground-truth): no globals, `add_type` requires `Writable`, and the auto downcast pointer cannot mutate. | Done |
 | Scanner design and transition table | Resolved at M2. Written up under [The scanner](#the-scanner). Ordered alternation rather than a merged state machine, because alternation priority is load bearing. | Done |
-| Two stage table against sorted range binary search | Resolved at M2. Both were measured: 2342 runs and about 21 KB against 135 blocks and 43264 bytes. Sorted runs chosen, because the ASCII fast path means these tables are reached only on the documented slow path. See [docs/UNICODE.md](UNICODE.md). | Done |
-| Piece cache hit rate on real text | Modelled above, not measured. | M5. |
+| Two stage table against sorted range binary search | Resolved at M2, remeasured on Unicode 16.0.0. Sorted runs hold 2391 runs in 15542 bytes; the best two stage layout needs 38272. Sorted runs chosen, because the ASCII fast path means these tables are reached only on the documented slow path. See [docs/UNICODE.md](UNICODE.md). | Done |
+| Piece cache hit rate on real text | Measured at M5. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). | Done |
+| Does the vectorised classifier pay for itself? | **Cannot be resolved on this machine.** Measured 2026-09-08: scalar and vectorised differ by less than one standard deviation over five repetitions. Kept behind `-D KNAP_SIMD=1`, default off, because an unmeasurable gain does not justify a second implementation. | Open, needs a quieter machine or a wider vector unit |
+| Does task parallelism work in Mojo 1.0.0? | **No.** Resolved 2026-09-08. No `parallelize`, and `TaskGroup` aborts at runtime. Batch encoding is single threaded as a consequence, not as a decision. | Revisit on the next compiler release |
 
 ---
 

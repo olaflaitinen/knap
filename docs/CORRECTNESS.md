@@ -29,7 +29,8 @@
 3. [Differential fuzzing](#differential-fuzzing)
 4. [Correctness hazards](#correctness-hazards)
 5. [Current status](#current-status)
-6. [Known divergences](#known-divergences)
+6. [Divergences found and fixed](#divergences-found-and-fixed)
+7. [Known divergences](#known-divergences)
 
 ---
 
@@ -85,22 +86,26 @@ lists across a pipe, and any ambiguity about which `tiktoken` produced a
 reference. The unified environment was verified at M0 and is recorded in
 [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 
-Generators to be implemented, one function each:
+Ten generators, one function each, selected uniformly per input:
 
 | Generator | Targets |
 | --- | --- |
 | Uniform random bytes | Invalid UTF-8, the byte level contract. |
-| Random valid UTF-8 | All planes. |
+| Random valid UTF-8 | All planes, weighted towards the ones that carry text. |
 | Emoji | Zero width joiner sequences, skin tone modifiers, flag sequences. |
-| Scripts without word spacing | CJK, Thai. |
-| Bidirectional and complex scripts | Arabic, Hebrew, Devanagari. |
-| Korean Hangul | Precomposed and decomposed jamo. |
-| Stacked combining marks | Unusual depth. |
-| Single character runs | Spaces, newlines, tabs, mixed whitespace. |
+| Scripts | CJK and Thai without word spacing, Arabic and Hebrew right to left, Devanagari, Hangul both precomposed and decomposed. |
+| Stacked combining marks | Unusual depth, including marks with no base. |
+| Whitespace runs | Spaces, newlines, tabs, and the non-ASCII whitespace the pattern treats as space. |
 | Truncation cases | Text ending mid whitespace and mid multi-byte sequence. |
 | Special token literals | Tested against both allowed and disallowed configurations. |
 | Numeric sequences | Every length from 1 to 20 digits. |
-| Concatenations of the above | Boundary interaction bugs. |
+| Concatenations of the above | Boundary interaction bugs, which is where the whitespace lookahead fails if it fails. |
+
+The concatenation generator matters more than its one line suggests. Most of
+the hazards in this document are boundary conditions, and a boundary needs
+two things on either side of it. A generator that only ever emits one shape
+at a time cannot produce the case where a whitespace run meets a digit run
+meets a contraction.
 
 Every fuzz report records the exact `tiktoken` version and the seed, so any
 reported run can be reproduced. Inputs that once diverged are kept in
@@ -111,6 +116,46 @@ A subset of at least one hundred thousand strings must also pass under
 correct output on one run and corruption on the next, so a divergence found
 under ASan is a different and more urgent class of bug than a plain
 divergence. Which mode found each one is recorded.
+
+### What the sanitizer reported, and who owned it
+
+The first sanitizer run reported several megabytes of leaks. They are real,
+they are reported on every run, and none of them are Knap's. Establishing
+that took two experiments rather than an argument from stack traces:
+
+| Experiment | Result |
+| --- | --- |
+| Knap driven over the same generated inputs with no interpreter in the process | No leaks, no errors, exit status zero |
+| Three lines of Mojo that import `tiktoken` and touch nothing else, with no Knap code in the program at all | All four leaks reproduced at byte identical sizes: 8651344, 5242896, 2406144 and 207552 |
+
+The byte identical sizes are what makes the second experiment conclusive.
+Those allocations are not merely similar to the reported ones. They are the
+reported ones, and they belong to `tiktoken`'s merge rank tables and to
+CPython's interned strings, neither of which is freed because the embedded
+interpreter is never finalised.
+
+The response is two runs rather than a suppression:
+
+- `tests/fuzz/asan_solo.mojo` drives Knap over the same generators with no
+  interpreter in the process, and runs with **no suppression file at all**.
+  This is the run that proves Knap does not leak.
+- The differential run uses `tests/fuzz/lsan.supp`, which suppresses the two
+  reference modules by name and nothing else. This run proves parity holds
+  while the sanitizer watches for memory errors.
+
+Neither claim is strong enough alone. A suppression could hide a Knap leak
+sitting underneath a suppressed frame, and a run without the reference
+cannot check parity at all.
+
+That first sanitizer run also exposed a defect in the fuzzing driver itself,
+which is worth recording because it is the kind of bug that flatters the
+project reporting it. LeakSanitizer exits with status 23 when it reports
+anything. The driver treated any non-zero exit as a shard failure, stopped
+after the first shard, and printed a divergence count of zero from the
+counters the shard had reported before exiting. The run looked clean and
+covered half the inputs it claimed. The driver now separates the two
+questions, and a shard that exits non-zero without a divergence is reported
+as an abort with its own exit status.
 
 ## Correctness hazards
 
@@ -152,22 +197,41 @@ agreement with a reference.
 
 ## Current status
 
-Knap is at M1. **Decode parity is established and encode parity is not**, so
-no general parity claim is made yet.
+Knap is at M6. **Encode and decode parity are both established**, over a
+110 MB corpus and over 20 million generated inputs, with zero divergences
+outstanding.
 
-| Measure | Value | Milestone that fills it |
+| Measure | Value | Milestone |
 | --- | --- | --- |
-| Decode parity, cl100k_base | Verified, all 100277 ids | Done at M1 |
-| Decode parity, o200k_base | Verified, all 200019 ids | Done at M1 |
-| Pre-tokenization parity, cl100k_base | Verified, 28075654 pieces over 110 MB | Done at M2 |
-| Pre-tokenization parity, o200k_base | Verified, 26250703 pieces over 110 MB | Done at M2 |
-| Unicode tables | Verified, all 1114112 code points | Done at M2 |
-| Encode parity, cl100k_base | Verified, 43529983 tokens over 110 MB | Done at M3 |
-| Encode parity, o200k_base | Verified, 36927147 tokens over 110 MB | Done at M3 |
-| Strings fuzzed | 0 | M4 |
-| Divergences found | 0 so far, from decode only | M4 |
-| Fuzz seed | Not yet assigned | M4 |
+| Decode parity, cl100k_base | Verified, all 100277 ids | M1 |
+| Decode parity, o200k_base | Verified, all 200019 ids | M1 |
+| Pre-tokenization parity, cl100k_base | Verified, 28075654 pieces over 110 MB | M2 |
+| Pre-tokenization parity, o200k_base | Verified, 26250703 pieces over 110 MB | M2 |
+| Unicode tables | Verified, all 1114112 code points | M2 |
+| Encode parity, cl100k_base | Verified, 43529983 tokens over 110 MB | M3 |
+| Encode parity, o200k_base | Verified, 36927147 tokens over 110 MB | M3 |
+| Strings fuzzed | 20000000, ten million per encoding | M4 |
+| Of those, compared against the reference | 16661834 | M4 |
+| Of those, round trip checked only | 3338166 | M4 |
+| Divergences outstanding | 0 | M4 |
+| Divergences found and fixed | 1 class, see below | M4 |
+| Strings fuzzed under the address sanitizer | 200000, one hundred thousand per encoding | M4 |
+| Strings driven under the address sanitizer with no interpreter present | 40000, no suppressions, no leaks | M4 |
 | `tiktoken` version used as reference | 0.14.0 | Current |
+
+Every one of those runs is reproducible. The seeds are not summarised here,
+they are written to `tests/fuzz/last_run.json` and
+`tests/fuzz/last_run.address.json` in full, because a fuzzing claim that
+cannot be replayed is an anecdote:
+
+| Run | Base seed | Shards | Shard size | Elapsed |
+| --- | --- | --- | --- | --- |
+| Differential, both encodings | 20260908 | 10 per encoding | 1000000 | 1961 seconds |
+| Differential under the address sanitizer | 1 | 4 per encoding | 25000 | 246 seconds |
+
+The sanitizer run is about twelve times slower per input, at roughly 815
+inputs per second against the unsanitized run's 10200. That ratio is the
+reason the sanitized subset is a subset.
 
 What decode parity means here, stated precisely so it is not read as more
 than it is. Every token id in the full id space of both encodings was decoded
@@ -210,19 +274,51 @@ emits equals the token the reference emits at the same position:
 | cl100k_base | 43529983 | Every token identical |
 | o200k_base | 36927147 | Every token identical |
 
-That is 80.5 million tokens across the two encodings, and it is the first
-end to end parity claim this project can make. It covers the whole pipeline:
-special token splitting, pre-tokenization, byte mapping, and the merge loop.
+That is 80.5 million tokens across the two encodings. It covers the whole
+pipeline: special token splitting, pre-tokenization, byte mapping, and the
+merge loop.
 
-What it does not cover is input the corpus does not contain. The corpus is
+What a corpus cannot cover is input it does not contain. The corpus is
 natural language, prose, and a generated hazard section, which is a very
-different distribution from adversarial input. That is what milestone M4
-exists for, and until it runs the parity claim should be read as "verified on
-110 MB of realistic text" rather than as "verified in general".
+different distribution from adversarial input. That is what the fuzzing gate
+is for, and the fuzzing gate is what found the one real divergence class this
+project has had. The corpus did not, and would not have.
 
 The whole suite passes under `--sanitize address`.
 
 This table is updated after every milestone gate, per the working agreement.
+
+## Divergences found and fixed
+
+One class, found by fuzzing, not by the corpus.
+
+**The reference was matching against a different Unicode version.** After
+19288 inputs the fuzzer produced a string whose pre-token boundary Knap and
+`tiktoken` placed differently. The cause was that the Unicode tables were
+generated from Python's `unicodedata` module, which answers from Unicode
+15.0.0, while the tables `tiktoken`'s pre-tokenization actually matches
+against are 16.0.0. Roughly six hundred code points changed general category
+between those releases, and each one is a boundary in the wrong place.
+
+The full account, including the first attempted fix that was also wrong and
+the probe that finally settled which version the reference behaves as, is in
+[docs/UNICODE.md](UNICODE.md). Three inputs from the hunt are kept in
+`tests/fuzz/corpus_seeds/` and are replayed as regression cases even though
+the bug is fixed.
+
+Two things about this are worth stating plainly, because they are the
+argument for why this gate exists.
+
+The corpus would never have found it. 110 MB of natural language and prose
+contains almost none of the code points that changed category between
+Unicode 15 and 16, and the ones it does contain were not adjacent to a
+boundary that their category decides. The gate that found it generates
+uniformly across the code point space, which no real text does.
+
+And the version a dependency reports is not the version it behaves as. Both
+numbers were available by inspection the whole time, and reading them would
+have given the wrong answer. What settled it was constructing inputs whose
+answer differs between the candidate versions and asking the reference.
 
 ## Known divergences
 

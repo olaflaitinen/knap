@@ -66,7 +66,47 @@ been verified to exist.
 
 ## Current position
 
-M0 through M3 are complete. Every condition below was observed, not inferred.
+**M0 through M6 are complete.** Every condition below was observed, not
+inferred.
+
+M6 delivered both tracks. Track A packages the library for conda, Track B
+exports it to Python as a native extension. Track B was the one the plan
+listed as depending on a capability that had not been verified to exist. It
+exists.
+
+| M6 condition | Evidence |
+| --- | --- |
+| Track A, package builds | `recipe/recipe.yaml`, built by rattler-build to `knap-0.1.0-hb0f4dca_0.conda`, 174.56 KiB. |
+| Track A, package imports without the source tree | The recipe's own test compiles and runs a program against the installed artefact only. Mirrored as a CI job. |
+| Track A, compiler pinned | `mojo-compiler ==1.0.0` in both build and run requirements. A consumer on another toolchain gets a solver error rather than a link error. |
+| Track B, native extension | `PythonModuleBuilder` builds a real CPython extension. The `ctypes` fallback was never needed and the flat C surface it would have required was never added. |
+| Track B, parity through the bindings | `bindings/python/tests/test_bindings.py` checks the bindings against tiktoken directly, rather than trusting the Mojo tests. |
+| Track B, ABI honesty | No wheel is published and the built library is not committed, because the Mojo ABI is not stable and a wheel is a promise that a binary keeps working. |
+
+M5 delivered the vectorised classifier, the piece cache, and the benchmark
+suite. Its real content is that two of the three produced qualified rather
+than triumphant results, and that fixing the benchmark corpus invalidated
+every performance claim the project had made up to that point.
+
+| M5 condition | Evidence |
+| --- | --- |
+| Vectorised classifier written and correct | `src/knap/pretokenize/classifier_simd.mojo`, differentially tested against the scalar one in `tests/test_classifier_parity.mojo`. |
+| Vectorised classifier measured | **Indistinguishable from the scalar path on this machine.** Off by default, kept behind `-D KNAP_SIMD=1`, because an unmeasurable gain does not justify a second implementation. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). |
+| Piece cache written and correct | `src/knap/cache.mojo`, held to the tiktoken reference rather than to the uncached path, in `tests/test_cache.mojo`. |
+| Piece cache measured | Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md), cold and warm, with the memory it holds. |
+| Benchmarks against three baselines | `bench/baselines/`, all reading the same corpus slice by the same rule, checked for agreement before any run. |
+| Benchmark methodology | The suite records the machine, the versions, the effective build target, and the coefficient of variation of every measurement. |
+
+M4 delivered the differential fuzzer. It is the milestone that found the one
+real divergence class this project has had.
+
+| M4 condition | Evidence |
+| --- | --- |
+| Ten million inputs per encoding | 20000000 generated, 16661834 compared against the reference, 3338166 round trip checked, 0 divergences. |
+| Reproducible | Every shard seed is written to `tests/fuzz/last_run.json`. |
+| One hundred thousand under the address sanitizer | 200000 generated, 0 divergences, reported in `tests/fuzz/last_run.address.json`. |
+| Knap proved not to leak | `tests/fuzz/asan_solo.mojo` drives the same generators with no interpreter in the process, and passes with no suppression file. |
+| A divergence found and fixed | The Unicode version mismatch, after 19288 inputs. Three inputs from the hunt are kept as regression seeds. |
 
 M3 delivered the merge rank table, the merge loop, and the public tokenizer
 API with both encode entry points. Its gate, matching `tiktoken.encode`
@@ -91,7 +131,7 @@ across 54.3 million pieces.
 | M2 condition | Evidence |
 | --- | --- |
 | Pattern extracted, not transcribed | `scripts/extract_patterns.py`, with the committed constant checked for drift. |
-| Unicode tables generated | Unicode 15.0.0, 2342 runs, verified against all 1114112 code points. |
+| Unicode tables generated | Unicode 16.0.0, 2391 runs, verified against all 1114112 code points. Generated from 15.0.0 at first, which milestone M4 proved wrong. See [docs/UNICODE.md](UNICODE.md). |
 | Scalar scanner correct | 28075654 and 26250703 piece boundaries identical to the reference over 110 MB. |
 | Both representations measured | Sorted runs against a two stage table, written up in `docs/UNICODE.md`. |
 | Suite under ASan | Passes, including the scanner over the full corpus. |
@@ -138,21 +178,31 @@ creates them. A stub that compiles but does nothing would pass every gate in
 this repository while providing nothing, which is precisely the failure mode
 the no-placeholder rule exists to prevent.
 
-| Path | Created at |
-| --- | --- |
-| `src/knap/cache.mojo`, `config.mojo` | M5, once there is a benchmark to justify the piece cache |
-| `src/knap/pretokenize/classifier_simd.mojo` | M5 |
-| `src/knap/hf/tokenizer_json.mojo` | After M3, experimental |
-| `tests/test_*.mojo` beyond the toolchain smoke test | Alongside the code each one tests |
-| `tests/fuzz/*` | M4 |
-| `bench/*` | M5 |
-| `bindings/python/*` | M6 Track B, if it proves viable |
-| `docs/BENCHMARKS.md` | M5, when there are real numbers to publish |
-| `.github/workflows/bench.yml` | M5, when there is something to benchmark |
+Everything on that list has since been written, except one file, which is
+now a decision rather than a delay:
 
-`.github/workflows/bench.yml` is absent for the same reason as
-`docs/BENCHMARKS.md`. A manually dispatched workflow that runs no benchmarks
-would report success while measuring nothing.
+| Path | Status |
+| --- | --- |
+| `src/knap/cache.mojo`, `config.mojo` | Written at M5. |
+| `src/knap/pretokenize/classifier_simd.mojo` | Written at M5, and measured slower. Kept behind a flag. |
+| `tests/test_*.mojo` | Written alongside the code each one tests. |
+| `tests/fuzz/*` | Written at M4. |
+| `bench/*` | Written at M5. |
+| `bindings/python/*` | Written at M6 Track B. |
+| `docs/BENCHMARKS.md` | Written at M5, from a real run on a described machine. |
+| `.github/workflows/bench.yml` | Written at M5, as a smoke run. It asserts the suite still runs and states plainly that its numbers are not publishable, because a shared runner cannot produce a comparable one. |
+| `src/knap/hf/tokenizer_json.mojo` | **Not written. Moved to the deferred list below.** |
+
+The Hugging Face loader is the one file from the original layout that does
+not exist, and the reason is worth stating rather than leaving as an empty
+row. Loading a `tokenizer.json` is not a file format exercise. That format
+carries its own pre-tokenizer specification, its own added token rules, and
+vocabularies built by a different pipeline, so a loader for it needs its own
+parity corpus and its own reference implementation before any of its output
+can be trusted. Shipping one without that would put an unverified path
+inside a library whose entire claim is verification. It is a project of the
+same size as milestones M2 and M3 together, and it is listed below with the
+other work that is deferred by decision.
 
 Two files exist that the original layout did not list. Both are additions
 rather than substitutions, and neither creates a parallel directory:
@@ -178,6 +228,8 @@ Each of these is a decision, not an oversight.
 | Normalization pipelines, NFC and NFKC | `cl100k_base` and `o200k_base` do not normalize. Adding a normalizer that is not needed can only introduce divergence. |
 | Chat templates | A serving concern layered above tokenization, not part of it. |
 | GPU tokenization | The merge loop does not vectorize on a CPU and will not on a GPU. The pre-tokenizer might, but the transfer cost would dominate at realistic input sizes. |
+| Hugging Face `tokenizer.json` loading | Deferred from the original layout, where it was listed as experimental. The format specifies its own pre-tokenizer rather than reusing either pattern Knap implements, so it needs a second parity corpus and a second reference implementation, which is the work of two milestones rather than one file. The dependency evaluated for it, EmberJson, passed its acceptance criteria and the finding is kept in [docs/ARCHITECTURE.md](ARCHITECTURE.md) for whoever picks this up. |
+| Parallel batch encoding | Not deferred by choice. Mojo 1.0.0 has no working task parallelism, so there is nothing to build it on. See [docs/ARCHITECTURE.md](ARCHITECTURE.md). |
 | Single document parallelism | A pattern match may span a chunk boundary, so independent chunks can produce different tokens. Reproducing the boundary adjustment logic correctly is a project of its own. See `docs/ARCHITECTURE.md`. |
 | Additional vocabularies beyond the two targeted | Each additional vocabulary multiplies the fuzzing and golden fixture cost. Add them only when the parity methodology has proven itself on two. |
 

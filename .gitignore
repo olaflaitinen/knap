@@ -44,3 +44,9 @@ tests/golden/**/*.jsonl
 
 # Exhaustive Unicode reference, written by scripts/gen_unicode_tables.py.
 tests/golden/unicode_classes.txt
+
+# Unicode Character Database, fetched by scripts/gen_unicode_tables.py.
+tests/fixtures/ucd/
+
+# Built Python extension, produced by bindings/python/build.py.
+bindings/python/build/

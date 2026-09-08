@@ -1,0 +1,236 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# For defects that are not parity divergences.
+#
+# A wrong token id has its own form, because it is a different investigation
+# with different evidence. This one covers everything else: crashes, hangs,
+# build failures, packaging problems, and errors raised where they should not
+# be or not raised where they should.
+
+name: Bug report
+description: Something is broken, and it is not a difference in token ids.
+title: "[Bug] "
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If Knap produced different token ids from the reference
+        implementation, please use the Parity divergence form instead. That
+        is a different investigation and it needs different evidence.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I have searched existing issues.
+          required: true
+        - label: I am using the pinned Mojo toolchain, or I have said below which one I am using.
+          required: true
+        - label: I have included the complete error output rather than a summary of it.
+          required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: What kind of problem is this
+      options:
+        - "Crash, abort, or segmentation fault"
+        - "Hang, or it never terminates"
+        - "An error was raised that should not have been"
+        - "No error was raised where one should have been"
+        - "A special token was encoded when it should have been refused"
+        - "A special token was refused when it should have been encoded"
+        - "Round trip failure, decode did not return the input bytes"
+        - "Wrong error message, or one that does not identify the cause"
+        - "Memory use is far higher than expected"
+        - "Build failure, compiling Knap itself"
+        - "Build failure, compiling the Python bindings"
+        - "Packaging or installation failure, conda"
+        - "Packaging or installation failure, uv or pixi"
+        - "The Python bindings import but misbehave"
+        - "A standards gate or CI job fails on unmodified code"
+        - "A test fails on unmodified code"
+        - "Documentation describes behaviour that does not exist"
+        - "Something else, described below"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How badly does it affect you
+      options:
+        - "Blocking, there is no workaround"
+        - "Blocking, but I have a workaround"
+        - "Serious, it makes something much harder"
+        - "Minor, it is an annoyance"
+        - "Cosmetic"
+        - "I am reporting it for completeness, it does not affect me"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed, in the order you observed it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What you expected instead
+      description: |
+        Please say this explicitly even when it seems obvious. A surprising
+        number of reports turn out to be a disagreement about intended
+        behaviour rather than a defect, and that is worth finding out early.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: |
+        The smallest program, command, or sequence that shows the problem,
+        complete enough to paste and run.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Complete output
+      description: |
+        Everything the run printed, including the parts that look irrelevant.
+        Do not trim it to the line you think matters.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: knap-version
+    attributes:
+      label: Knap version or commit
+      placeholder: "0.1.0, or the commit hash"
+    validations:
+      required: true
+
+  - type: input
+    id: mojo-version
+    attributes:
+      label: Mojo toolchain version
+      description: The output of `mojo --version`, including the build hash.
+      placeholder: "Mojo 1.0.0 (ed45d567)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - "Ubuntu Linux"
+        - "Debian Linux"
+        - "Fedora, RHEL, or a derivative"
+        - "Arch Linux or a derivative"
+        - "Another Linux distribution"
+        - "macOS on Apple silicon"
+        - "macOS on Intel"
+        - "Windows, under WSL 2"
+        - "Windows, under WSL 1"
+        - "Windows, natively"
+        - "A container image, base named below"
+        - "Something else"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: CPU architecture
+      options:
+        - "x86-64, AMD"
+        - "x86-64, Intel"
+        - "arm64 or aarch64, Apple silicon"
+        - "arm64 or aarch64, other"
+        - "Something else"
+        - "I do not know"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: How the environment was created
+      options:
+        - "uv, with the committed lockfile"
+        - "uv, without the lockfile"
+        - "pixi, with the committed lockfile"
+        - "pixi, without the lockfile"
+        - "conda or mamba, from the modular-community channel"
+        - "A container image"
+        - "Manually, by hand"
+        - "Something else"
+        - "I do not know"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build-flags
+    attributes:
+      label: Build configuration
+      options:
+        - "Default"
+        - "With -D KNAP_SIMD=1"
+        - "With --sanitize address"
+        - "With --sanitize thread"
+        - "With --Werror"
+        - "More than one of the above, listed below"
+        - "I do not know"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: clean-checkout
+    attributes:
+      label: Does it reproduce on a clean checkout
+      description: |
+        A clean checkout with freshly fetched vocabularies and regenerated
+        references. Stale generated files are a common cause.
+      options:
+        - "Yes, it reproduces on a clean checkout"
+        - "No, it goes away on a clean checkout"
+        - "Not tried"
+        - "Does not apply, this is not a repository level problem"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sanitizer
+    attributes:
+      label: Under the address sanitizer
+      options:
+        - "Reproduces, and the sanitizer reported an error"
+        - "Reproduces, with no sanitizer error"
+        - "Does not reproduce under the sanitizer"
+        - "Not tried"
+        - "The sanitizer build itself fails, which is the bug"
+        - "Does not apply"
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: |
+        Available memory, whether the machine was under load, filesystem
+        type, and anything unusual about how Knap was invoked.
+    validations:
+      required: false

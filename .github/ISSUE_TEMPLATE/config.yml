@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Issue template configuration.
+#
+# Blank issues are disabled. Not to make reporting harder, but because the
+# forms ask for the things that decide whether a report can be acted on, and
+# a free text issue almost always has to be sent back for the version
+# numbers, the exact bytes, and how the reference output was obtained.
+#
+# The security row is deliberately not an issue form. A tokenizer sits on the
+# boundary between untrusted input and a model prompt, so a report about
+# special token handling under adversarial input should not be public before
+# it is understood.
+
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security report
+    url: https://github.com/olaflaitinen/knap/security/advisories/new
+    about: >-
+      Report a vulnerability privately. Use this rather than a public issue
+      for anything involving special token injection, refusal being bypassed,
+      or memory safety reachable from untrusted input.
+
+  - name: Question about how to use Knap
+    url: https://github.com/olaflaitinen/knap/discussions
+    about: >-
+      For usage questions rather than defects. If it turns out to be a bug we
+      will move it to an issue.
+
+  - name: Read the correctness documentation first
+    url: https://github.com/olaflaitinen/knap/blob/main/docs/CORRECTNESS.md
+    about: >-
+      What parity means here, what is verified, what is not, and the list of
+      known divergences.
+
+  - name: Read the published benchmarks first
+    url: https://github.com/olaflaitinen/knap/blob/main/docs/BENCHMARKS.md
+    about: >-
+      Including the section on what the numbers do not mean. Knap does not
+      claim to be the fastest implementation and publishes the cases where
+      the Rust implementations win.

@@ -1,0 +1,226 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# For performance reports.
+#
+# This form asks hard questions about how a number was obtained, and it does
+# so deliberately. This project has already published two confident
+# performance claims that turned out to be measurements of the wrong thing,
+# both because of the input rather than the code. The questions below are the
+# ones that would have caught them.
+
+name: Performance report
+description: Something is slower, or heavier, than you expected.
+title: "[Performance] "
+labels: ["performance", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Knap does not claim to be the fastest byte level BPE tokenizer, and
+        `docs/BENCHMARKS.md` publishes the cases where the Rust
+        implementations win. A report that Knap is slower than `rs-bpe` is
+        not news. A report that it is far slower than the numbers in that
+        document, on comparable hardware, very much is.
+
+        Please read the "What these numbers do not mean" section of
+        `docs/BENCHMARKS.md` before filling this in.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I have read the published numbers in `docs/BENCHMARKS.md` and I am comparing against those rather than against an expectation.
+          required: true
+        - label: My measurement excludes start up costs, or I have said below that it does not.
+          required: true
+        - label: The machine was not running anything else while I measured, or I have said below that it was.
+          required: true
+
+  - type: dropdown
+    id: what-is-slow
+    attributes:
+      label: What is slow
+      options:
+        - "Encode throughput, one large document"
+        - "Encode throughput, many small documents"
+        - "Encode latency, short strings"
+        - "Pre-tokenization alone"
+        - "The merge loop alone"
+        - "Decode throughput"
+        - "Vocabulary loading, at start up"
+        - "Rank table construction, at start up"
+        - "Compile time"
+        - "Memory use, steady state"
+        - "Memory use, peak"
+        - "The piece cache is slower than not using one"
+        - "The vectorised classifier is slower than the scalar one"
+        - "Something else, described below"
+    validations:
+      required: true
+
+  - type: input
+    id: measured-value
+    attributes:
+      label: The value you measured
+      description: With units. Say which encoding it applies to.
+      placeholder: "0.9 MB/s, cl100k_base"
+    validations:
+      required: true
+
+  - type: input
+    id: expected-value
+    attributes:
+      label: The value you expected, and where it came from
+      placeholder: "3.44 MB/s, from docs/BENCHMARKS.md"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how-measured
+    attributes:
+      label: How the number was produced
+      options:
+        - "bench/run_all.sh, unmodified"
+        - "One of the benchmarks in bench/, run directly"
+        - "My own harness, using a monotonic clock"
+        - "My own harness, using wall clock time"
+        - "The time command around a whole process"
+        - "A sampling profiler"
+        - "An instrumenting profiler"
+        - "Informal timing, printed timestamps"
+        - "I did not measure it, this is an impression"
+    validations:
+      required: true
+
+  - type: input
+    id: iterations
+    attributes:
+      label: Iterations, and the coefficient of variation across them
+      description: |
+        A single timing is not a measurement. If you do not have a spread,
+        say how many iterations you ran and that the spread is unknown.
+      placeholder: "5 iterations, cv 0.04"
+    validations:
+      required: true
+
+  - type: textarea
+    id: input-description
+    attributes:
+      label: What text you measured on
+      description: |
+        This field decides whether the report is usable, so please be exact.
+        Language or script, how large, where it came from, and how repetitive
+        it is. Piece length is the single variable this pipeline is most
+        sensitive to, and a corpus of repeated boilerplate can be five times
+        faster than prose while looking like the same benchmark.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: input-shape
+    attributes:
+      label: Which best describes that text
+      options:
+        - "Natural language prose, Latin script"
+        - "Natural language prose, mixed scripts"
+        - "Natural language, mostly CJK"
+        - "Natural language, mostly right to left scripts"
+        - "Source code"
+        - "Structured data, JSON, XML, or similar"
+        - "Logs or machine generated text"
+        - "Mostly digits"
+        - "Mostly whitespace or punctuation"
+        - "Highly repetitive or synthetic"
+        - "Random bytes"
+        - "A mixture, described above"
+    validations:
+      required: true
+
+  - type: input
+    id: cpu
+    attributes:
+      label: CPU model
+      description: The `model name` line from `/proc/cpuinfo`, or the equivalent.
+      placeholder: "AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx"
+    validations:
+      required: true
+
+  - type: input
+    id: memory
+    attributes:
+      label: Memory available to the process
+      description: |
+        Not the machine's total if you are in a container or a virtual
+        machine. Knap's published numbers were taken with under three
+        gigabytes, and throughput on that machine is not flat in input size.
+      placeholder: "2949352 kB"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: virtualisation
+    attributes:
+      label: Where it ran
+      options:
+        - "Bare metal"
+        - "Windows under WSL 2"
+        - "A Docker or Podman container"
+        - "A virtual machine"
+        - "A cloud instance, shared tenancy"
+        - "A cloud instance, dedicated"
+        - "A continuous integration runner"
+        - "Something else"
+        - "I do not know"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: machine-idle
+    attributes:
+      label: Was the machine otherwise idle
+      options:
+        - "Yes, nothing else was running"
+        - "Mostly, background services only"
+        - "No, other work was running"
+        - "I do not know"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build-config
+    attributes:
+      label: Build configuration
+      options:
+        - "Default, release build"
+        - "With -D KNAP_SIMD=1"
+        - "With a sanitizer enabled"
+        - "A debug build"
+        - "Installed conda package"
+        - "Through the Python bindings"
+        - "I do not know"
+    validations:
+      required: true
+
+  - type: textarea
+    id: raw-output
+    attributes:
+      label: Raw output
+      description: |
+        If you used `bench/run_all.sh`, attach the whole file it wrote to
+        `bench/results/`. It records the machine, the versions, the effective
+        build target, and the corpus digest, which is most of what makes a
+        number comparable.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: profile
+    attributes:
+      label: Profile output, if you have one
+      description: Where the time went, if you looked.
+      render: shell
+    validations:
+      required: false

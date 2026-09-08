@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# For documentation defects.
+#
+# Kept separate from the bug form on purpose. This project has already
+# published documents asserting performance figures that were measurements of
+# the wrong input, and they survived for a while because nobody had a place
+# to say "this number looks wrong" that was not also a code bug report.
+
+name: Documentation problem
+description: A document is wrong, out of date, unclear, or missing.
+title: "[Docs] "
+labels: ["documentation", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A document that asserts something false is treated here as seriously
+        as code that computes something false. If a number in
+        `docs/BENCHMARKS.md` does not match what you measure, or a claim in
+        `docs/CORRECTNESS.md` does not match what you observe, that is a
+        defect and this is the right form.
+
+  - type: dropdown
+    id: document
+    attributes:
+      label: Which document
+      options:
+        - "README.md"
+        - "docs/ARCHITECTURE.md"
+        - "docs/BENCHMARKS.md"
+        - "docs/CORRECTNESS.md"
+        - "docs/ROADMAP.md"
+        - "docs/STYLE.md"
+        - "docs/UNICODE.md"
+        - "CONTRIBUTING.md"
+        - "CHANGELOG.md"
+        - "THIRD_PARTY_NOTICES.md"
+        - "AUTHORS.md"
+        - "CITATION.cff"
+        - "bindings/python/README.md"
+        - "A docstring in the source"
+        - "A comment in the source"
+        - "An issue or pull request template"
+        - "Something else"
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Where in it
+      description: Section heading, table row, or line number.
+      placeholder: "The piece cache, the o200k_base table, shared cache row"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: problem-kind
+    attributes:
+      label: What is wrong with it
+      options:
+        - "It states something that is factually false"
+        - "It was true once and is now out of date"
+        - "It contradicts another document in this repository"
+        - "It contradicts the code"
+        - "A number in it does not match what I measure"
+        - "It is ambiguous, and I read it the wrong way"
+        - "Something is missing that I expected to find"
+        - "A link is broken"
+        - "A code example does not run"
+        - "A command does not work as written"
+        - "A typographical or grammatical error"
+        - "It uses a character the repository standard forbids"
+        - "Something else"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-text
+    attributes:
+      label: What it says now
+      description: Quote it, so there is no doubt which sentence is meant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-text
+    attributes:
+      label: What it should say instead
+      description: |
+        A rough replacement is fine. Getting the substance right matters more
+        than getting the wording right, and the wording can be settled in
+        review.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: |
+        For a factual correction, what you observed and how. For a
+        contradiction, both places, quoted. For a number, your measurement
+        and the machine it came from.
+    validations:
+      required: false

@@ -1,0 +1,277 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# The most important issue form in this repository.
+#
+# Knap's entire claim is that it produces byte identical output to the
+# reference implementation. A report that it does not is the highest priority
+# thing this project can receive, and it is worth asking for a great deal of
+# detail, because a divergence that cannot be reproduced cannot be fixed and
+# a divergence that is fixed without a regression test comes back.
+
+name: Parity divergence
+description: Knap produced different token ids from the reference implementation.
+title: "[Parity] "
+labels: ["parity", "needs triage", "priority high"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting this. Parity is the whole product, so this
+        form asks for more than most.
+
+        Please fill in everything you can. A field you cannot answer is fine
+        and there is an option for that in every list. A field you guess at
+        is not fine, because a wrong version number can cost days.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      description: These four save everyone time.
+      options:
+        - label: I have checked that the input is the same on both sides, byte for byte, and not merely the same text after some transformation.
+          required: true
+        - label: I have checked `docs/CORRECTNESS.md` under Known divergences.
+          required: true
+        - label: I understand that malformed UTF-8 has no reference behaviour, because the reference implementation cannot accept it, and that Knap only promises a round trip there.
+          required: true
+        - label: I have searched existing issues for the same byte sequence.
+          required: false
+
+  - type: dropdown
+    id: encoding
+    attributes:
+      label: Which encoding
+      options:
+        - cl100k_base
+        - o200k_base
+        - Both, with the same input
+        - Both, with different inputs
+        - An encoding Knap does not ship, loaded from my own vocabulary file
+        - I do not know
+    validations:
+      required: true
+
+  - type: dropdown
+    id: entry-point
+    attributes:
+      label: Which entry point produced the wrong output
+      options:
+        - encode_ordinary
+        - encode_ordinary_bytes
+        - encode, with an allowed special set
+        - encode_bytes, with an allowed special set
+        - encode_ordinary_cached
+        - encode_ordinary_bytes_cached
+        - encode_cached
+        - encode_bytes_cached
+        - decode
+        - decode_bytes
+        - The Python bindings, encode_ordinary
+        - The Python bindings, encode
+        - The Python bindings, decode or decode_bytes
+        - Something else, described below
+        - I do not know
+    validations:
+      required: true
+
+  - type: textarea
+    id: input-hex
+    attributes:
+      label: The input, as lowercase hexadecimal
+      description: |
+        Hexadecimal rather than text, because a diverging input is very often
+        unprintable, and a report that mangles the bytes it is reporting is
+        worse than no report. In Python:
+        `open("input.bin","rb").read().hex()`
+      placeholder: "48656c6c6f2c20776f726c64"
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: input-validity
+    attributes:
+      label: Is that input well formed UTF-8
+      description: |
+        If it is not, Knap makes no parity claim about it. It promises only
+        that encoding and then decoding returns the same bytes.
+      options:
+        - "Yes, it is well formed UTF-8"
+        - "No, it contains malformed sequences"
+        - "No, it contains unpaired surrogates"
+        - "No, it contains over long encodings"
+        - "No, it contains code points above U+10FFFF"
+        - I do not know
+    validations:
+      required: true
+
+  - type: textarea
+    id: knap-output
+    attributes:
+      label: The token ids Knap produced
+      description: The full list, not an excerpt, unless it runs to thousands.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference-output
+    attributes:
+      label: The token ids the reference produced
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: first-difference
+    attributes:
+      label: Index of the first differing token
+      description: Zero based. Write "length only" if the lists agree until one ends.
+      placeholder: "17"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: reference-source
+    attributes:
+      label: Where the reference output came from
+      options:
+        - "tiktoken, called in Python"
+        - "tiktoken, through the Knap differential fuzzer"
+        - "rs-bpe"
+        - "Hugging Face tokenizers"
+        - "The OpenAI tokenizer web page"
+        - "A model provider's API returning a token count"
+        - "Another implementation, named below"
+        - "A published table or blog post"
+        - I do not know
+    validations:
+      required: true
+
+  - type: input
+    id: reference-version
+    attributes:
+      label: Exact version of the reference
+      description: |
+        For tiktoken, `python -c "import tiktoken; print(tiktoken.__version__)"`.
+        This matters more than it looks: a divergence in this project was once
+        caused by the reference and Knap disagreeing about which Unicode
+        version they were matching against.
+      placeholder: "0.14.0"
+    validations:
+      required: true
+
+  - type: input
+    id: knap-version
+    attributes:
+      label: Knap version or commit
+      placeholder: "0.1.0, or the commit hash"
+    validations:
+      required: true
+
+  - type: input
+    id: mojo-version
+    attributes:
+      label: Mojo toolchain version
+      description: The output of `mojo --version`, including the build hash.
+      placeholder: "Mojo 1.0.0 (ed45d567)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build-flags
+    attributes:
+      label: How was Knap built
+      options:
+        - "Default, scalar classifier"
+        - "With -D KNAP_SIMD=1"
+        - "Both, and they agree with each other"
+        - "Both, and they disagree with each other"
+        - "Installed as a conda package"
+        - "Through the Python bindings, built locally"
+        - I do not know
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cache-used
+    attributes:
+      label: Was the piece cache in use
+      description: |
+        The cache is opt in. It is held to the same reference the uncached
+        path is held to, but it is still the newest code in the encode path.
+      options:
+        - "No, the uncached entry points"
+        - "Yes, with a cache the caller created"
+        - "Tried both, they agree with each other"
+        - "Tried both, they disagree with each other"
+        - I do not know
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: A command or program that reproduces it
+      description: |
+        The smallest thing that fails. If you reduced the input, say so and
+        give the original size as well, because the reduction may have
+        changed which alternative of the pattern matched.
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sanitizer
+    attributes:
+      label: Does it reproduce under a sanitizer
+      description: |
+        A divergence found under the address sanitizer is a different and more
+        urgent class of bug, because memory corruption can produce a correct
+        answer on one run and a wrong one on the next.
+      options:
+        - "Yes, under --sanitize address, and the sanitizer also reported an error"
+        - "Yes, under --sanitize address, with no sanitizer error"
+        - "Yes, under --sanitize thread"
+        - "No, it disappears under a sanitizer"
+        - "Not tried"
+        - "I do not know how to try"
+    validations:
+      required: true
+
+  - type: input
+    id: fuzz-seed
+    attributes:
+      label: Fuzzer seed, if the differential fuzzer found this
+      description: Every shard seed is written to `tests/fuzz/last_run.json`.
+      placeholder: "20260908"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How reliably does it happen
+      options:
+        - "Every time, with the same input"
+        - "Every time, but only after encoding something else first"
+        - "Intermittently, same input, same process"
+        - "Intermittently, only across separate processes"
+        - "Once, and I have not reproduced it since"
+        - I do not know
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: |
+        Locale, filesystem encoding, how the input reached your program, and
+        whether it passed through any normalisation on the way. Knap does not
+        normalise, and neither do the encodings it implements, so a
+        normalising step upstream is a common explanation.
+    validations:
+      required: false

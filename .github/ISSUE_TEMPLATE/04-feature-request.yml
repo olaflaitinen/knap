@@ -1,0 +1,156 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# For proposals.
+#
+# The questions about verification are not bureaucracy. Knap's only claim is
+# that its output is byte identical to a reference, and a feature with no
+# reference to be verified against cannot inherit that claim. Working out
+# what would prove a proposal correct is usually the largest part of it, and
+# it is better done before the code than after.
+
+name: Feature request
+description: Propose something Knap does not do yet.
+title: "[Feature] "
+labels: ["enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please read the "Deferred beyond version 1" table in
+        `docs/ROADMAP.md` first. Several obvious requests are already there
+        with reasons, including BPE training, offset mapping, WordPiece and
+        SentencePiece, normalization pipelines, chat templates, GPU
+        tokenization, and Hugging Face `tokenizer.json` loading.
+
+        A request to reconsider one of those is welcome. It is just a
+        different conversation from a request for something nobody has
+        thought about, so please say which it is.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I have read the deferred list in `docs/ROADMAP.md`.
+          required: true
+        - label: I understand that Knap is licensed under the EUPL 1.2, which is a copyleft licence, and that a contribution would be under the same terms.
+          required: true
+        - label: I have searched existing issues.
+          required: true
+
+  - type: dropdown
+    id: relationship-to-roadmap
+    attributes:
+      label: Is this already on the deferred list
+      options:
+        - "No, it is not mentioned anywhere"
+        - "Yes, and I am asking to reconsider it"
+        - "Yes, but I think the stated reason no longer holds"
+        - "It is adjacent to something on the list, explained below"
+        - "I do not know"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: What kind of change is this
+      options:
+        - "Support for another tiktoken encoding"
+        - "Support for another vocabulary file format"
+        - "A new entry point on the existing API"
+        - "A change to an existing entry point"
+        - "A performance improvement"
+        - "Reduced memory use"
+        - "Packaging or distribution"
+        - "A binding for another language"
+        - "Tooling, scripts, or continuous integration"
+        - "Documentation"
+        - "Something else"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you are proposing
+      description: What Knap would do that it does not do now.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem it solves
+      description: |
+        What you are actually trying to do, and what stops you today. A
+        concrete blocked task is far more useful than a general capability,
+        because it usually turns out there are several ways to unblock it.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: changes-output
+    attributes:
+      label: Would this change the token ids Knap produces for existing input
+      description: |
+        An output change is breaking even when the public API is untouched,
+        because consumers pin token ids into caches, datasets, and evaluation
+        results.
+      options:
+        - "No, existing output is untouched"
+        - "Yes, and I think that is acceptable because of the reason below"
+        - "Only for input that currently raises an error"
+        - "Only under a new opt in flag or entry point"
+        - "I do not know"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: What reference implementation would this be verified against
+      description: |
+        Name it, with a version. If there is no reference, say so plainly.
+        That is not automatically a refusal, but it changes what the feature
+        can claim, and the answer belongs in the discussion rather than in a
+        later surprise.
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: How would correctness be proven
+      description: |
+        What corpus, what fixtures, what would the fuzzer generate, and what
+        would a failure look like. For a new pre-tokenization pattern this is
+        the bulk of the work, not the parsing.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you offering to implement it
+      options:
+        - "Yes, and I have read CONTRIBUTING.md and docs/STYLE.md"
+        - "Yes, if the approach is agreed first"
+        - "Yes, but I would need guidance on the Mojo side"
+        - "Yes, but I would need guidance on the verification side"
+        - "Partly, I could do some of it"
+        - "No, I am proposing it for someone else to build"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: |
+        Including doing it outside Knap. A wrapper in the calling code is
+        sometimes the right answer, and saying why it is not here makes the
+        case stronger rather than weaker.
+    validations:
+      required: false

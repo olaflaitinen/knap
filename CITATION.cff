@@ -27,6 +27,8 @@ authors:
     affiliation: >-
       School of Information and Communication Technology, Metropolia
       University of Applied Sciences
+repository-code: "https://github.com/olaflaitinen/knap"
+url: "https://github.com/olaflaitinen/knap"
 license: EUPL-1.2
 version: "0.1.0"
 date-released: "2026-09-07"

@@ -42,7 +42,7 @@ distribution and work inside it.
 The primary environment is `uv`:
 
 ```bash
-git clone <repository-url> knap
+git clone https://github.com/olaflaitinen/knap.git knap
 cd knap
 uv sync --group dev
 ```
@@ -51,7 +51,7 @@ The alternate environment is `pixi`, which pulls Mojo from the stable `max`
 conda channel:
 
 ```bash
-git clone <repository-url> knap
+git clone https://github.com/olaflaitinen/knap.git knap
 cd knap
 pixi install
 ```

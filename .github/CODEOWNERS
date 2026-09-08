@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Review ownership for Knap.
+#
+# One maintainer, so every line names the same person. That looks redundant
+# and is not: with branch protection requiring review from a code owner, this
+# file is what makes the requirement apply, and the per path entries below
+# are what a second maintainer would inherit if one ever appears.
+#
+# The paths listed separately are the ones where a careless change is
+# expensive and the reason is not obvious from the diff. They are not more
+# owned than anything else. They are here so that a future rule requiring
+# extra review on sensitive paths has somewhere to attach.
+
+# Everything.
+*                                   @olaflaitinen
+
+# The encode path. A change here can alter token ids, which breaks every
+# consumer that has cached them, and the parity gates are the only thing
+# standing between a subtle mistake and a silently wrong tokenizer.
+/src/knap/tokenizer.mojo            @olaflaitinen
+/src/knap/bpe.mojo                  @olaflaitinen
+/src/knap/ranks.mojo                @olaflaitinen
+/src/knap/byte_map.mojo             @olaflaitinen
+/src/knap/cache.mojo                @olaflaitinen
+/src/knap/pretokenize/              @olaflaitinen
+
+# The refusal logic for special tokens. This is the security relevant part of
+# the library: a marker in untrusted input that encodes to a control token id
+# is prompt injection. See SECURITY.md.
+/src/knap/special.mojo              @olaflaitinen
+
+# Generated data. These are not edited by hand, and a hand edit that survives
+# review would be reverted by the next generator run, silently.
+/src/knap/pretokenize/pattern.mojo  @olaflaitinen
+/src/knap/pretokenize/unicode_tables.mojo @olaflaitinen
+/scripts/gen_                       @olaflaitinen
+/scripts/ucd.py                     @olaflaitinen
+
+# The gates themselves. Weakening one of these is the cheapest way to make
+# the whole repository stop meaning anything, and it would not look like much
+# in a diff.
+/scripts/                           @olaflaitinen
+/.github/workflows/                 @olaflaitinen
+
+# The evidence. Changing a published number without changing the run behind
+# it is how a benchmark document becomes fiction.
+/docs/BENCHMARKS.md                 @olaflaitinen
+/docs/CORRECTNESS.md                @olaflaitinen
+/bench/results/                     @olaflaitinen
+/tests/fuzz/last_run.json           @olaflaitinen
+/tests/fuzz/last_run.address.json   @olaflaitinen

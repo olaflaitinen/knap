@@ -206,6 +206,22 @@ tokenizer with no Python interpreter in the process, you want the SIMD
 pre-tokenizer as a standalone module, or you are interested in the parity
 methodology itself.
 
+## Getting help, and helping
+
+| You want to | Go here |
+| --- | --- |
+| Ask how to do something, or find out whether a question is already answered | [SUPPORT.md](SUPPORT.md) |
+| Report different token ids from `tiktoken` | The parity divergence issue form. It is the highest priority report this project takes. |
+| Report a vulnerability | [SECURITY.md](SECURITY.md), privately, not as an issue |
+| Contribute code | [CONTRIBUTING.md](CONTRIBUTING.md), then [docs/STYLE.md](docs/STYLE.md) |
+| Understand what is expected of participants | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+
+The issue forms ask for a great deal. That is deliberate. A parity report
+without the exact bytes, the reference version, and how the reference output
+was obtained cannot be acted on, and asking for those up front costs the
+reporter less than a round trip does. Every closed question offers an option
+for not knowing, so nothing forces a guess.
+
 ## Citation
 
 If you use Knap in academic work, cite it through the `CITATION.cff` file in

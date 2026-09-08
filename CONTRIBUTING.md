@@ -33,14 +33,32 @@
 
 ## Contents
 
-1. [Development setup](#development-setup)
-2. [Running the checks](#running-the-checks)
-3. [Running the tests](#running-the-tests)
-4. [Running the fuzzer](#running-the-fuzzer)
-5. [Style rules](#style-rules)
-6. [Pull request rules](#pull-request-rules)
+1. [Before you start](#before-you-start)
+2. [Development setup](#development-setup)
+3. [Running the checks](#running-the-checks)
+4. [Running the tests](#running-the-tests)
+5. [Running the fuzzer](#running-the-fuzzer)
+6. [Style rules](#style-rules)
+7. [Pull request rules](#pull-request-rules)
 
 ---
+
+## Before you start
+
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). Its
+one project specific section is worth reading even if you have read the
+Contributor Covenant a hundred times: this repository asks for evidence
+rather than reasoning, so being told that a claim does not survive checking
+is the project working, not an attack.
+
+If you have found a security problem rather than a bug, stop here and read
+[SECURITY.md](SECURITY.md). A tokenizer sits between untrusted input and a
+model prompt, and a special token that encodes when it should have been
+refused is prompt injection rather than a defect.
+
+If you are not sure your change is wanted, [SUPPORT.md](SUPPORT.md) says
+where to ask, and the deferred list in [docs/ROADMAP.md](docs/ROADMAP.md)
+records what has already been decided against and why.
 
 ## Development setup
 

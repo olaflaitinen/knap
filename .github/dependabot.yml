@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Dependency updates for Knap.
+#
+# Two ecosystems, and neither of them is Mojo.
+#
+# The Mojo compiler is pinned exactly, to 1.0.0, and Dependabot must never
+# touch that. Every number in docs/BENCHMARKS.md, every gate result, and the
+# whole unstable API inventory in docs/ARCHITECTURE.md are measured against
+# that one compiler. A pull request bumping it would not be a dependency
+# update, it would be a request to re-verify the entire project, and that is
+# a decision a person makes rather than a bot.
+#
+# What is watched is everything around it: the GitHub Actions that run the
+# gates, and the Python development tools that generate the references and
+# provide the baselines.
+#
+# One caution about the Python group. tiktoken is the reference
+# implementation, not an ordinary dependency. A version bump there can change
+# what parity means, and it has: the Unicode version mismatch this project
+# fixed was a disagreement between Knap and the reference about which tables
+# were being matched against. Any tiktoken update must be treated as a
+# correctness change, run against the 110 MB corpus gate and the fuzzer, and
+# reflected in the version recorded in docs/CORRECTNESS.md. The label below
+# exists to make that impossible to miss in a list of pull requests.
+
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: scope
+    labels:
+      - dependencies
+      - continuous integration
+
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build"
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      # Grouped so that routine tool updates arrive as one pull request
+      # rather than five, and so the reference implementation is never one
+      # of the five that gets waved through with them.
+      development-tools:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "tiktoken"
+          - "tokenizers"
+          - "rs-bpe"
+          - "regex"
+    ignore:
+      # Never. See the comment at the top of this file.
+      - dependency-name: "mojo"
+      - dependency-name: "mojo-compiler"
+      - dependency-name: "max"

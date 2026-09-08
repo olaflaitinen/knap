@@ -18,7 +18,7 @@ because most of what this README describes is planned rather than built.
 | --- | --- | --- |
 | Toolchain, standards gates, CI | Working | M0, complete |
 | Vocabulary loading and decode | Working, decode parity verified | M1, complete |
-| Pre-tokenizer, scalar | Not started | M2 |
+| Pre-tokenizer, scalar | Working, boundary parity verified | M2, complete |
 | BPE merge and encode | Not started | M3 |
 | Differential fuzzing against `tiktoken` | Not started | M4 |
 | SIMD classifier and benchmarks | Not started | M5 |
@@ -40,16 +40,22 @@ correctness for speed, correctness wins.
 | Measure | Value |
 | --- | --- |
 | Token ids decoded and compared against `tiktoken` | 300296, every id in both encodings |
-| Decode divergences found | 0 |
+| Piece boundaries compared over 110 MB of mixed text | 54326357, both patterns |
+| Unicode code points verified against an independent reference | 1114112 |
+| Divergences found | 0 |
 | Strings fuzzed against `tiktoken` | 0, M4 not started |
 | Encode parity | Not established, M3 not started |
 | Known divergences | None recorded, see docs/CORRECTNESS.md |
 
-Read that table precisely. **Decode parity is verified and encode parity is
-not**, because there is no encoder yet. Decode is also the easy half: it is a
-series of memcpy calls, and the hard problems live in pre-tokenization and
-the merge loop. A project that announced parity on the strength of the decode
-result alone would be overselling, so this one does not.
+Read that table precisely. **Decode and pre-tokenization parity are
+verified. Encode parity is not**, because there is no merge loop yet.
+
+The two halves that are done are worth different amounts. Decode is a series
+of memcpy calls and was never going to be hard. Pre-tokenization is where the
+real divergence risk lives, and matching the reference on 54 million piece
+boundaries across 110 MB of multilingual text is meaningful evidence. Neither
+amounts to end to end parity, and this README will not describe them as
+though they do.
 
 The zeros are honest rather than placeholders. The methodology that will fill
 them is in [docs/CORRECTNESS.md](docs/CORRECTNESS.md).
@@ -127,8 +133,8 @@ def main() raises:
 
 | Vocabulary | State | Verified against |
 | --- | --- | --- |
-| `cl100k_base` | Loads, decodes | `tiktoken` 0.14.0, all 100277 ids |
-| `o200k_base` | Loads, decodes | `tiktoken` 0.14.0, all 200019 ids |
+| `cl100k_base` | Loads, decodes, pre-tokenizes | All 100277 ids, 28.1 M piece boundaries |
+| `o200k_base` | Loads, decodes, pre-tokenizes | All 200019 ids, 26.3 M piece boundaries |
 | Hugging Face `tokenizer.json` | Planned, experimental | Nothing yet |
 
 Vocabulary files are downloaded by a script rather than committed, so that no

@@ -1,0 +1,17 @@
+trailing spaces   
+trailing tabs		
+
+
+
+
+  leading spaces
+	leading tab
+mixed 	 	 mixed
+crlf line
+cr onlynext
+nbsp separated
+ideographic　space
+thin space en space em space
+line sep next para sep next
+a  b   c    d
+ends with newline

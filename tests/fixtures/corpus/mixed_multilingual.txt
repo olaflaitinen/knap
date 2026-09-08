@@ -1,0 +1,16 @@
+English: the quick brown fox.
+Deutsch: Falsches Üben von Xylophonmusik quält jeden.
+Français: Portez ce vieux whisky au juge blond qui fume.
+Español: El pingüino Wenceslao hizo kilómetros.
+Русский: Съешь ещё этих булок.
+中文：中文测试文本。
+日本語：こんにちは世界。
+한국어: 안녕하세요 세계.
+한국어 NFD: 안녕하세요
+العربية: مرحبا بالعالم.
+עברית: שלום עולם.
+देवनागरी: नमस्ते दुनिया.
+ไทย: สวัสดีชาวโลก
+Combining: á á́́ á́́́́́́́
+Long s: 'ſ and 'ss
+Mixed CJK+latin: 中文abc123中文

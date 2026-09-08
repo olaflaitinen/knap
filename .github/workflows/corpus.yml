@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# The milestone M2 pre-tokenization gate, at full scale.
+#
+# This is separate from ci.yml because it is expensive: it downloads and
+# assembles a 110 MB corpus, spends about a minute generating reference
+# boundaries with the Python regex module, and then compares roughly 54
+# million piece boundaries across the two patterns. That is too slow to run
+# on every push and too important to drop.
+#
+# The fast half of the same check runs in ci.yml against the committed
+# fixtures, which cover the same pattern alternatives in a few kilobytes.
+
+name: Corpus gate
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: corpus-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pretokenize-parity:
+    name: Pre-tokenization parity over 110 MB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Assemble the corpus
+        run: uv run python scripts/fetch_corpus.py --target-mb 110
+
+      - name: Generate reference boundaries
+        run: uv run python scripts/gen_pretoken_golden.py
+
+      # The gate itself. Every piece boundary the scanner produces must equal
+      # the one the reference regex produces, for both patterns, across the
+      # whole corpus.
+      - name: Compare against the reference
+        run: uv run mojo run -I src tests/test_pretokenize_corpus.mojo

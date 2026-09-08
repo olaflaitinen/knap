@@ -29,13 +29,14 @@
 3. [The merge rule](#the-merge-rule)
 4. [Cost model](#cost-model)
 5. [Core data structures](#core-data-structures)
-6. [Alternation ordering](#alternation-ordering)
-7. [Why single documents are not parallelized](#why-single-documents-are-not-parallelized)
-8. [Generated files](#generated-files)
-9. [Toolchain ground truth](#toolchain-ground-truth)
-10. [Unstable API inventory](#unstable-api-inventory)
-11. [Dependency decisions](#dependency-decisions)
-12. [Open questions](#open-questions)
+6. [The scanner](#the-scanner)
+7. [Alternation ordering](#alternation-ordering)
+8. [Why single documents are not parallelized](#why-single-documents-are-not-parallelized)
+9. [Generated files](#generated-files)
+10. [Toolchain ground truth](#toolchain-ground-truth)
+11. [Unstable API inventory](#unstable-api-inventory)
+12. [Dependency decisions](#dependency-decisions)
+13. [Open questions](#open-questions)
 
 ---
 
@@ -187,6 +188,79 @@ Decode throughput is deliberately not a headline metric anywhere in this
 project. It is a series of memcpy calls and it is already trivially fast in
 every implementation, so reporting it prominently would mislead.
 
+## The scanner
+
+Knap does not run the patterns. It reproduces their behaviour with a hand
+written matcher, which is a far smaller problem than a regex engine and the
+only tractable path to vectorising the stage later.
+
+The structure is ordered alternation rather than a classical deterministic
+state machine, and that is a deliberate choice. The patterns are ordered
+alternations, the first alternative that matches at a position wins, and a
+state machine that merged them would have to encode that priority anyway.
+Trying them in order makes the priority the shape of the code instead of an
+invariant somebody has to preserve.
+
+```mermaid
+stateDiagram-v2
+    [*] --> AtPosition
+    AtPosition --> Contraction: try alternative 0
+    Contraction --> Letters: no match
+    Contraction --> Emit: match
+    Letters --> Digits: no match
+    Letters --> Emit: match
+    Digits --> Punctuation: no match
+    Digits --> Emit: match
+    Punctuation --> Whitespace: no match
+    Punctuation --> Emit: match
+    Whitespace --> Emit: one of the whitespace forms matches
+    Emit --> AtPosition: advance by the match length
+    AtPosition --> [*]: end of input
+```
+
+The transition table for `cl100k_base`, in the order the alternatives are
+tried. Every row is a function in `scanner.mojo`, and the "gives back" column
+records whether the alternative can retry a shorter match:
+
+| Order | Condition on the current position | Action | Gives back |
+| --- | --- | --- | --- |
+| 0 | Apostrophe, then s, d, m, t, ll, ve, or re, case insensitively | Emit the contraction | No |
+| 1 | Optional non-break non-alphanumeric, then one or more letters | Emit the word | No, possessive |
+| 2 | One to three numbers | Emit the digit run | No, possessive |
+| 3 | Optional space, punctuation run, trailing line breaks | Emit the punctuation | No, possessive |
+| 4 | Whitespace run reaching end of input | Emit the run | No, possessive |
+| 5 | Whitespace run ending on a line break | Emit up to the last break | Yes |
+| 6 | Whitespace run not followed by a visible character | Emit the run less its last character | Yes |
+| 7 | A single whitespace character | Emit it | No |
+
+`o200k_base` differs in three ways that matter. Its two word alternatives
+replace alternative 1, it accepts a forward slash in the trailing class of
+alternative 3, and its final whitespace alternative takes the whole run
+rather than a single character. It also drops the possessive quantifiers,
+which is why exactly one of its alternatives genuinely backtracks.
+
+### Where the backtracking is
+
+`o200k_base` alternative 0 is the only place in either pattern where Knap
+gives characters back. It matches an optional upper-ish run followed by a
+required lower-ish run, and the two character classes **overlap** in Lm, Lo,
+and M. So the greedy first run can swallow characters the second run needs,
+and the matcher hands them back one at a time, longest first, which is the
+order the reference engine explores.
+
+Alternative 1 needs no backtracking at all: its first run is required and its
+second may be empty, so the first exploration already succeeds.
+
+### The contraction fold
+
+Both patterns match their contraction endings case insensitively, and the
+reference engine folds beyond ASCII. Enumerated over the whole code point
+space rather than recalled, there is exactly one such fold either pattern can
+reach: **U+017F, LATIN SMALL LETTER LONG S, matches "s"**. No other letter in
+either contraction set has a non-ASCII fold, and no single code point matches
+a two character ending. The matcher hardcodes that one case and uses plain
+ASCII folding for everything else.
+
 ## Alternation ordering
 
 The pre-tokenization pattern is an ordered alternation. It is tried left to
@@ -273,6 +347,9 @@ Corrections to widely held assumptions, each verified by compiling:
 | SIMD `a > b` yields a lane mask | It yields a single `Bool` for the whole vector. The per lane mask comes from `a.gt(b)`, and likewise `a.eq(b)`. |
 | `--Werror` and `--warn-on-unstable-apis` compose | They do not. Together the build fails, because essentially the whole standard library is unstable. CI runs them as separate jobs. |
 | `mojo format` has a check mode | It does not. It rewrites in place, so CI runs it and then checks that the working tree is unchanged. |
+| Large collection literals are fine | They are not. A `List[UInt8]` literal of 34560 elements did not finish compiling in ten minutes. The same data as a `StaticString` compiled in 5.7 seconds, which is why the Unicode tables are strings. |
+| The formatter leaves generated files alone | It does not. It splits long string literals across lines, so a generator must format its own output or the drift check reports permanent failure. |
+| `open(path, "r").read()` can read any file | Only text. Binary references need `read_bytes()`, and there is no `"rb"` mode. |
 
 The SIMD comparison correction is the most dangerous of these, because the
 wrong form still compiles in some expressions and silently computes something
@@ -336,8 +413,8 @@ dependency is the pinned compiler itself.
 | Question | Status | Resolve by |
 | --- | --- | --- |
 | Can Mojo 1.0.0 build an importable Python extension module? | Not yet investigated. The fallback is `mojo build --emit shared-lib` loaded through `ctypes`, and the public API is being designed with a flat C compatible surface so that path stays open. | M6 Track B. Record the finding here as a fact with a date, not as an assumption. |
-| Scanner state machine table and diagram | Not yet designed. It depends on the extracted pattern, which arrives with `scripts/extract_patterns.py`. Designing it before the pattern exists would be guesswork. | M2. |
-| Two stage table against sorted range binary search for Unicode property lookup | Not yet benchmarked. Both will be measured before one is committed to. | M2, written up in `docs/UNICODE.md`. |
+| Scanner design and transition table | Resolved at M2. Written up under [The scanner](#the-scanner). Ordered alternation rather than a merged state machine, because alternation priority is load bearing. | Done |
+| Two stage table against sorted range binary search | Resolved at M2. Both were measured: 2342 runs and about 21 KB against 135 blocks and 43264 bytes. Sorted runs chosen, because the ASCII fast path means these tables are reached only on the documented slow path. See [docs/UNICODE.md](UNICODE.md). | Done |
 | Piece cache hit rate on real text | Modelled above, not measured. | M5. |
 
 ---
@@ -347,7 +424,7 @@ dependency is the pinned compiler itself.
 | Field | Value |
 | --- | --- |
 | Previous | [README.md](../README.md) |
-| Next | [docs/CORRECTNESS.md](CORRECTNESS.md) |
+| Next | [docs/UNICODE.md](UNICODE.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
 | Last reviewed | 2026-09-07 |

@@ -123,13 +123,32 @@ explicit test in `tests/test_hazards.mojo`.
 | Contraction handling | The pattern has a case insensitive alternative for English contractions. It applies to specific letter sequences only and is not a general apostrophe rule. |
 | Digit run limits | Digits are grouped into bounded runs. Measured against `cl100k_base`, a four digit number splits as three digits then one. A seven digit number does not become one piece. |
 | Whitespace lookahead | The pattern distinguishes trailing whitespace followed by a non-space from whitespace running to end of input. Errors here appear only at document boundaries, which is exactly where fuzzing finds them. |
-| Invalid UTF-8 | Must be neither rejected nor replaced. Match what `tiktoken` does. |
+| Invalid UTF-8 | Must be neither rejected nor replaced. See the note below on why no reference exists for this case. |
 | Empty input | Returns an empty token list, not an error. |
 | Special token substrings | A special token literal inside ordinary text must follow the allowed and disallowed sets, and the disallowed path must raise rather than encode. |
 
 The digit run row is not a prediction. It was measured against the reference
 implementation at M0 and the numbers are recorded in
 [docs/ARCHITECTURE.md](ARCHITECTURE.md).
+
+### Malformed UTF-8 has no reference
+
+One hazard deserves a caveat rather than a claim. `tiktoken` takes decoded
+text, so malformed UTF-8 cannot be passed to it and there is no reference
+behaviour to match. Knap therefore defines its own policy, and it is an
+extension rather than a parity claim:
+
+  * A malformed byte is neither rejected nor replaced with a substitution
+    character.
+  * It is consumed one byte at a time and classified as none of letter,
+    number, or whitespace, so it behaves like punctuation.
+  * Over-long encodings, surrogates, and values above U+10FFFF are all
+    treated as malformed, because accepting them would let two byte
+    sequences decode to one code point.
+
+What is tested is that the pieces still tile such input exactly, with no
+byte lost and no error raised. What is not tested, because it cannot be, is
+agreement with a reference.
 
 ## Current status
 
@@ -140,6 +159,9 @@ no general parity claim is made yet.
 | --- | --- | --- |
 | Decode parity, cl100k_base | Verified, all 100277 ids | Done at M1 |
 | Decode parity, o200k_base | Verified, all 200019 ids | Done at M1 |
+| Pre-tokenization parity, cl100k_base | Verified, 28075654 pieces over 110 MB | Done at M2 |
+| Pre-tokenization parity, o200k_base | Verified, 26250703 pieces over 110 MB | Done at M2 |
+| Unicode tables | Verified, all 1114112 code points | Done at M2 |
 | Encode parity | Not started | M3 |
 | Strings fuzzed | 0 | M4 |
 | Divergences found | 0 so far, from decode only | M4 |
@@ -162,7 +184,24 @@ implementation that returned empty bytes instead would pass a naive
 comparison while diverging exactly where a caller needs to be told that
 something upstream is wrong.
 
-The whole suite, 26 tests, also passes under `--sanitize address`.
+Pre-tokenization parity was measured over a 110 MB corpus of mixed text:
+1.79 million multilingual sentences, five books, and a generated section
+concentrating the hazards below. Every piece boundary matched the reference
+for both patterns.
+
+| Encoding | Pieces | Result |
+| --- | --- | --- |
+| cl100k_base | 28075654 | Every boundary identical |
+| o200k_base | 26250703 | Every boundary identical |
+
+That gate earned its cost immediately. It found a real defect, though not in
+the scanner: the reference generator read the corpus with Python's
+`read_text`, which applies universal newline translation and silently turned
+every carriage return and line feed pair into a single line feed before the
+reference pattern saw it. The scanner was right and the reference was wrong.
+Both now read raw bytes and decode explicitly.
+
+The whole suite passes under `--sanitize address`.
 
 This table is updated after every milestone gate, per the working agreement.
 
@@ -181,7 +220,7 @@ rather than hidden, and the fuzzer is not narrowed to avoid it.
 
 | Field | Value |
 | --- | --- |
-| Previous | [docs/ARCHITECTURE.md](ARCHITECTURE.md) |
+| Previous | [docs/UNICODE.md](UNICODE.md) |
 | Next | [docs/STYLE.md](STYLE.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |

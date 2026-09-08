@@ -42,9 +42,20 @@ regex = ">=2024.0.0"
 smoke = "mojo run -I src tests/test_toolchain.mojo"
 fetch = "python scripts/fetch_vocabs.py"
 goldens = "python scripts/gen_encode_golden.py"
+tables = "python scripts/gen_unicode_tables.py"
+boundaries = "python scripts/gen_pretoken_golden.py"
+generated = "python scripts/check_generated.py"
+corpus = "python scripts/fetch_corpus.py"
 lint = "python scripts/lint_style.py"
 banners = "python scripts/check_file_banners.py"
 spdx = "python scripts/check_spdx.py"
 mdcheck = "python scripts/check_md_headers.py"
 selftest = "python scripts/selftest_gates.py"
-standards = { depends-on = ["lint", "banners", "spdx", "mdcheck", "selftest"] }
+standards = { depends-on = [
+    "lint",
+    "banners",
+    "spdx",
+    "mdcheck",
+    "selftest",
+    "generated",
+] }

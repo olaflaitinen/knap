@@ -17,7 +17,7 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-07 |
+| Updated | 2026-09-08 |
 | Licence | EUPL-1.2 |
 
 ---
@@ -47,46 +47,61 @@ produce output yet.
 
 ## Unreleased
 
-Milestone M1, vocabulary and decode. Nothing here has been tagged or
-published, so it stays under Unreleased rather than claiming a version.
+Milestones M1 and M2. Nothing here has been tagged or published, so it stays
+under Unreleased rather than claiming a version.
 
 No entry below changes tokenizer output, because Knap did not produce output
-before this milestone.
+before these milestones.
 
-### Added
+### Added, milestone M2, pre-tokenizer
 
-- `.tiktoken` vocabulary loading, in `src/knap/vocab.mojo`. The loader is
-  strict: a malformed line, a duplicate rank, a negative rank, a gap in the
-  merge ranks, and an empty file each raise a named error identifying the
-  line. Rank order in the file is not assumed.
-- `FlatVocab` in `src/knap/flat_vocab.mojo`, holding every token's bytes in
-  one contiguous buffer with parallel offset and length arrays. Spans are
-  validated once at construction so the decode path needs no bounds test.
-- Decode over the full token id space, byte exact. `decode_bytes` returns
-  raw bytes and is what parity is defined against; `decode` wraps them in a
-  String without validating UTF-8, because byte level BPE legitimately
-  produces partial sequences.
-- The special token registry in `src/knap/special.mojo`, with the
-  definitions for both target encodings.
-- `scripts/fetch_vocabs.py`, which reads the canonical URLs out of tiktoken's
-  own encoding constructors rather than hardcoding them, and verifies every
-  download against the merge ranks tiktoken itself loads.
-- `scripts/gen_encode_golden.py`, generating `decode_single_tokens.jsonl` for
-  both encodings, recording unassigned ids explicitly as null.
-- 22 tests across `tests/test_decode.mojo`, `tests/test_flat_vocab.mojo`,
-  `tests/test_vocab.mojo`, and `tests/test_special.mojo`.
+- `scripts/extract_patterns.py`, which pulls both pre-tokenization patterns
+  out of tiktoken and emits them as a generated Mojo constant. The pattern is
+  never transcribed by hand: `o200k_base` is 274 characters and one wrong
+  character would diverge only on rare input.
+- `scripts/gen_unicode_tables.py`, emitting Unicode 15.0.0 general category
+  data as 2342 sorted runs with a direct table for ASCII.
+- `src/knap/pretokenize/utf8.mojo`, with a defined policy for malformed
+  input: consumed one byte at a time, never rejected and never replaced.
+- `src/knap/pretokenize/classifier.mojo`, the scalar classifier, which stays
+  permanently as the reference the M5 SIMD classifier is tested against.
+- `src/knap/pretokenize/scanner.mojo`, hand written matchers for both
+  patterns, including the one alternative that genuinely backtracks.
+- `scripts/fetch_corpus.py` and `scripts/gen_pretoken_golden.py`, which
+  assemble a 110 MB mixed corpus and its reference boundaries.
+- `scripts/check_generated.py`, failing the build when a committed generated
+  file no longer matches its generator.
+- `.github/workflows/corpus.yml`, running the full 110 MB gate on a schedule.
+- The committed edge case fixtures under `tests/fixtures/corpus`.
+- 13 further tests, including an exhaustive check of all 1114112 Unicode code
+  points.
+
+### Added, milestone M1, vocabulary and decode
+
+- `.tiktoken` vocabulary loading, strict on every malformed shape.
+- `FlatVocab`, contiguous token bytes with parallel offset and length arrays.
+- Decode over the full token id space, byte exact.
+- The special token registry for both encodings.
+- `scripts/fetch_vocabs.py` and `scripts/gen_encode_golden.py`.
 
 ### Changed
 
-- The docstring gate now covers `src/knap` as well as `tests`. Running it on
-  tests alone left the public API, which is the surface `mojo doc` actually
-  serves, unchecked.
-- CI fetches vocabularies and generates golden fixtures before running tests,
-  and passes the include path so tests can import the library.
+- The docstring gate now covers `src/knap` as well as `tests`.
+- Both generators format their own output. Without that the formatter splits
+  long string literals and the drift check reports permanent failure.
+- CI generates every reference before running tests, and the 110 MB corpus
+  gate moved to its own scheduled workflow.
 
 ### Fixed
 
-- Nothing. No defect from M0 reached this milestone.
+- `scripts/gen_pretoken_golden.py` read the corpus with `read_text`, which
+  applies universal newline translation and silently rewrote every carriage
+  return and line feed pair before the reference pattern saw it. The scanner
+  was right and the reference was wrong. Found by the 110 MB gate on its
+  first run.
+- `scripts/check_file_banners.py` expected the generated provenance fields in
+  the wrong position and looked for the overwrite warning only in field
+  values, so it could not be satisfied by a wrapped warning line.
 
 ### Removed
 
@@ -95,15 +110,16 @@ before this milestone.
 ### Verified
 
 - **Decode parity.** Every token id in both encodings decodes byte
-  identically to `tiktoken.decode_single_token_bytes`: 100277 ids for
-  cl100k_base and 200019 for o200k_base, 300296 in total.
-- **The gaps.** Both encodings leave ids assigned to nothing, 16 in
-  cl100k_base and 19 in o200k_base. `tiktoken` raises for those and so does
-  Knap, which the gate asserts rather than assumes.
-- The whole suite, 26 tests, passes under `--sanitize address`.
-- EmberJson was evaluated against both acceptance criteria and passed. It is
-  not yet a dependency, because nothing imports it until the Hugging Face
-  loader exists. See `docs/ARCHITECTURE.md`.
+  identically to `tiktoken.decode_single_token_bytes`: 300296 ids in total.
+- **Pre-tokenization parity.** Every piece boundary matches the reference
+  regex across a 110 MB corpus: 28075654 pieces for `cl100k_base` and
+  26250703 for `o200k_base`.
+- **Unicode tables.** All 1114112 code points match an independent
+  reference, and the whitespace predicate is exact in both directions.
+- The suite passes under `--sanitize address`.
+- EmberJson was evaluated and passed both acceptance criteria. It is not yet
+  a dependency, because nothing imports it until the Hugging Face loader
+  exists.
 
 ## 0.1.0, 2026-09-07
 

@@ -167,7 +167,9 @@ def parse_banner(lines: list[str]) -> tuple[list[tuple[str, str, int]], int]:
 
 
 def check_banner_fields(
-    relative_path: str, fields: list[tuple[str, str, int]]
+    relative_path: str,
+    fields: list[tuple[str, str, int]],
+    banner_says_generated: bool = False,
 ) -> list[Problem]:
     """Check that the required fields are present, ordered, and non-empty.
 
@@ -181,7 +183,11 @@ def check_banner_fields(
 
     expected = list(REQUIRED_FIELDS)
     if relative_path in GENERATED_PATHS:
-        expected.extend(GENERATED_FIELDS)
+        # The provenance fields sit with the file description rather than
+        # after the author block, because that is where a reader looking for
+        # "where did this come from" will scan first.
+        position = expected.index("Invariants") + 1
+        expected[position:position] = list(GENERATED_FIELDS)
 
     for field in expected:
         if field not in values:
@@ -230,8 +236,12 @@ def check_banner_fields(
             )
 
     if relative_path in GENERATED_PATHS:
-        joined = " ".join(value for _, value, _ in fields).lower()
-        if GENERATED_WARNING not in joined:
+        # Searched across the whole banner rather than across field values,
+        # because the warning naturally wraps onto a continuation line.
+        joined = " ".join(
+            value for _, value, _ in fields
+        ).lower()
+        if GENERATED_WARNING not in joined and not banner_says_generated:
             problems.append(
                 Problem(
                     relative_path,
@@ -310,9 +320,12 @@ def check_file(relative_path: str) -> list[Problem]:
             )
         ]
 
-    problems.extend(check_banner_fields(relative_path, fields))
-
     banner = lines[: end_index + 1]
+    says_generated = GENERATED_WARNING in "\n".join(banner).lower()
+    problems.extend(
+        check_banner_fields(relative_path, fields, says_generated)
+    )
+
     if SPDX_LINE not in banner:
         problems.append(
             Problem(relative_path, 1, f"banner must contain '{SPDX_LINE}'")

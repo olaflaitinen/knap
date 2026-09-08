@@ -1,0 +1,10 @@
+Simple: 😀 😁 😂 😃
+Skin tones: 👍🏻 👍🏼 👍🏽 👍🏾 👍🏿
+ZWJ family: 👨‍👩‍👦
+ZWJ longer: 👨‍👩‍👧‍👦
+Profession: 👩‍💻 👨‍🍳
+Flags: 🇫🇮 🇦🇿 🇪🇺
+Variation: ❤️ ☺️
+Keycap: 1️⃣ 2️⃣
+Adjacent text: hello😀world 😀 spaced 😀
+Symbols: ✅ ❌ ⚠️ ✨

@@ -41,3 +41,6 @@ tests/golden/**/*.jsonl
 
 # Temporary sandbox written by scripts/selftest_gates.py.
 .gate_selftest/
+
+# Exhaustive Unicode reference, written by scripts/gen_unicode_tables.py.
+tests/golden/unicode_classes.txt

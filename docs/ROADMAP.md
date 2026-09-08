@@ -66,7 +66,23 @@ been verified to exist.
 
 ## Current position
 
-M0 and M1 are complete. Every condition below was observed, not inferred.
+M0, M1, and M2 are complete. Every condition below was observed, not
+inferred.
+
+M2 delivered the generated pattern constants, the Unicode tables, the UTF-8
+decoder, the scalar classifier, and the two scanners. Its gate, matching the
+reference regex over at least 100 MB of mixed text, passes for both patterns
+across 54.3 million pieces.
+
+| M2 condition | Evidence |
+| --- | --- |
+| Pattern extracted, not transcribed | `scripts/extract_patterns.py`, with the committed constant checked for drift. |
+| Unicode tables generated | Unicode 15.0.0, 2342 runs, verified against all 1114112 code points. |
+| Scalar scanner correct | 28075654 and 26250703 piece boundaries identical to the reference over 110 MB. |
+| Both representations measured | Sorted runs against a two stage table, written up in `docs/UNICODE.md`. |
+| Suite under ASan | Passes, including the scanner over the full corpus. |
+
+The M1 conditions, for the record:
 
 M1 delivered vocabulary loading, the flat token store, decode over the full
 id space, and the special token registry. Its gate, decoding every token id
@@ -111,16 +127,13 @@ the no-placeholder rule exists to prevent.
 | Path | Created at |
 | --- | --- |
 | `src/knap/tokenizer.mojo`, `ranks.mojo`, `bpe.mojo`, `cache.mojo`, `config.mojo` | M3, with the cache measured at M5 |
-| `src/knap/pretokenize/*.mojo` | M2, with the SIMD classifier at M5 |
+| `src/knap/pretokenize/classifier_simd.mojo` | M5 |
 | `src/knap/hf/tokenizer_json.mojo` | After M3, experimental |
 | `tests/test_*.mojo` beyond the toolchain smoke test | Alongside the code each one tests |
 | `tests/fuzz/*` | M4 |
 | `bench/*` | M5 |
-| `scripts/fetch_corpus.py` | M2, with the corpus the pre-tokenizer gate needs |
-| `scripts/extract_patterns.py`, `gen_unicode_tables.py`, `gen_pretoken_golden.py`, `check_generated.py` | M2 |
 | `encode_expected.jsonl` output from `scripts/gen_encode_golden.py` | M3, when there is an encoder to compare |
 | `bindings/python/*` | M6 Track B, if it proves viable |
-| `docs/UNICODE.md` | M2, when there are real tables to describe |
 | `docs/BENCHMARKS.md` | M5, when there are real numbers to publish |
 | `.github/workflows/bench.yml` | M5, when there is something to benchmark |
 
@@ -136,9 +149,9 @@ rather than substitutions, and neither creates a parallel directory:
 | `tests/test_toolchain.mojo` | The layout had no slot for the toolchain smoke test that M0 requires. It deliberately imports nothing from `src/knap`, so a failure there always means the compiler rather than Knap. |
 | `scripts/selftest_gates.py` | M0 requires each standards gate to be observed failing on a planted violation. Doing that once by hand proves it once. This makes it repeatable and runs it in CI, so a gate that silently stops working is caught. |
 
-`docs/UNICODE.md` and `docs/BENCHMARKS.md` are deliberately absent rather than
-present and empty. A benchmarks document with no benchmarks in it invites
-exactly the kind of unsupported claim this project is trying to avoid.
+`docs/BENCHMARKS.md` is deliberately absent rather than present and empty. A
+benchmarks document with no benchmarks in it invites exactly the kind of
+unsupported claim this project is trying to avoid.
 
 ## Deferred beyond version 1
 

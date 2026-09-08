@@ -106,7 +106,16 @@ jobs:
         run: uv run python scripts/fetch_vocabs.py
 
       - name: Generate golden fixtures
-        run: uv run python scripts/gen_encode_golden.py
+        run: |
+          uv run python scripts/gen_encode_golden.py
+          uv run python scripts/gen_unicode_tables.py
+          uv run python scripts/gen_pretoken_golden.py
+
+      # A committed generated file that no longer matches its generator
+      # means Knap is matching a pattern the reference no longer uses, which
+      # would surface as mysteriously wrong tokens rather than as a failure.
+      - name: Generated files are current
+        run: uv run python scripts/check_generated.py
 
       # The docstring gate covers the library as well as the tests. Running
       # it on tests alone would leave the public API, which is the surface
@@ -124,9 +133,16 @@ jobs:
             uv run mojo build --Werror -I src -o /dev/null "$f"
           done
 
+      # The 110 MB corpus gate is excluded here and runs in corpus.yml on a
+      # schedule. It needs a download and about two minutes, which is too
+      # slow for every push. The committed fixtures cover the same pattern
+      # alternatives and run in seconds.
       - name: Run the test suite
         run: |
           for f in tests/*.mojo; do
+            case "$f" in
+              *test_pretokenize_corpus.mojo) echo "== skipping $f"; continue ;;
+            esac
             echo "== $f"
             uv run mojo run -I src "$f"
           done

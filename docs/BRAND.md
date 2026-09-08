@@ -149,20 +149,29 @@ export from the SVG rather than upscaling a PNG.
 
 ## File structure
 
-Each SVG is 2279 bytes: an `<svg>` element, one `<g>`, and four `<path>`
-elements, one per letter. Nothing else. The two opaque variants add a single
-full bleed `<rect>` behind the group.
+Each SVG is an `<svg>` element, one `<g>`, and four `<path>` elements, one
+per letter. Nothing else. The two opaque variants add a single full bleed
+`<rect>` behind the group, which is the whole of the 68 byte difference
+between them.
 
-Each PNG carries only the image chunks that a PNG needs: `IHDR`, the `IDAT`
-data, and `IEND`.
+| Variant | SVG bytes | PNG bytes |
+| --- | --- | --- |
+| Ink on transparent | 2279 | 123219 |
+| White on transparent | 2279 | 105471 |
+| Ink on white | 2347 | 147374 |
+| White on ink | 2347 | 147166 |
 
-The files as originally exported carried an embedded content credential, a
-signed provenance record in a `<metadata>` element in the vector files and an
-ancillary `caBX` chunk in the raster ones. It accounted for 7736 of each
-SVG's 10015 bytes and 5758 bytes of each PNG. It was removed. A brand asset
-in a source repository should be the artwork and nothing else, and metadata
-that travels with a logo into every place the logo is used is a liability
-rather than a feature.
+Each PNG carries only the chunks a PNG needs: `IHDR`, the `IDAT` image data,
+and `IEND`.
+
+The files as originally exported carried an embedded content credential: a
+signed provenance record in a `<metadata>` element in the vector files, and
+an ancillary `caBX` chunk in the raster ones. It accounted for 7736 bytes of
+every SVG, which were 10015 and 10083 bytes before, and a 5758 byte chunk,
+5770 with its framing, in every PNG. It was removed. A brand asset in a
+source repository should be the artwork and nothing else, and metadata that
+travels with a logo into every place the logo is used is a liability rather
+than a feature.
 
 Anyone re-exporting these should check what their tool embeds before
 committing the result.

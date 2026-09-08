@@ -197,6 +197,29 @@ lines, where explaining exactly what is in each lane is the whole point.
 Commit messages describe what became true, not which files changed. They are
 subject to the character rules like everything else.
 
+### What the branch protection actually enforces
+
+`main` carries a ruleset, and it is worth knowing what it does before you
+find out by being refused.
+
+| Rule | Effect |
+| --- | --- |
+| Deletion blocked | `main` cannot be deleted. |
+| Force push blocked | `main` cannot be rewritten, by anyone, including the maintainer. This is the rule that matters most in a single maintainer repository, because the realistic accident is a stray `--force` rather than a malicious push. |
+| Pull request required | Direct pushes to `main` are refused. Open a branch and a pull request. |
+| Status checks required | A pull request cannot merge until the continuous integration and sanitizer jobs pass. |
+
+Approvals are not required, and that is deliberate rather than an oversight.
+There is one maintainer, GitHub does not let anyone approve their own pull
+request, and a rule requiring approval would leave every pull request from
+the maintainer permanently unmergeable. `.github/CODEOWNERS` exists so that
+the requirement can be turned on the moment there is a second reviewer.
+
+The maintainer can bypass the pull request and status check rules, and does,
+for documentation and release chores. The two structural rules, no deletion
+and no force push, apply to everyone with no exception. That split is the
+point: convenience where a mistake is cheap, no exceptions where it is not.
+
 ---
 
 ## Document control

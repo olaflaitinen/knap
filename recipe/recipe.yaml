@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Conda recipe for Knap, targeting the modular-community channel.
+#
+# Mojo libraries are distributed as conda packages; there is no native Mojo
+# package manager yet. The artefact is a precompiled Mojo package, which the
+# compiler's own documentation is careful to say is tied to the exact
+# compiler version that produced it. That is why the compiler is pinned
+# exactly in both the build and the run requirements rather than given a
+# range: a consumer on a different toolchain gets a solver error, which is
+# far better than a link error deep in their build.
+#
+# Build it with rattler-build from the repository root:
+#
+#     rattler-build build --recipe recipe/recipe.yaml
+
+schema_version: 1
+
+context:
+  version: "0.1.0"
+  mojo_version: "1.0.0"
+
+package:
+  name: knap
+  version: ${{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  # Noarch is wrong here even though a precompiled Mojo package contains no
+  # elaborated code. The package is tied to a compiler version rather than to
+  # an architecture, and conda has no way to express that, so it is built per
+  # platform and pinned to the compiler instead.
+  script:
+    interpreter: bash
+    content: |
+      set -euo pipefail
+      mkdir -p "${PREFIX}/lib/mojo"
+      mojo precompile src/knap -o "${PREFIX}/lib/mojo/knap.mojoc"
+
+requirements:
+  build:
+    - mojo-compiler ==${{ mojo_version }}
+  run:
+    - mojo-compiler ==${{ mojo_version }}
+
+tests:
+  - script:
+      interpreter: bash
+      content: |
+        set -euo pipefail
+        test -f "${PREFIX}/lib/mojo/knap.mojoc"
+        cat > smoke.mojo <<'SMOKE'
+        from knap.flat_vocab import FlatVocab
+
+        def main() raises:
+            var data = List[UInt8]()
+            data.append(UInt8(72))
+            data.append(UInt8(105))
+            var offsets: List[Int] = [0]
+            var lengths: List[Int] = [2]
+            var vocabulary = FlatVocab(data^, offsets^, lengths^)
+            print(vocabulary.decode([0]))
+        SMOKE
+        mojo run -I "${PREFIX}/lib/mojo" smoke.mojo
+
+about:
+  homepage: https://github.com/olaflaitinen/knap
+  repository: https://github.com/olaflaitinen/knap.git
+  documentation: https://github.com/olaflaitinen/knap/blob/main/README.md
+  license: EUPL-1.2
+  license_file: LICENSE
+  summary: A pure Mojo byte level BPE tokenizer with exact tiktoken parity.
+  description: |
+    Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo,
+    verified to produce byte identical output to tiktoken across 110 MB of
+    mixed text and 20 million fuzzed inputs.
+
+    Correctness is the product. Knap does not claim to beat the established
+    Rust implementations on raw speed, and its benchmarks publish the cases
+    where those implementations win.
+
+extra:
+  recipe-maintainers:
+    - Olaf Yunus Laitinen Imanov

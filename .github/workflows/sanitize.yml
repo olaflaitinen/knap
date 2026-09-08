@@ -69,7 +69,7 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/asan"
           for f in tests/*.mojo; do
             case "$f" in
-              *test_pretokenize_corpus.mojo) echo "== skipping $f"; continue ;;
+              *_corpus.mojo) echo "== skipping $f, runs in corpus.yml"; continue ;;
             esac
             name="$(basename "$f" .mojo)"
             echo "== $f"

@@ -133,15 +133,15 @@ jobs:
             uv run mojo build --Werror -I src -o /dev/null "$f"
           done
 
-      # The 110 MB corpus gate is excluded here and runs in corpus.yml on a
-      # schedule. It needs a download and about two minutes, which is too
-      # slow for every push. The committed fixtures cover the same pattern
-      # alternatives and run in seconds.
+      # The 110 MB corpus gates are excluded here and run in corpus.yml on
+      # a schedule. Together they need a download and about ten minutes,
+      # which is too slow for every push. The committed fixtures cover the
+      # same pattern alternatives and the same hazards in seconds.
       - name: Run the test suite
         run: |
           for f in tests/*.mojo; do
             case "$f" in
-              *test_pretokenize_corpus.mojo) echo "== skipping $f"; continue ;;
+              *_corpus.mojo) echo "== skipping $f, runs in corpus.yml"; continue ;;
             esac
             echo "== $f"
             uv run mojo run -I src "$f"

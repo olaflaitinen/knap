@@ -19,14 +19,14 @@ because most of what this README describes is planned rather than built.
 | Toolchain, standards gates, CI | Working | M0, complete |
 | Vocabulary loading and decode | Working, decode parity verified | M1, complete |
 | Pre-tokenizer, scalar | Working, boundary parity verified | M2, complete |
-| BPE merge and encode | Not started | M3 |
+| BPE merge and encode | Working, encode parity verified | M3, complete |
 | Differential fuzzing against `tiktoken` | Not started | M4 |
 | SIMD classifier and benchmarks | Not started | M5 |
 | Packaging and Python bindings | Not started | M6 |
 
-There is no encoder yet. `knap.encode` does not exist, and it arrives at M3.
-What works today is loading either target vocabulary and decoding token ids
-back to bytes, with parity against `tiktoken` verified on every id.
+Knap encodes and decodes today, and its output matches `tiktoken` exactly on
+110 MB of mixed text. What is missing is the adversarial testing in M4, the
+performance work in M5, and any packaging at all.
 
 Nothing in this repository is a stub. Every file present is complete and
 working, and the files listed above as not started are absent rather than
@@ -39,23 +39,23 @@ correctness for speed, correctness wins.
 
 | Measure | Value |
 | --- | --- |
-| Token ids decoded and compared against `tiktoken` | 300296, every id in both encodings |
-| Piece boundaries compared over 110 MB of mixed text | 54326357, both patterns |
+| Tokens compared against `tiktoken` over 110 MB | 80457130, both encodings |
+| Piece boundaries compared over the same corpus | 54326357 |
+| Token ids decoded and compared | 300296, every id in both encodings |
 | Unicode code points verified against an independent reference | 1114112 |
 | Divergences found | 0 |
 | Strings fuzzed against `tiktoken` | 0, M4 not started |
-| Encode parity | Not established, M3 not started |
 | Known divergences | None recorded, see docs/CORRECTNESS.md |
 
-Read that table precisely. **Decode and pre-tokenization parity are
-verified. Encode parity is not**, because there is no merge loop yet.
+Read that table precisely. End to end encode parity **is** established, on
+110 MB of mixed text covering hundreds of languages. That is real evidence
+and it is the reason to take this library seriously.
 
-The two halves that are done are worth different amounts. Decode is a series
-of memcpy calls and was never going to be hard. Pre-tokenization is where the
-real divergence risk lives, and matching the reference on 54 million piece
-boundaries across 110 MB of multilingual text is meaningful evidence. Neither
-amounts to end to end parity, and this README will not describe them as
-though they do.
+It is also not the same claim as "correct in general". The corpus is natural
+language, prose, and a generated hazard section. Adversarial input has a very
+different distribution, and the fuzzing that covers it is milestone M4, which
+has not run. Until it does, read the numbers above as verified on realistic
+text rather than as verified everywhere.
 
 The zeros are honest rather than placeholders. The methodology that will fill
 them is in [docs/CORRECTNESS.md](docs/CORRECTNESS.md).
@@ -112,29 +112,26 @@ There is no Python package to install yet. See M6 in
 The encode and decode quickstart arrives with M3. What runs today is the
 toolchain smoke test and the repository standards gates:
 
-```bash
-uv run python scripts/fetch_vocabs.py
-uv run mojo run -I src tests/test_decode.mojo
-```
-
-Decoding from Mojo, which is the whole public API today:
-
 ```mojo
-from knap.vocab import load_cl100k_base
+from knap.tokenizer import load_cl100k_base_tokenizer
 
 def main() raises:
-    var vocabulary = load_cl100k_base(
+    var knap = load_cl100k_base_tokenizer(
         "tests/fixtures/vocabs/cl100k_base.tiktoken"
     )
-    print(vocabulary.decode([15339, 1917]))
+    var ids = knap.encode_ordinary("Knap tokenizes 1234 bytes.")
+    print(knap.decode(ids))
 ```
+
+Fetch a vocabulary first with `uv run python scripts/fetch_vocabs.py`, then
+run it with `uv run mojo run -I src your_program.mojo`.
 
 ## Supported vocabularies
 
 | Vocabulary | State | Verified against |
 | --- | --- | --- |
-| `cl100k_base` | Loads, decodes, pre-tokenizes | All 100277 ids, 28.1 M piece boundaries |
-| `o200k_base` | Loads, decodes, pre-tokenizes | All 200019 ids, 26.3 M piece boundaries |
+| `cl100k_base` | Encodes and decodes | 43.5 M tokens over 110 MB, all 100277 ids |
+| `o200k_base` | Encodes and decodes | 36.9 M tokens over 110 MB, all 200019 ids |
 | Hugging Face `tokenizer.json` | Planned, experimental | Nothing yet |
 
 Vocabulary files are downloaded by a script rather than committed, so that no
@@ -156,7 +153,9 @@ rather than assumed.
   which is where the throughput is and which is trivially correct.
 - The Mojo ABI is not stable, so any Python binding is version locked and must
   be rebuilt for each toolchain release.
-- Everything above the M0 line in the status table is unbuilt.
+- No adversarial fuzzing has run yet, so parity is evidenced on realistic
+  text rather than in general.
+- No performance work has been done and no benchmarks are published.
 
 ## When not to use Knap
 

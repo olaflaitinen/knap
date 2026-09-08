@@ -162,7 +162,8 @@ no general parity claim is made yet.
 | Pre-tokenization parity, cl100k_base | Verified, 28075654 pieces over 110 MB | Done at M2 |
 | Pre-tokenization parity, o200k_base | Verified, 26250703 pieces over 110 MB | Done at M2 |
 | Unicode tables | Verified, all 1114112 code points | Done at M2 |
-| Encode parity | Not started | M3 |
+| Encode parity, cl100k_base | Verified, 43529983 tokens over 110 MB | Done at M3 |
+| Encode parity, o200k_base | Verified, 36927147 tokens over 110 MB | Done at M3 |
 | Strings fuzzed | 0 | M4 |
 | Divergences found | 0 so far, from decode only | M4 |
 | Fuzz seed | Not yet assigned | M4 |
@@ -200,6 +201,24 @@ the scanner: the reference generator read the corpus with Python's
 every carriage return and line feed pair into a single line feed before the
 reference pattern saw it. The scanner was right and the reference was wrong.
 Both now read raw bytes and decode explicitly.
+
+Encode parity was measured over the same 110 MB corpus. Every token Knap
+emits equals the token the reference emits at the same position:
+
+| Encoding | Tokens | Result |
+| --- | --- | --- |
+| cl100k_base | 43529983 | Every token identical |
+| o200k_base | 36927147 | Every token identical |
+
+That is 80.5 million tokens across the two encodings, and it is the first
+end to end parity claim this project can make. It covers the whole pipeline:
+special token splitting, pre-tokenization, byte mapping, and the merge loop.
+
+What it does not cover is input the corpus does not contain. The corpus is
+natural language, prose, and a generated hazard section, which is a very
+different distribution from adversarial input. That is what milestone M4
+exists for, and until it runs the parity claim should be read as "verified on
+110 MB of realistic text" rather than as "verified in general".
 
 The whole suite passes under `--sanitize address`.
 

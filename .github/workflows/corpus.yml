@@ -4,10 +4,10 @@
 # The milestone M2 pre-tokenization gate, at full scale.
 #
 # This is separate from ci.yml because it is expensive: it downloads and
-# assembles a 110 MB corpus, spends about a minute generating reference
-# boundaries with the Python regex module, and then compares roughly 54
-# million piece boundaries across the two patterns. That is too slow to run
-# on every push and too important to drop.
+# assembles a 110 MB corpus, spends several minutes generating references
+# with the Python reference implementation, and then compares roughly 54
+# million piece boundaries and 80 million tokens. That is too slow to run on
+# every push and too important to drop.
 #
 # The fast half of the same check runs in ci.yml against the committed
 # fixtures, which cover the same pattern alternatives in a few kilobytes.
@@ -27,10 +27,10 @@ permissions:
   contents: read
 
 jobs:
-  pretokenize-parity:
-    name: Pre-tokenization parity over 110 MB
+  corpus-parity:
+    name: Pre-tokenization and encode parity over 110 MB
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -48,8 +48,19 @@ jobs:
       - name: Generate reference boundaries
         run: uv run python scripts/gen_pretoken_golden.py
 
-      # The gate itself. Every piece boundary the scanner produces must equal
-      # the one the reference regex produces, for both patterns, across the
-      # whole corpus.
-      - name: Compare against the reference
+      - name: Fetch vocabularies
+        run: uv run python scripts/fetch_vocabs.py
+
+      - name: Generate encode references
+        run: uv run python scripts/gen_encode_golden.py
+
+      # The milestone M2 gate. Every piece boundary the scanner produces must
+      # equal the one the reference regex produces, for both patterns.
+      - name: Pre-tokenization parity
         run: uv run mojo run -I src tests/test_pretokenize_corpus.mojo
+
+      # The milestone M3 gate. Every token Knap emits must equal the token
+      # tiktoken emits at the same position, across the whole corpus. That is
+      # 43.5 million tokens for cl100k_base and 36.9 million for o200k_base.
+      - name: Encode parity
+        run: uv run mojo run -I src tests/test_encode_corpus.mojo

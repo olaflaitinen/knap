@@ -47,11 +47,33 @@ produce output yet.
 
 ## Unreleased
 
-Milestones M1 and M2. Nothing here has been tagged or published, so it stays
-under Unreleased rather than claiming a version.
+Milestones M1 through M3. Nothing here has been tagged or published, so it
+stays under Unreleased rather than claiming a version.
 
 No entry below changes tokenizer output, because Knap did not produce output
 before these milestones.
+
+### Added, milestone M3, BPE merge and encode
+
+- `src/knap/ranks.mojo`, the merge rank table. It refuses a vocabulary that
+  is missing any of the 256 single byte tokens, because byte level BPE starts
+  from individual bytes and the omission would surface as a crash deep in the
+  merge loop rather than as a loading error.
+- `src/knap/bpe.mojo`, the merge loop. Each round joins the globally lowest
+  ranked adjacent pair, not the leftmost, which is the distinction that
+  separates a correct loop from a plausible one.
+- `src/knap/tokenizer.mojo`, the public API: `encode_ordinary`, `encode` with
+  an allowed special token set, and `decode`.
+- `tests/test_bpe.mojo`, unit tests over a synthetic vocabulary small enough
+  to work through by hand.
+- `tests/test_encode.mojo` and `tests/test_encode_corpus.mojo`, the fast
+  fixture parity tests and the full corpus gate.
+- `tests/test_hazards.mojo`, one test per hazard in `docs/CORRECTNESS.md`,
+  with every expected token measured from tiktoken rather than recalled.
+- `tests/test_roundtrip.mojo`, including every one of the 256 byte values and
+  deliberately malformed sequences.
+- Encode references from `scripts/gen_encode_golden.py`: readable JSON Lines
+  for the fixtures, and a packed varint stream for the corpus.
 
 ### Added, milestone M2, pre-tokenizer
 
@@ -89,8 +111,9 @@ before these milestones.
 - The docstring gate now covers `src/knap` as well as `tests`.
 - Both generators format their own output. Without that the formatter splits
   long string literals and the drift check reports permanent failure.
-- CI generates every reference before running tests, and the 110 MB corpus
-  gate moved to its own scheduled workflow.
+- CI generates every reference before running tests. Both 110 MB corpus
+  gates moved to their own scheduled workflow, which together take about
+  ten minutes and are too slow for every push.
 
 ### Fixed
 
@@ -109,11 +132,17 @@ before these milestones.
 
 ### Verified
 
+- **Encode parity.** Every token Knap emits matches `tiktoken` at the same
+  position across a 110 MB corpus: 43529983 tokens for `cl100k_base` and
+  36927147 for `o200k_base`, 80.5 million in total. This is the first end to
+  end parity result the project has, and it covers the whole pipeline.
 - **Decode parity.** Every token id in both encodings decodes byte
   identically to `tiktoken.decode_single_token_bytes`: 300296 ids in total.
 - **Pre-tokenization parity.** Every piece boundary matches the reference
-  regex across a 110 MB corpus: 28075654 pieces for `cl100k_base` and
+  regex across the same corpus: 28075654 pieces for `cl100k_base` and
   26250703 for `o200k_base`.
+- **Round tripping.** Every byte value, every fixture, and deliberately
+  malformed sequences come back unchanged.
 - **Unicode tables.** All 1114112 code points match an independent
   reference, and the whitespace predicate is exact in both directions.
 - The suite passes under `--sanitize address`.

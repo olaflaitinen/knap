@@ -66,8 +66,22 @@ been verified to exist.
 
 ## Current position
 
-M0, M1, and M2 are complete. Every condition below was observed, not
-inferred.
+M0 through M3 are complete. Every condition below was observed, not inferred.
+
+M3 delivered the merge rank table, the merge loop, and the public tokenizer
+API with both encode entry points. Its gate, matching `tiktoken.encode`
+across the corpus, passes for both encodings over 80.5 million tokens.
+
+| M3 condition | Evidence |
+| --- | --- |
+| Merge loop | `src/knap/bpe.mojo`, with unit tests over a synthetic vocabulary small enough to check by hand. |
+| Rank table | `src/knap/ranks.mojo`, which refuses a vocabulary missing any of the 256 single byte tokens. |
+| `encode_ordinary` | 43529983 and 36927147 tokens identical to the reference over 110 MB. |
+| `encode` with special sets | Allowed markers emit their id, disallowed markers raise. Measured against the reference. |
+| Hazards | One test per entry in `docs/CORRECTNESS.md`, with expected tokens measured rather than recalled. |
+| Round tripping | Every byte value, every fixture, and deliberately malformed sequences. |
+
+The M2 conditions, for the record:
 
 M2 delivered the generated pattern constants, the Unicode tables, the UTF-8
 decoder, the scalar classifier, and the two scanners. Its gate, matching the
@@ -126,13 +140,12 @@ the no-placeholder rule exists to prevent.
 
 | Path | Created at |
 | --- | --- |
-| `src/knap/tokenizer.mojo`, `ranks.mojo`, `bpe.mojo`, `cache.mojo`, `config.mojo` | M3, with the cache measured at M5 |
+| `src/knap/cache.mojo`, `config.mojo` | M5, once there is a benchmark to justify the piece cache |
 | `src/knap/pretokenize/classifier_simd.mojo` | M5 |
 | `src/knap/hf/tokenizer_json.mojo` | After M3, experimental |
 | `tests/test_*.mojo` beyond the toolchain smoke test | Alongside the code each one tests |
 | `tests/fuzz/*` | M4 |
 | `bench/*` | M5 |
-| `encode_expected.jsonl` output from `scripts/gen_encode_golden.py` | M3, when there is an encoder to compare |
 | `bindings/python/*` | M6 Track B, if it proves viable |
 | `docs/BENCHMARKS.md` | M5, when there are real numbers to publish |
 | `.github/workflows/bench.yml` | M5, when there is something to benchmark |

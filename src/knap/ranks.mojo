@@ -4,7 +4,7 @@
 # Purpose     : Merge rank table: maps a byte sequence to its merge rank,
 #               which is also its token id.
 # Stage       : Pipeline stage 4 of 4, see docs/ARCHITECTURE.md
-# Depends on  : flat_vocab.mojo
+# Depends on  : byte_map.mojo, flat_vocab.mojo
 # Invariants  : Every single byte value from 0 to 255 must be present, since
 #               byte level BPE starts from individual bytes and the merge
 #               loop's final lookup must always succeed.
@@ -22,53 +22,67 @@
 The merge loop asks one question over and over: what is the rank of this
 byte sequence, and is it ranked at all. This module answers it.
 
-The table is a hash map keyed on the token's bytes, which is what tiktoken
-does. Starting anywhere more clever would be optimising before measuring,
-and docs/BENCHMARKS.md is where that decision belongs.
+The table is a hash map keyed on the token's bytes, which is what the
+reference implementation does. What differs is the key type, and the reason
+is a measurement rather than a preference.
 
-One point about the key type. Token byte strings are frequently not valid
-UTF-8, because a multi-byte character is routinely split across several
-tokens. Mojo's String is used purely as a byte container here: it is built
-without validation and compared by bytes, so a lone continuation byte is a
-perfectly good key. It is never printed or treated as text.
+The first version used `Dict[String, Int]`. That is the obvious structure
+and it is correct, but a String key has to own its bytes, so every lookup
+copied the range being asked about into a fresh allocation before anything
+was compared. The merge loop is quadratic in the piece length, so a five
+byte piece paid ten allocations to answer ten questions about bytes the
+caller already held.
+
+That cost was invisible until the benchmark corpus was fixed. Earlier runs
+measured a prefix of the corpus, which is a generated hazard section whose
+pieces are about two bytes long, where the quadratic term barely engages. On
+prose, where pieces run four to six bytes, throughput was five times lower.
+See docs/BENCHMARKS.md for the before and after.
+
+So the keys live in a flat arena inside `ByteMap`, and a lookup hashes the
+caller's bytes where they already are. The merge loop itself is unchanged
+and is still quadratic, deliberately: it is a clear and obviously correct
+algorithm, and removing an allocation is a far smaller claim than replacing
+it. If the quadratic term ever becomes the cost, it is the next thing to
+look at, and by then there will be a number saying so.
+
+One point about token bytes. They are frequently not valid UTF-8, because a
+multi-byte character is routinely split across several tokens. Nothing here
+treats them as text, which is one more reason a byte keyed map fits better
+than a string keyed one.
 """
 
+from .byte_map import MISSING, ByteMap
 from .flat_vocab import FlatVocab
 
-comptime UNRANKED: Int = -1
-"""Returned when a byte sequence has no merge rank."""
+comptime UNRANKED: Int = MISSING
+"""Returned when a byte sequence has no merge rank.
+
+Deliberately the same value the map returns for an absent key, so the two
+cannot drift apart. Ranks are never negative, so a negative result is
+unambiguous.
+"""
 
 comptime BYTE_VALUES: Int = 256
 """Number of distinct single byte tokens a byte level vocabulary must hold."""
 
+comptime KEY_BYTES_PER_TOKEN: Int = 8
+"""Rough average token length, used only to reserve the key arena.
 
-def bytes_key(data: Span[UInt8, _], start: Int, end: Int) -> String:
-    """Build a lookup key from a byte range.
+Being wrong costs one reallocation while loading, and nothing afterwards.
+"""
 
-    Args:
-        data: The bytes to slice.
-        start: Inclusive start offset.
-        end: Exclusive end offset.
 
-    Returns:
-        A String holding exactly those bytes, unvalidated.
+struct RankTable(Movable):
+    """Maps a token's bytes to its merge rank.
 
-    This allocates, which is the single largest cost in the merge loop and
-    the obvious first target if encode throughput ever needs improving. It
-    is left alone for now because correctness comes first and because the
-    right fix is a map keyed on a borrowed span, which is a larger change
-    than it looks.
+    Movable and not Copyable on purpose. The table holds a hundred thousand
+    keys and their bytes, and an accidental copy would be an expensive thing
+    to do silently. Making the compiler refuse one costs less than finding
+    it in a profile later.
     """
-    var out = List[UInt8](capacity=end - start)
-    for index in range(start, end):
-        out.append(data[index])
-    return String(unsafe_from_utf8=Span(out))
 
-
-struct RankTable(Copyable, Movable):
-    """Maps a token's bytes to its merge rank."""
-
-    var table: Dict[String, Int]
+    var map: ByteMap
     """Byte sequence to rank. The rank is also the token id."""
 
     def __init__(out self, vocabulary: FlatVocab) raises:
@@ -84,22 +98,24 @@ struct RankTable(Copyable, Movable):
                 inputs at all, and the failure would appear as a crash deep
                 in the merge loop rather than as a loading error.
 
-        Building costs one String allocation per token, so roughly a hundred
-        thousand for cl100k_base. That is paid once at load time.
+        The map is sized from the vocabulary up front, so it never rehashes
+        and a lookup costs the same at the end of a document as at the
+        start.
         """
-        self.table = Dict[String, Int]()
-
         var size = vocabulary.size()
+        self.map = ByteMap(size, size * KEY_BYTES_PER_TOKEN)
+
         for token_id in range(size):
             var token = vocabulary.token_bytes(token_id)
-            self.table[String(unsafe_from_utf8=Span(token))] = token_id
+            _ = self.map.insert(Span(token), 0, len(token), token_id)
 
         # Every byte must be representable on its own.
+        var single = List[UInt8](capacity=1)
+        single.append(UInt8(0))
         var missing = 0
         for value in range(BYTE_VALUES):
-            var single = List[UInt8](capacity=1)
-            single.append(UInt8(value))
-            if String(unsafe_from_utf8=Span(single)) not in self.table:
+            single[0] = UInt8(value)
+            if self.map.lookup(Span(single), 0, 1) == UNRANKED:
                 missing += 1
         if missing != 0:
             var message = String(
@@ -117,7 +133,7 @@ struct RankTable(Copyable, Movable):
         Returns:
             The number of entries.
         """
-        return len(self.table)
+        return self.map.count()
 
     def rank_of(self, data: Span[UInt8, _], start: Int, end: Int) raises -> Int:
         """Look up the merge rank of one byte range.
@@ -131,18 +147,18 @@ struct RankTable(Copyable, Movable):
             The rank, or UNRANKED when the sequence is not a token.
 
         Raises:
-            Error: never in normal operation. The signature carries raises
-                because building the key can, in principle, fail.
+            Error: never, in this implementation. The signature keeps
+                `raises` so that callers written against the previous,
+                allocating one do not all have to change.
 
         An unranked pair is not an error. It is the ordinary signal that a
         pair cannot be merged, and the merge loop stops when every remaining
         adjacent pair is unranked.
+
+        Nothing is allocated here. That sentence is the point of this
+        module.
         """
-        var key = bytes_key(data, start, end)
-        var found = self.table.get(key)
-        if found:
-            return found.value()
-        return UNRANKED
+        return self.map.lookup(data, start, end)
 
     def token_of(
         self, data: Span[UInt8, _], start: Int, end: Int

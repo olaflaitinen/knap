@@ -21,7 +21,7 @@
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
 | Status | Stable |
-| Applies to | Knap 0.1.0, Mojo 1.0.0 |
+| Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
@@ -34,7 +34,7 @@
 ## Contents
 
 1. [Format](#format)
-2. [Unreleased](#unreleased)
+2. [1.0.0, not yet released](#100-not-yet-released)
 3. [0.1.0, 2026-09-07](#010-2026-09-07)
 
 ---
@@ -54,10 +54,23 @@ thoroughly as a changed signature would. Entries that change output are marked
 No entry in this file changes tokenizer output yet, because Knap does not
 produce output yet.
 
-## Unreleased
+## 1.0.0, not yet released
 
-Milestones M1 through M6. Nothing here has been tagged or published, so it
-stays under Unreleased rather than claiming a version.
+Milestones M1 through M6. The version number is declared, the tag and the
+GitHub release are not, and the heading says so rather than implying
+otherwise. It becomes a dated release heading on the day the tag is created.
+
+Why 1.0.0 rather than another 0.x. The public interface is settled, every
+milestone gate has been run and observed, and the parity claim rests on 110
+MB of corpus and twenty million fuzzed inputs rather than on intention. Under
+the rule in [Format](#format) that makes any output change breaking, calling
+this 0.x would understate what a consumer can rely on.
+
+What it does not promise: the Mojo ABI is not stable and the compiler is
+pinned exactly, so a Knap 1.0.0 built against one toolchain is not
+interchangeable with one built against another. That constraint belongs to
+the language rather than to this library, and it is why no wheel is
+published.
 
 One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
@@ -291,6 +304,9 @@ untouched.
   pending. See `docs/ROADMAP.md`.
 
 ## 0.1.0, 2026-09-07
+
+Never tagged. Recorded here because the work happened and the date is
+accurate, not because an artefact under this number was ever published.
 
 Milestone M0, scaffold. The toolchain, the repository standard, and the
 machinery that enforces it. No tokenizer functionality.

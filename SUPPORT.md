@@ -21,7 +21,7 @@
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
 | Status | Draft |
-| Applies to | Knap 0.1.0, Mojo 1.0.0 |
+| Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |

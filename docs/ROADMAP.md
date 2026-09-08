@@ -21,7 +21,7 @@
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
 | Status | Draft |
-| Applies to | Knap 0.1.0, Mojo 1.0.0 |
+| Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
@@ -85,7 +85,7 @@ exists.
 
 | M6 condition | Evidence |
 | --- | --- |
-| Track A, package builds | `recipe/recipe.yaml`, built by rattler-build to `knap-0.1.0-hb0f4dca_0.conda`, 174.56 KiB. |
+| Track A, package builds | `recipe/recipe.yaml`, built by rattler-build to `knap-0.1.0-hb0f4dca_0.conda`, 174.56 KiB. That artefact was built before the version was declared 1.0.0, and the name is left as it was rather than edited to match, because it records what was actually produced. |
 | Track A, package imports without the source tree | The recipe's own test compiles and runs a program against the installed artefact only. Mirrored as a CI job. |
 | Track A, compiler pinned | `mojo-compiler ==1.0.0` in both build and run requirements. A consumer on another toolchain gets a solver error rather than a link error. |
 | Track B, native extension | `PythonModuleBuilder` builds a real CPython extension. The `ctypes` fallback was never needed and the flat C surface it would have required was never added. |

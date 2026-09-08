@@ -13,7 +13,7 @@
 
 [workspace]
 name = "knap"
-version = "0.1.0"
+version = "1.0.0"
 description = "A pure Mojo byte level BPE tokenizer with exact tiktoken parity."
 authors = ["Olaf Yunus Laitinen Imanov <yunus.imanov@metropolia.fi>"]
 license = "EUPL-1.2"

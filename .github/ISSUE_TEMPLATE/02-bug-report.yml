@@ -117,7 +117,7 @@ body:
     id: knap-version
     attributes:
       label: Knap version or commit
-      placeholder: "0.1.0, or the commit hash"
+      placeholder: "1.0.0, or the commit hash"
     validations:
       required: true
 

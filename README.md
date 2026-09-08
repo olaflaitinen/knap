@@ -11,8 +11,8 @@ to produce byte identical output to `tiktoken` on arbitrary input.
 
 ## Status
 
-Knap is at milestone M0, scaffold. Read this section before anything else,
-because most of what this README describes is planned rather than built.
+All seven milestones are complete. Every claim below was observed rather than
+inferred.
 
 | Component | State | Milestone |
 | --- | --- | --- |
@@ -20,17 +20,23 @@ because most of what this README describes is planned rather than built.
 | Vocabulary loading and decode | Working, decode parity verified | M1, complete |
 | Pre-tokenizer, scalar | Working, boundary parity verified | M2, complete |
 | BPE merge and encode | Working, encode parity verified | M3, complete |
-| Differential fuzzing against `tiktoken` | Not started | M4 |
-| SIMD classifier and benchmarks | Not started | M5 |
-| Packaging and Python bindings | Not started | M6 |
+| Differential fuzzing against `tiktoken` | 20 million inputs, zero divergences | M4, complete |
+| Vectorised classifier | Working, indistinguishable from scalar on the test machine, off by default | M5, complete |
+| Piece cache | Working, parity verified, opt in | M5, complete |
+| Benchmarks against three baselines | Published, including where they win | M5, complete |
+| Conda packaging | Builds and imports without the source tree | M6 Track A, complete |
+| Python bindings | Native extension, parity verified through the bindings | M6 Track B, complete |
 
-Knap encodes and decodes today, and its output matches `tiktoken` exactly on
-110 MB of mixed text. What is missing is the adversarial testing in M4, the
-performance work in M5, and any packaging at all.
+Two things are deliberately absent. There is no Hugging Face
+`tokenizer.json` loader: that format specifies its own pre-tokenizer, so a
+loader needs its own parity corpus and its own reference implementation, and
+shipping one without those would put an unverified path inside a library
+whose whole claim is verification. And batch encoding is single threaded,
+which is not a choice: Mojo 1.0.0 has no working task parallelism.
 
 Nothing in this repository is a stub. Every file present is complete and
-working, and the files listed above as not started are absent rather than
-faked. See [docs/ROADMAP.md](docs/ROADMAP.md) for the full deferred list.
+working, and anything not built is absent rather than faked. See
+[docs/ROADMAP.md](docs/ROADMAP.md) for the full deferred list with reasons.
 
 ## Correctness
 
@@ -43,22 +49,40 @@ correctness for speed, correctness wins.
 | Piece boundaries compared over the same corpus | 54326357 |
 | Token ids decoded and compared | 300296, every id in both encodings |
 | Unicode code points verified against an independent reference | 1114112 |
-| Divergences found | 0 |
-| Strings fuzzed against `tiktoken` | 0, M4 not started |
+| Strings fuzzed against `tiktoken` | 20000000, ten million per encoding |
+| Of those, compared token for token | 16661834 |
+| Of those, round trip checked because they are not valid UTF-8 | 3338166 |
+| Fuzzed again under the address sanitizer | 200000 |
+| Divergences outstanding | 0 |
+| Divergences found and fixed | 1 class, described below |
 | Known divergences | None recorded, see docs/CORRECTNESS.md |
 
-Read that table precisely. End to end encode parity **is** established, on
-110 MB of mixed text covering hundreds of languages. That is real evidence
-and it is the reason to take this library seriously.
+Read that table precisely. Encode and decode parity are both established,
+over 110 MB of mixed text covering hundreds of languages and over 20 million
+generated inputs including deliberately malformed UTF-8.
 
-It is also not the same claim as "correct in general". The corpus is natural
-language, prose, and a generated hazard section. Adversarial input has a very
-different distribution, and the fuzzing that covers it is milestone M4, which
-has not run. Until it does, read the numbers above as verified on realistic
-text rather than as verified everywhere.
+**The fuzzer found a real bug, and that is the most useful thing in this
+README.** After 19288 inputs it produced a string where Knap and `tiktoken`
+placed a pre-token boundary differently. The cause was that Knap's Unicode
+tables came from Python's `unicodedata` module, which answers from Unicode
+15.0.0, while the tables `tiktoken` actually behaves as are 16.0.0. About six
+hundred code points changed general category between those releases.
 
-The zeros are honest rather than placeholders. The methodology that will fill
-them is in [docs/CORRECTNESS.md](docs/CORRECTNESS.md).
+Three things about that are worth your attention if you are evaluating this
+library:
+
+- The 110 MB corpus did not find it and would not have. Natural language
+  barely contains the code points involved. Only uniform generation over the
+  code point space reaches them.
+- The obvious fix was also wrong. Regenerating against the `regex` module's
+  tables moved the divergence instead of removing it.
+- What settled it was a measurement, not an argument: inputs constructed so
+  that their answer differs between the candidate Unicode versions, handed to
+  the reference. It agreed with 16.0.0 on 400 of 400.
+
+The full account is in [docs/UNICODE.md](docs/UNICODE.md), and the
+methodology behind every number above is in
+[docs/CORRECTNESS.md](docs/CORRECTNESS.md).
 
 ## Performance
 
@@ -85,7 +109,7 @@ Both paths below were executed verbatim on a clean Ubuntu 24.04 environment.
 With `uv`, which is the primary development environment:
 
 ```bash
-git clone <repository-url> knap
+git clone https://github.com/olaflaitinen/knap.git knap
 cd knap
 uv sync --group dev
 uv run mojo run tests/test_toolchain.mojo
@@ -94,7 +118,7 @@ uv run mojo run tests/test_toolchain.mojo
 With `pixi`, which pulls Mojo from the stable `max` conda channel:
 
 ```bash
-git clone <repository-url> knap
+git clone https://github.com/olaflaitinen/knap.git knap
 cd knap
 pixi install
 pixi run smoke

@@ -47,11 +47,70 @@ produce output yet.
 
 ## Unreleased
 
-Milestones M1 through M3. Nothing here has been tagged or published, so it
+Milestones M1 through M6. Nothing here has been tagged or published, so it
 stays under Unreleased rather than claiming a version.
 
-No entry below changes tokenizer output, because Knap did not produce output
-before these milestones.
+One entry below changes tokenizer output, and it is the Unicode version fix
+under Fixed. Everything else either adds a capability or leaves behaviour
+untouched.
+
+### Added, milestone M6, distribution
+
+- `recipe/recipe.yaml`, a conda recipe targeting the `modular-community`
+  channel. The compiler is pinned exactly in both build and run
+  requirements, so a consumer on a different toolchain gets a solver error
+  rather than a link error deep in their build.
+- `bindings/python/`, a native CPython extension built from Mojo through
+  `PythonModuleBuilder`, plus a thin Python package over it. The `ctypes`
+  fallback the plan allowed for was not needed and was not written.
+- `bindings/python/tests/test_bindings.py`, which checks the bindings
+  against `tiktoken` rather than trusting the Mojo tests. A binding can lose
+  or reorder values in translation and the Mojo tests would never see it.
+- CI jobs that build the conda package and import it without the source
+  tree, and that build and test the Python extension.
+
+### Added, milestone M5, vectorisation, caching and benchmarks
+
+- `src/knap/pretokenize/classifier_simd.mojo`, a vectorised byte classifier,
+  and `tests/test_classifier_parity.mojo`, which holds it to the scalar one.
+  It is compiled and tested but switched off. See Changed.
+- `src/knap/byte_map.mojo`, a hash map from a borrowed byte range to an
+  integer, with open addressing, FNV-1a, and keys in a flat arena. Shared by
+  the rank table and the piece cache, both of which ask the same question of
+  a range inside a buffer they do not own.
+- `src/knap/cache.mojo`, a bounded piece cache: open addressing, FNV-1a over
+  the piece bytes, flat arenas, no eviction. Owned by the caller rather than
+  held inside the tokenizer, so a tokenizer stays immutable and the memory
+  cost is visible at the call site.
+- Cached encode entry points on `Tokenizer`. The cached and uncached paths
+  share one implementation selected at compile time, so neither carries a
+  branch for the other and the two cannot drift apart.
+- `tests/test_cache.mojo`, which holds the cached path to the same tiktoken
+  reference the uncached path is held to, over every fixture, and covers the
+  states a bounded structure only reaches under pressure.
+- `bench/`, a benchmark suite with a harness reporting mean, sample standard
+  deviation, coefficient of variation and nearest-rank percentiles, plus
+  baselines for `tiktoken`, `rs-bpe` and Hugging Face `tokenizers`.
+- `docs/BENCHMARKS.md`, from a real run on a described machine.
+- `.github/workflows/bench.yml`, a smoke run that asserts the suite still
+  runs and states plainly that its numbers are not publishable, because a
+  shared runner cannot produce a comparable one.
+
+### Added, milestone M4, differential fuzzing
+
+- `tests/fuzz/`, a differential fuzzer running Knap and `tiktoken` in one
+  process, with ten generator kinds and a driver that shards the work and
+  records every seed.
+- `tests/fuzz/asan_solo.mojo`, which drives Knap over the same generators
+  with no interpreter in the process, so a sanitizer run needs no
+  suppressions and any leak it reports has exactly one owner.
+- `tests/fuzz/lsan.supp`, suppressing the reference implementation's own
+  allocations by module name and nothing else, with the experiment that
+  established whose they are written into the file.
+- `.github/workflows/fuzz.yml`, a nightly run, and a second address
+  sanitizer job in `sanitize.yml` for the solo driver.
+- `scripts/ucd.py`, which downloads and digest checks the Unicode Character
+  Database rather than reading the interpreter's copy.
 
 ### Added, milestone M3, BPE merge and encode
 
@@ -108,6 +167,39 @@ before these milestones.
 
 ### Changed
 
+- **The rank table is keyed on a borrowed byte range rather than on a
+  `String`.** A `String` key owns its bytes, so every lookup allocated a copy
+  of the range being asked about, and the merge loop is quadratic in the
+  piece length. Encode throughput went from 1.79 to 3.44 MB/s for
+  `cl100k_base` and from 1.90 to 3.21 for `o200k_base`, and the 110 MB parity
+  gate from 208.5 to 105.8 seconds, with byte identical output. The merge
+  loop itself is unchanged and still quadratic, deliberately.
+- **`RankTable` is no longer `Copyable`.** It holds a hundred thousand keys
+  and their bytes, and an accidental copy is an expensive thing to do
+  silently. Making the compiler refuse one costs less than finding it in a
+  profile.
+- **The vectorised classifier is off by default.** Not because it lost, but
+  because it cannot be shown to have won: scalar and vectorised differ by
+  less than one standard deviation over five repetitions. Kept behind
+  `-D KNAP_SIMD=1`, compiled and tested rather than deleted, because the
+  measurement is specific to this machine's lane count and this corpus's
+  piece lengths. Numbers in `docs/BENCHMARKS.md`.
+- **The piece cache is a type rather than a compile time flag.** A flag was
+  written first and removed, because it makes it impossible to exercise both
+  paths in one binary, and the cached path has to be tested against the
+  uncached one in the same test run.
+- **Every throughput benchmark now reads past the generated hazard section.**
+  It reads a prefix of the corpus no longer, because the corpus opens with a
+  large generated section whose first two megabytes hold 205 distinct
+  whitespace separated words. Measured there, the piece cache reported a
+  99.99 percent hit rate from 127 distinct pieces, which says nothing about
+  real text. The Mojo harness and the Python baselines each hold the offset
+  and `bench/run_all.sh` refuses to run if they disagree.
+- Batch encoding is documented as single threaded. Mojo 1.0.0 has no working
+  task parallelism: there is no `parallelize`, and `TaskGroup` aborts at
+  runtime. This is a toolchain limitation recorded as one, not a design
+  choice presented as one.
+- `comptime if` replaces the deprecated `@parameter if`.
 - The docstring gate now covers `src/knap` as well as `tests`.
 - Both generators format their own output. Without that the formatter splits
   long string literals and the drift check reports permanent failure.
@@ -117,6 +209,23 @@ before these milestones.
 
 ### Fixed
 
+- **The Unicode tables were built from the wrong Unicode version, and this
+  changed tokenizer output.** They were generated from Python `unicodedata`,
+  which answers from 15.0.0, while the tables `tiktoken` behaves as are
+  16.0.0. Roughly six hundred code points changed general category between
+  those releases and each is a pre-token boundary in the wrong place. Found
+  by the fuzzer after 19288 inputs; a 110 MB corpus of natural language had
+  not found it and would not have. The first attempted fix, regenerating
+  against the `regex` module's tables, was also wrong. What settled it was a
+  probe over the code points that differ between the two versions, which
+  agreed with 16.0.0 on 400 of 400 inputs. Tables and the reference pattern
+  are now pinned to UCD 16.0.0 and to a digest.
+- **The fuzzing driver reported a clean run that had covered half its
+  inputs.** LeakSanitizer exits with status 23 when it reports anything, and
+  the driver treated any non-zero exit as a shard failure, stopped after the
+  first shard, and printed a divergence count of zero taken from the
+  counters that shard had already reported. It now separates a divergence
+  from an abort and reports the two differently.
 - `scripts/gen_pretoken_golden.py` read the corpus with `read_text`, which
   applies universal newline translation and silently rewrote every carriage
   return and line feed pair before the reference pattern saw it. The scanner
@@ -128,7 +237,10 @@ before these milestones.
 
 ### Removed
 
-- Nothing.
+- The `KNAP_PIECE_CACHE` compile time flag, which was declared before the
+  cache existed and which nothing read. Replaced by `knap.cache.PieceCache`.
+  A flag nothing reads is a placeholder, and this repository does not keep
+  those.
 
 ### Verified
 
@@ -145,10 +257,29 @@ before these milestones.
   malformed sequences come back unchanged.
 - **Unicode tables.** All 1114112 code points match an independent
   reference, and the whitespace predicate is exact in both directions.
+- **Differential fuzzing.** 20000000 generated inputs across the two
+  encodings, of which 16661834 were compared against `tiktoken` token for
+  token and 3338166 were round trip checked because they are not valid
+  UTF-8. Zero divergences. Every shard seed is recorded in
+  `tests/fuzz/last_run.json`.
+- **Under the address sanitizer.** 200000 of those inputs again, zero
+  divergences, with the reference implementation's own leaks suppressed by
+  module name and the reasoning recorded. Separately, 40000 inputs through
+  `asan_solo.mojo` with no interpreter in the process and no suppression
+  file at all, which is the run that shows Knap does not leak.
+- **The byte keyed rank table preserves parity.** The full suite, both
+  classifier builds, and both 110 MB corpus gates pass unchanged after the
+  rank lookup was rewritten: 28075654 and 26250703 piece boundaries, and
+  43529983 and 36927147 tokens, all byte identical to the reference.
+- **The piece cache preserves parity.** Every cached result over every
+  fixture matches the same tiktoken reference the uncached path is held to,
+  for both encodings, including when the cache is full, disabled, or
+  refusing pieces for being too long.
 - The suite passes under `--sanitize address`.
-- EmberJson was evaluated and passed both acceptance criteria. It is not yet
-  a dependency, because nothing imports it until the Hugging Face loader
-  exists.
+- EmberJson was evaluated and passed both acceptance criteria. It is not a
+  dependency, and now will not become one in this version: the Hugging Face
+  loader that would have imported it is deferred by decision rather than
+  pending. See `docs/ROADMAP.md`.
 
 ## 0.1.0, 2026-09-07
 

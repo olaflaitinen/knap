@@ -66,7 +66,8 @@ that outcome is recorded in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Work | Upstream | Licence | Version | Use |
 | --- | --- | --- | --- | --- |
 | `tiktoken` | <https://github.com/openai/tiktoken> | MIT | 0.14.0 | Reference implementation for parity. Generates golden fixtures and drives the differential fuzzer. Also the source of the pre-tokenization pattern, extracted programmatically. |
-| Hugging Face `tokenizers` | <https://github.com/huggingface/tokenizers> | Apache-2.0 | 0.23.2 | Benchmark baseline, and the source of the `tokenizer.json` format Knap reads experimentally. |
+| Hugging Face `tokenizers` | <https://github.com/huggingface/tokenizers> | Apache-2.0 | 0.23.2 | Benchmark baseline. |
+| `rs-bpe` | <https://github.com/github/rs-bpe> | MIT | 0.1.6 | Benchmark baseline. Imported as `rs_bpe.bpe.openai`, not as `rs_bpe.openai`, which the published documentation gives and which does not resolve in the shipped wheel. |
 | `regex` | <https://github.com/mrabarnett/mrab-regex> | Apache-2.0 | 2026.9.3 | Generates reference pre-token boundaries. Supports the Unicode property syntax the patterns use, which the standard library `re` module does not. |
 | `uv` | <https://github.com/astral-sh/uv> | Apache-2.0 or MIT | 0.12.10 | Primary environment manager. |
 | `pixi` | <https://github.com/prefix-dev/pixi> | BSD-3-Clause | 0.80.0 | Alternate environment manager, kept working and tested. |
@@ -94,7 +95,7 @@ prominence as any Knap result.
 | --- | --- | --- | --- |
 | `tiktoken` | <https://github.com/openai/tiktoken> | MIT | Behaviour, and the pre-tokenization pattern string extracted programmatically. No source code. |
 | `rs-bpe` | <https://github.com/github/rs-bpe> | MIT | Algorithmic ideas for the merge loop. No source code. |
-| Hugging Face `tokenizers` | <https://github.com/huggingface/tokenizers> | Apache-2.0 | The `tokenizer.json` on-disk format. No source code. |
+| Hugging Face `tokenizers` | <https://github.com/huggingface/tokenizers> | Apache-2.0 | Nothing was taken. The `tokenizer.json` format was read while scoping a loader for it, and that loader was deferred rather than written. See [docs/ROADMAP.md](docs/ROADMAP.md). No source code. |
 | `atsentia/mojo-tokenizer` | <https://github.com/atsentia/mojo-tokenizer> | See upstream | Prior art in pure Mojo, noted for its published throughput. No source code. |
 | `mojo-regex` | <https://github.com/msaelices/mojo-regex> | See upstream | Read for reference only. Rejected as a dependency because it pins a pre-1.0 compiler. No source code. |
 
@@ -102,7 +103,7 @@ prominence as any Knap result.
 
 | Source | Upstream | Licence | Use |
 | --- | --- | --- | --- |
-| Unicode Character Database | <https://www.unicode.org/ucd/> | Unicode Licence | Source of the Letter and Number general category ranges, read through Python `unicodedata`. The Unicode version is recorded in the generated table's banner. |
+| Unicode Character Database, version 16.0.0 | <https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt> | Unicode Licence | Source of every general category range the pre-tokenization patterns test. Downloaded and verified against a recorded SHA-256 digest by `scripts/ucd.py`, not read through Python `unicodedata`. That distinction is not cosmetic: the interpreter answers from Unicode 15.0.0, the reference implementation behaves as 16.0.0, and building the tables from the former produced a real divergence. See [docs/UNICODE.md](docs/UNICODE.md). |
 | `cl100k_base` and `o200k_base` vocabularies | Distributed by OpenAI, fetched by `scripts/fetch_vocabs.py` | See upstream | Vocabulary and merge ranks. Fetched at build time and never committed, so no licence question attaches to this repository and the exact source is recorded rather than assumed. |
 | Benchmark corpus | Fetched by `scripts/fetch_corpus.py` | Recorded per source in that script | Parity and throughput measurement. Never committed. |
 

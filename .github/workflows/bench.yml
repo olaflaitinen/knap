@@ -82,7 +82,7 @@ jobs:
       # not so the figures can be compared between runs. They cannot.
       - name: Upload the run, for inspection only
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-smoke-not-publishable
           path: bench/results/

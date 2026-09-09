@@ -201,6 +201,48 @@ def main() raises:
 Fetch a vocabulary first with `uv run python scripts/fetch_vocabs.py`, then
 run it with `uv run mojo run -I src your_program.mojo`.
 
+## From Mojo and MAX
+
+The reason to write a tokenizer in Mojo rather than bind to a Rust one is
+that a Mojo or MAX application can then tokenize without leaving its own
+runtime. This section says exactly how far that goes, because the honest
+answer is narrower than the pitch usually is.
+
+**What is true.** Knap runs with no Python interpreter in the process. That
+is not an assertion, it is a continuous integration job:
+`tests/fuzz/asan_solo.mojo` drives the whole encode and decode path over
+generated input with nothing imported from Python, and it runs under the
+address sanitizer with no suppression file. If an interpreter were being
+started, the leaks that CPython never frees would appear and the job would
+fail. It does not.
+
+**What that buys.** No subprocess, no serialisation of token ids across a
+boundary, and no global interpreter lock between tokenization and whatever
+runs next. A serving loop that tokenizes in Python today pays all three on
+every request.
+
+**The shape for it.** `encode_ordinary_bytes_into` appends into a buffer the
+caller owns rather than returning a fresh list, so the ids can be written
+straight into memory that something else already owns:
+
+```mojo
+var ids = List[Int](capacity=4096)
+for document in batch:
+    ids.clear()
+    tokenizer.encode_ordinary_bytes_into(document, ids)
+    # ids now holds this document's tokens, in a buffer you allocated once.
+```
+
+**What does not exist, stated plainly.** There is no MAX graph operation, no
+tensor type, and no device transfer. Knap produces token ids in host memory
+and stops there. Filling a device tensor, batching with padding, and putting
+tokenization inside a graph are all the caller's problem today.
+
+That is a gap rather than a decision, and it is the most useful thing anybody
+could add next. It is not built here because building it against an interface
+this project has not verified against would be exactly the kind of unchecked
+claim the rest of this repository exists to avoid.
+
 ## Supported vocabularies
 
 | Vocabulary | State | Verified against |

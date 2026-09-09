@@ -166,6 +166,13 @@ never an interpolation between two that did not.
   fuzzing job held the cores and came back with $c_v$ above 0.2, large
   enough that the differences it was measuring were smaller than its noise.
   Those numbers were discarded rather than published.
+- **A paired comparison for anything under about ten percent.** Two binaries
+  built from the same tree, run alternately in one session, and the
+  difference taken per pair rather than between two averages. The run to run
+  spread on this machine is around five percent, so a five percent effect
+  measured across sessions is indistinguishable from the machine's mood. The
+  allocation result below was invisible, and briefly appeared negative, until
+  it was measured this way.
 
 ## Encode throughput
 
@@ -244,6 +251,56 @@ The merge loop itself is unchanged and is still quadratic in the piece
 length. That is deliberate. It is a clear and obviously correct algorithm,
 removing an allocation is a far smaller claim than replacing it, and if the
 quadratic term ever becomes the cost there will be a number saying so.
+
+### The second allocation, and why it is a different story
+
+The merge loop also allocated a small list of split points for every
+pre-token. On four megabytes of prose that is about a million allocations of
+a structure that lives for a few microseconds. Moving it to a scratch buffer
+the caller owns and reuses makes that number one.
+
+The result is real and it is small:
+
+| Encoding | Before | After | Change | Confidence |
+| --- | --- | --- | --- | --- |
+| `cl100k_base` | 3.609 MB/s | 3.818 MB/s | plus 5.8 percent | 3.4 $\sigma$ |
+| `o200k_base` | 3.325 MB/s | 3.504 MB/s | plus 5.4 percent | 4.5 $\sigma$ |
+
+**Five percent, from removing a million allocations.** The rank table fix
+removed a comparable number and returned ninety percent. Both were the same
+shape of mistake and they differ by a factor of seventeen in what they were
+worth, which is worth writing down: "allocations are the cost" is a useful
+prior and not a law. The rank table allocation also copied bytes and hashed
+a fresh String; this one asks the allocator for a few dozen bytes and gives
+them straight back, which is close to the cheapest thing an allocator does.
+
+The measurement is a paired one, and that matters at this size. Two binaries
+were built from the same tree with and without the change, run alternately
+twelve times each in one session, and the difference taken per pair. Compared
+across sessions the change is invisible: the spread between runs on this
+machine is larger than five percent, and the first unpaired comparison put
+the change on the wrong side of zero for one of the two encodings. A five
+percent effect measured by comparing two numbers taken an hour apart is not a
+measurement.
+
+### A prediction this refuted
+
+The tail latency in [Short string latency](#short-string-latency) is three to
+five times the reference at the 99th percentile while the median is only one
+and a half times it. The obvious explanation was allocation spikes, and it
+was written down as such before being tested.
+
+It is wrong. With the per-piece allocation gone, the percentiles do not move:
+
+| Size class | p50 before | p50 after | p99 before | p99 after |
+| --- | --- | --- | --- | --- |
+| About 10 tokens | 6693 | 6743 | 23344 | 27503 |
+| About 50 tokens | 29446 | 26581 | 158852 | 161868 |
+| About 200 tokens | 110361 | 116522 | 763926 | 761862 |
+
+Every figure is inside the run to run spread. Whatever produces that tail, it
+is not this. The cause is now an open question in
+[docs/ARCHITECTURE.md](ARCHITECTURE.md) rather than a second guess.
 
 ## The piece cache
 

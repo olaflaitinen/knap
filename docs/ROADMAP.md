@@ -219,6 +219,7 @@ rather than substitutions, and neither creates a parallel directory:
 | Path | Why it exists |
 | --- | --- |
 | `tests/test_toolchain.mojo` | The layout had no slot for the toolchain smoke test that M0 requires. It deliberately imports nothing from `src/knap`, so a failure there always means the compiler rather than Knap. |
+| `docs/API.md` | A generated reference for the public surface. `mojo doc` emits JSON and not HTML, and its own help says the format is subject to change, so a documentation site would be a renderer built on a foundation the tool declares unstable. Markdown in the repository is the better artefact anyway: it renders on the forge with nothing to deploy, and a change to the public interface shows up in a pull request diff, which for a version claiming a settled interface is worth more than a browsable page. |
 | `cli/` | The command line tool, added after milestone M6. It is an application rather than part of the library, so it sits outside `src/knap` and the library has no dependency on it. `cli/args.mojo` holds everything pure, which is what lets `tests/test_cli.mojo` check the parser without a vocabulary; `cli/tests/test_end_to_end.py` runs the built binary against the reference, because a parser test cannot tell you whether the numbers are right. |
 | `scripts/selftest_gates.py` | M0 requires each standards gate to be observed failing on a planted violation. Doing that once by hand proves it once. This makes it repeatable and runs it in CI, so a gate that silently stops working is caught. |
 

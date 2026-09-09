@@ -76,6 +76,18 @@ One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
 untouched.
 
+### Added, allocation control
+
+- `Tokenizer.encode_ordinary_into` and `encode_ordinary_bytes_into`, which
+  append to a buffer the caller owns instead of returning a fresh list. A
+  caller encoding many documents in a loop can now hand back the same buffer
+  and pay for it once. Mojo exists to give control over allocation, and a
+  library offering only allocating entry points does not pass that control
+  on.
+- `merge_piece_into`, which takes the merge loop's scratch space from the
+  caller. `merge_piece` remains for single piece callers and allocates its
+  own.
+
 ### Added, the command line tool
 
 - `cli/`, a `knap` command with `count`, `encode`, `decode` and `vocab`.
@@ -206,6 +218,13 @@ untouched.
 
 ### Changed
 
+- **The merge loop no longer allocates per pre-token**, and the output
+  buffer is sized before encoding rather than grown. Measured with a paired
+  comparison over twelve alternating runs: plus 5.8 percent for
+  `cl100k_base` at 3.4 sigma and plus 5.4 percent for `o200k_base` at 4.5
+  sigma. Small, and worth recording next to the rank table result below,
+  which removed a comparable number of allocations and returned ninety
+  percent. The two differ by a factor of seventeen.
 - **The rank table is keyed on a borrowed byte range rather than on a
   `String`.** A `String` key owns its bytes, so every lookup allocated a copy
   of the range being asked about, and the merge loop is quadratic in the

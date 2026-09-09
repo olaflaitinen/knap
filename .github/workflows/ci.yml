@@ -40,7 +40,12 @@ jobs:
     name: Repository standards
     runs-on: ubuntu-24.04
     steps:
+      # Full history. check_recipe.py resolves the commit the conda recipe
+      # names, and the default shallow checkout does not contain it, so the
+      # gate would report a valid revision as missing.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7

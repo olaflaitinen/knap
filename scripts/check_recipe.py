@@ -322,6 +322,27 @@ def commit_exists(revision: str) -> bool:
     return done.returncode == 0
 
 
+def is_shallow() -> bool:
+    """Report whether this clone has a truncated history.
+
+    Returns:
+        True when git says the repository is shallow.
+
+    A shallow clone cannot answer whether a commit exists, only whether it
+    is inside the slice that was fetched. Continuous integration checks out
+    one commit by default, so this distinction is the difference between a
+    useful failure and a confusing one.
+    """
+    done = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    return done.returncode == 0 and done.stdout.strip() == "true"
+
+
 def get(document: dict, *path: str) -> object:
     """Read a nested value, returning None when any step is missing.
 
@@ -417,10 +438,18 @@ def check(document: dict) -> list[str]:
                     "branch or a tag can move; a SHA cannot."
                 )
             elif not commit_exists(revision):
-                problems.append(
-                    f"source.rev {revision} is not a commit in this "
-                    "repository. Update it as part of preparing a release."
-                )
+                if is_shallow():
+                    problems.append(
+                        f"source.rev {revision} cannot be verified because "
+                        "this is a shallow clone. Fetch the full history, "
+                        "which in a workflow means fetch-depth: 0."
+                    )
+                else:
+                    problems.append(
+                        f"source.rev {revision} is not a commit in this "
+                        "repository. Update it as part of preparing a "
+                        "release."
+                    )
             url = entry.get("git")
             repository = get(document, "about", "repository")
             if url != repository:

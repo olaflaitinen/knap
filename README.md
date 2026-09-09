@@ -15,23 +15,55 @@
   </picture>
 </p>
 
+<!--
+  Two rows: what is verified, then what this is. Every workflow badge uses
+  the ?branch=main form GitHub documents, so a red badge means main is red
+  rather than that somebody's pull request was.
+
+  Benchmark smoke is deliberately not badged. It asserts that the benchmark
+  suite still runs on a shared runner, and its own workflow says plainly
+  that a shared runner cannot produce a comparable number. A green badge
+  next to these would be read as "the benchmarks pass", which is not a thing
+  that badge would mean.
+-->
+
 <p align="center">
   <a href="https://github.com/olaflaitinen/knap/actions/workflows/ci.yml"><img
-    src="https://github.com/olaflaitinen/knap/actions/workflows/ci.yml/badge.svg"
-    alt="CI"></a>
+    src="https://github.com/olaflaitinen/knap/actions/workflows/ci.yml/badge.svg?branch=main"
+    alt="CI status"></a>
   <a href="https://github.com/olaflaitinen/knap/actions/workflows/sanitize.yml"><img
-    src="https://github.com/olaflaitinen/knap/actions/workflows/sanitize.yml/badge.svg"
-    alt="Sanitizers"></a>
-  <a href="https://github.com/olaflaitinen/knap/actions/workflows/fuzz.yml"><img
-    src="https://github.com/olaflaitinen/knap/actions/workflows/fuzz.yml/badge.svg"
-    alt="Fuzzing"></a>
+    src="https://github.com/olaflaitinen/knap/actions/workflows/sanitize.yml/badge.svg?branch=main"
+    alt="Sanitizer status"></a>
   <a href="https://github.com/olaflaitinen/knap/actions/workflows/codeql.yml"><img
-    src="https://github.com/olaflaitinen/knap/actions/workflows/codeql.yml/badge.svg"
-    alt="CodeQL"></a>
-  <img src="https://img.shields.io/badge/Mojo-1.0.0-orange" alt="Mojo 1.0.0">
-  <img src="https://img.shields.io/badge/encodings-7-blue" alt="7 encodings">
-  <img src="https://img.shields.io/badge/licence-EUPL--1.2-green"
-       alt="EUPL-1.2">
+    src="https://github.com/olaflaitinen/knap/actions/workflows/codeql.yml/badge.svg?branch=main"
+    alt="CodeQL status"></a>
+  <a href="https://github.com/olaflaitinen/knap/actions/workflows/corpus.yml"><img
+    src="https://github.com/olaflaitinen/knap/actions/workflows/corpus.yml/badge.svg?branch=main"
+    alt="Corpus parity gate status"></a>
+  <a href="https://github.com/olaflaitinen/knap/actions/workflows/fuzz.yml"><img
+    src="https://github.com/olaflaitinen/knap/actions/workflows/fuzz.yml/badge.svg?branch=main"
+    alt="Differential fuzzing status"></a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img
+    src="https://img.shields.io/github/license/olaflaitinen/knap?color=blue&label=licence"
+    alt="Licence EUPL-1.2"></a>
+  <a href="https://mojolang.org/"><img
+    src="https://img.shields.io/badge/Mojo-1.0.0%20pinned-orange"
+    alt="Mojo 1.0.0, pinned exactly"></a>
+  <a href="#supported-encodings"><img
+    src="https://img.shields.io/badge/tiktoken%20encodings-7%20of%207-blue"
+    alt="All seven tiktoken encodings"></a>
+  <a href="docs/PACKAGING.md"><img
+    src="https://img.shields.io/badge/conda-not%20published%20yet-lightgrey"
+    alt="Not published to a conda channel yet"></a>
+  <a href="CODE_OF_CONDUCT.md"><img
+    src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa"
+    alt="Contributor Covenant 2.1"></a>
+  <a href="https://github.com/olaflaitinen/knap/commits/main"><img
+    src="https://img.shields.io/github/last-commit/olaflaitinen/knap?color=informational"
+    alt="Last commit"></a>
 </p>
 
 **A byte level Byte Pair Encoding tokenizer in pure Mojo, producing byte

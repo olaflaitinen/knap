@@ -76,6 +76,23 @@ One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
 untouched.
 
+### Added, the command line tool
+
+- `cli/`, a `knap` command with `count`, `encode`, `decode` and `vocab`.
+  Counting tokens is the most common thing anyone does with a tokenizer and
+  it previously required a Mojo toolchain and a program. Input comes from an
+  argument, a file, or standard input; exit status separates a bad command
+  line from a bad input.
+- `tests/test_cli.mojo`, eighteen tests over the parser. Most of them assert
+  refusals, because a parser that accepts a good command line is the easy
+  half and one that quietly resolves a contradiction is how somebody gets a
+  token count they did not ask for.
+- `cli/tests/test_end_to_end.py`, which builds the binary and checks every
+  count and every id against `tiktoken`, through arguments and through
+  pipes, and round trips all 256 byte values.
+- The conda package now installs the binary, so the package gives a working
+  command rather than a library to write a program against.
+
 ### Added, milestone M6, distribution
 
 - `recipe/recipe.yaml`, a conda recipe targeting the `modular-community`
@@ -231,6 +248,13 @@ untouched.
 
 ### Fixed
 
+- **The command line tool could not be piped.** It encoded correctly and
+  `knap encode X | knap decode` failed with a write error, because opening
+  `/dev/stdout` works when standard output is a file or a terminal and fails
+  when it is a pipe. Reading `/dev/stdin` from a pipe does work, which is
+  what made the asymmetry easy to miss. Found by running the tool rather
+  than by testing the parser, which is why `cli/tests/test_end_to_end.py`
+  exists at all.
 - **The Unicode tables were built from the wrong Unicode version, and this
   changed tokenizer output.** They were generated from Python `unicodedata`,
   which answers from 15.0.0, while the tables `tiktoken` behaves as are

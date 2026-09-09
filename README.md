@@ -140,6 +140,48 @@ version would silently invalidate both benchmarks and any built binding.
 There is no Python package to install yet. See M6 in
 [docs/ROADMAP.md](docs/ROADMAP.md) for the state of that work.
 
+## Command line
+
+The easiest way to use Knap, and the only one that does not need a Mojo
+toolchain once the package is installed.
+
+```bash
+knap count "how many tokens is this"
+cat prompt.txt | knap count
+knap encode --format json "hello world" | jq
+knap encode "round trip" | knap decode
+knap vocab -e o200k_base
+```
+
+| Command | Does |
+| --- | --- |
+| `knap count` | Prints one number, so `$(knap count -f x.txt)` works in a shell |
+| `knap encode` | Prints token ids, as `space`, `lines`, or `json` |
+| `knap decode` | Turns token ids back into the exact bytes they represent |
+| `knap vocab` | Prints the size and the special tokens of an encoding |
+
+Input comes from an argument, from `--file`, or from standard input. Exit
+status is 0 for success, 1 when the command ran and failed, and 2 when the
+command line itself was wrong, so a script can tell a bad invocation from a
+bad input.
+
+Two behaviours are worth knowing before you rely on them.
+
+**A marker such as `<|endoftext|>` in the input is ordinary text by default.**
+It encodes as the characters that spell it, not as the control token, which
+is what the reference implementation's ordinary encode does and what is safe
+for text somebody else wrote. `--allowed-special <|endoftext|>` opts in.
+`--strict-special` makes any marker an error, which is how you check that a
+document is free of them.
+
+**`knap encode X | knap decode` returns X byte for byte**, including when X is
+not valid UTF-8. Decode writes raw bytes and adds no newline. That is the
+property a byte level tokenizer exists to have, and it is checked over all
+256 byte values in `cli/tests/test_end_to_end.py`.
+
+Vocabularies are not bundled. `knap help` lists the five places the tool
+looks for them, in order.
+
 ## Quickstart
 
 The encode and decode quickstart arrives with M3. What runs today is the

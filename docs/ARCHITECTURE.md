@@ -453,6 +453,12 @@ Corrections to widely held assumptions, each verified by compiling:
 | A method reached through the automatic downcast pointer can mutate | It cannot. Not a limitation for Knap, since every tokenizer method is read only after loading, but it constrains what a binding can expose. |
 | `mojo precompile` produces a `.mojopkg` | That extension is deprecated in 1.0.0 and warns. The current artefact is `.mojoc`. |
 | A conda recipe may reference files above its own directory | `license_file: ../LICENSE` fails. The path must resolve inside the recipe directory. |
+| `external_call` lives under `std.sys` | It does not. `std.sys.ffi` fails to resolve; the module is `std.ffi`. |
+| `len(s)` works on a `String` | Refused, and the error is right to refuse it: bytes, code points and grapheme clusters are three different answers. Use `s.byte_length()`, `len(s.codepoints())`, or `len(s.graphemes())` and say which you meant. |
+| A tuple literal can be iterated | `Tuple` does not implement `__iter__`, so `for x in (a, b, c)` is a compile error. Build a `List`. |
+| `/dev/stdout` can always be opened for writing | It cannot. Opening it works when standard output is a file or a terminal and fails when it is a pipe, because the path resolves through `/proc/self/fd` to a pipe node. `FileDescriptor(1).write_bytes` works everywhere. Reading `/dev/stdin` from a pipe does work, which is what makes the asymmetry easy to miss: the tool read piped input correctly and could not write piped output. |
+| Pointer arithmetic uses `+` | Deprecated. Use `unsafe_offset`. |
+| A file may be named after the package it imports | A module's name is its file stem, so `cli/knap.mojo` declares a module called `knap` and the compiler refuses it: a module cannot import itself. The entry point is `cli/main.mojo` and only the binary is called `knap`. |
 
 The SIMD comparison correction is the most dangerous of these, because the
 wrong form still compiles in some expressions and silently computes something

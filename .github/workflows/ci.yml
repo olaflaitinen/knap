@@ -61,6 +61,15 @@ jobs:
       - name: SPDX identifiers
         run: python scripts/check_spdx.py
 
+      # Compares the fuzzing figures quoted in prose against the committed
+      # run reports. It belongs here, on every push, rather than after a
+      # fresh fuzzing run: it is a consistency check between two committed
+      # artefacts, and running it against reports a job has just overwritten
+      # would compare new numbers against old prose and fail for the wrong
+      # reason. It did exactly that once, which is why it moved.
+      - name: The documented fuzzing figures match the reports
+        run: python scripts/check_fuzz_claims.py
+
       # A gate that has never been observed failing is not known to work.
       # This plants one violation per gate, asserts each is rejected, and
       # asserts the matching clean control is accepted.
@@ -127,13 +136,13 @@ jobs:
           # three had docstring errors in them when this was widened.
           for f in $(git ls-files '*.mojo'); do
             uv run mojo doc --Werror --diagnose-missing-doc-strings \
-              -I src -I tests/fuzz -I bench -o /dev/null "$f"
+              -I src -I tests/fuzz -I bench -I cli -o /dev/null "$f"
           done
 
       - name: Build with warnings as errors
         run: |
           for f in tests/*.mojo; do
-            uv run mojo build --Werror -I src -o /dev/null "$f"
+            uv run mojo build --Werror -I src -I cli -o /dev/null "$f"
           done
 
       # The 110 MB corpus gates are excluded here and run in corpus.yml on
@@ -147,7 +156,7 @@ jobs:
               *_corpus.mojo) echo "== skipping $f, runs in corpus.yml"; continue ;;
             esac
             echo "== $f"
-            uv run mojo run -I src "$f"
+            uv run mojo run -I src -I cli "$f"
           done
 
   scalar-and-simd:
@@ -183,7 +192,7 @@ jobs:
             case "$f" in
               *_corpus.mojo) continue ;;
             esac
-            uv run mojo run -I src -D KNAP_SIMD=1 "$f"
+            uv run mojo run -I src -I cli -D KNAP_SIMD=1 "$f"
           done
 
   python-bindings:
@@ -244,6 +253,31 @@ jobs:
               print(vocabulary.decode([0]))
           SMOKE
           uv run mojo run -I "${RUNNER_TEMP}/pkg" "${RUNNER_TEMP}/smoke.mojo"
+
+  command-line-tool:
+    name: Command line tool
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the pinned environment
+        run: uv sync --group dev
+
+      - name: Fetch vocabularies
+        run: uv run python scripts/fetch_vocabs.py
+
+      # The parser tests run with the rest of the suite. This job exists for
+      # the half a unit test cannot reach: whether the numbers are right, and
+      # whether the tool survives a pipe. The first version of it encoded
+      # correctly and could not be piped, because opening /dev/stdout works
+      # when standard output is a file and fails when it is a pipe.
+      - name: Build and check against tiktoken
+        run: uv run python cli/tests/test_end_to_end.py
 
   unstable-api-inventory:
     name: Unstable API inventory (reporting only)

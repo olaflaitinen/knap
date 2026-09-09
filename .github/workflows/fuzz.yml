@@ -49,11 +49,20 @@ jobs:
 
       # Both implementations run in one process, so there is no subprocess
       # boundary and no ambiguity about which tiktoken produced a reference.
+      # A fresh seed every night, derived from the run number. A fuzzer that
+      # replays the same inputs every night is a regression test wearing a
+      # fuzzer's clothes: it will never find anything the first run did not.
+      #
+      # The consequence is that the reports this job writes are not the ones
+      # the documents quote, which is why they are uploaded as artefacts and
+      # never committed, and why the gate that compares prose against reports
+      # runs in ci.yml against the committed pair instead.
       - name: Fuzz
         run: |
           uv run python tests/fuzz/run_fuzz.py \
             --total "${{ github.event.inputs.total || '10000000' }}" \
-            --shard 1000000
+            --shard 1000000 \
+            --seed "${{ github.run_number }}"
 
       # A memory error can produce correct output on one run and corruption
       # on the next, so a subset runs again under the address sanitizer.
@@ -61,14 +70,6 @@ jobs:
         run: |
           uv run python tests/fuzz/run_fuzz.py --total 100000 \
             --shard 50000 --sanitize address
-
-      # The figures in README.md, CHANGELOG.md, docs/CORRECTNESS.md and
-      # docs/ROADMAP.md are typed by hand next to numbers produced by a
-      # machine. This compares the two rather than trusting them to stay
-      # equal, because a hand copied number drifts, and it drifts in the
-      # flattering direction because that is the one nobody re-checks.
-      - name: The documented figures match the reports
-        run: uv run python scripts/check_fuzz_claims.py
 
       - name: Upload the run reports
         if: always()

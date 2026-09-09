@@ -86,7 +86,7 @@ jobs:
             name="$(basename "$f" .mojo)"
             echo "== $f"
             uv run mojo build --sanitize address \
-              -I src -o "${RUNNER_TEMP}/asan/${name}" "$f"
+              -I src -I cli -o "${RUNNER_TEMP}/asan/${name}" "$f"
             "${RUNNER_TEMP}/asan/${name}"
           done
 

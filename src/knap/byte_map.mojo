@@ -50,18 +50,46 @@ Not thread safe for writes. Lookups are read only and safe to share.
 """
 
 
-comptime FNV_OFFSET_BASIS: UInt64 = 0xCBF29CE484222325
-"""The 64 bit FNV-1a offset basis, as published."""
+comptime HASH_SEED: UInt64 = 0xCBF29CE484222325
+"""Starting value for the hash. Any odd constant would do."""
 
-comptime FNV_PRIME: UInt64 = 0x100000001B3
-"""The 64 bit FNV-1a prime, as published."""
+comptime HASH_MULTIPLIER: UInt64 = 0x9E3779B97F4A7C15
+"""Mixing multiplier, the 64 bit golden ratio constant.
+
+An odd multiplier with well spread bits, which is what a multiply and shift
+mixer needs. The exact value matters only in that it must be odd, so the
+multiplication is invertible and no information is thrown away.
+"""
+
+comptime HASH_ROTATION: Int = 23
+"""Bits to rotate the accumulator by before folding in the next word."""
+
+comptime WORD_BYTES: Int = 8
+"""Bytes consumed per iteration of the wide loop."""
 
 comptime MISSING: Int = -1
 """Returned by lookup when a byte range is not in the map."""
 
+comptime EMPTY_SLOT: UInt64 = 0
+"""Value of an unused probe cell.
+
+Zero is available as the empty marker because a used cell stores the entry
+index plus one, so the smallest used value is one.
+"""
+
+comptime ENTRY_MASK: UInt64 = 0xFFFFFFFF
+"""Low half of a probe cell, holding the entry index plus one.
+
+Thirty two bits caps the map at just over four billion entries. The largest
+vocabulary this project loads has two hundred thousand.
+"""
+
+comptime TAG_SHIFT: UInt64 = 32
+"""Bits to shift the hash tag by when packing it into a probe cell."""
+
 
 def hash_bytes(data: Span[UInt8, _], start: Int, end: Int) -> UInt64:
-    """Hash a byte range with FNV-1a.
+    """Hash a byte range, eight bytes at a time.
 
     Args:
         data: The buffer holding the range.
@@ -71,16 +99,69 @@ def hash_bytes(data: Span[UInt8, _], start: Int, end: Int) -> UInt64:
     Returns:
         The 64 bit hash.
 
-    FNV-1a rather than anything stronger. The keys are token byte strings
-    and short pre-tokens, not inputs chosen to attack this table, and a
-    collision costs one extra comparison rather than a wrong answer, because
-    every probe verifies the bytes before it accepts an entry.
+    Not a cryptographic hash and not trying to be. The keys are token byte
+    strings and short pre-tokens, not inputs chosen to attack this table,
+    and a collision costs one extra comparison rather than a wrong answer,
+    because every probe verifies the bytes before it accepts an entry.
+
+    This used to be FNV-1a, which is a byte at a time: one exclusive or and
+    one multiply for every byte of every key. The encoder asks this question
+    several times per word, so the loop trip count was the cost. Reading
+    eight bytes at once turns a key of eight bytes from eight multiplies
+    into one.
+
+    The read is deliberately unaligned. A pre-token starts wherever the
+    previous one ended, so alignment is not available, and x86-64 loads
+    unaligned words at no cost. The wide loop only runs while a whole word
+    remains inside the range, so it never reads past the end.
+
+    The length is folded in at the start. Without it the tail packing would
+    give the same value to a key and to that key followed by zero bytes,
+    which is a collision that costs nothing but is free to avoid.
     """
-    var accumulator = FNV_OFFSET_BASIS
-    for index in range(start, end):
-        accumulator = accumulator ^ UInt64(Int(data[index]))
-        accumulator = accumulator * FNV_PRIME
-    return accumulator
+    var accumulator = HASH_SEED ^ UInt64(end - start)
+    var pointer = data.unsafe_ptr()
+    var index = start
+
+    while index + WORD_BYTES <= end:
+        var word = (
+            pointer.unsafe_offset(index).unsafe_bitcast[UInt64]().unsafe_load()
+        )
+        accumulator = _rotate_left(accumulator, HASH_ROTATION) ^ word
+        accumulator = accumulator * HASH_MULTIPLIER
+        index += WORD_BYTES
+
+    # The tail is at most seven bytes, packed low to high into one word.
+    var tail = UInt64(0)
+    var shift = UInt64(0)
+    while index < end:
+        tail = tail | (UInt64(Int(data[index])) << shift)
+        shift += 8
+        index += 1
+    accumulator = _rotate_left(accumulator, HASH_ROTATION) ^ tail
+    accumulator = accumulator * HASH_MULTIPLIER
+
+    # Final avalanche. The map takes the low bits of this value as a slot
+    # index, and a multiply alone leaves the low bits weakly mixed.
+    accumulator = accumulator ^ (accumulator >> 32)
+    accumulator = accumulator * HASH_MULTIPLIER
+    return accumulator ^ (accumulator >> 29)
+
+
+def _rotate_left(value: UInt64, amount: Int) -> UInt64:
+    """Rotate a 64 bit value left.
+
+    Args:
+        value: The value to rotate.
+        amount: How many bits, which must be between 1 and 63.
+
+    Returns:
+        The rotated value.
+
+    A rotation rather than a shift so that no bit is discarded between one
+    word and the next.
+    """
+    return (value << UInt64(amount)) | (value >> UInt64(64 - amount))
 
 
 struct ByteMap(Movable):
@@ -98,8 +179,18 @@ struct ByteMap(Movable):
     var payload: List[Int]
     """The integer stored against each entry."""
 
-    var slots: List[Int]
-    """Probe table. Each cell holds an entry index, or -1 when empty."""
+    var slots: List[UInt64]
+    """Probe table, one packed word per cell.
+
+    Zero means the cell is empty. Otherwise the high thirty two bits are a
+    tag taken from the key's hash and the low thirty two bits are the entry
+    index plus one, so that a used cell is never zero.
+
+    Packed into one word rather than kept in two parallel arrays because the
+    point is the number of cache lines a probe touches. A tag that lived in
+    its own array would be a second miss and would undo half the reason for
+    having it.
+    """
 
     var mask: Int
     """One less than the slot count, which is always a power of two."""
@@ -134,9 +225,9 @@ struct ByteMap(Movable):
             while slot_count < wanted:
                 slot_count *= 2
         self.mask = slot_count - 1
-        self.slots = List[Int](capacity=slot_count)
+        self.slots = List[UInt64](capacity=slot_count)
         for _ in range(slot_count):
-            self.slots.append(-1)
+            self.slots.append(EMPTY_SLOT)
 
     def count(self) -> Int:
         """Report how many entries the map holds.
@@ -192,16 +283,27 @@ struct ByteMap(Movable):
 
         Returns:
             The entry index, or MISSING when the range is not stored.
+
+        The tag comparison is the whole point. Only when the top half of the
+        cell matches the top half of the hash does this touch the key
+        arrays, so a probe that is going to fail usually fails after a
+        single load. The bytes are still compared before an entry is
+        accepted, because a tag is thirty two bits and equal tags are not
+        equal keys.
         """
         if self.capacity == 0:
             return MISSING
-        var slot = Int(hash_bytes(data, start, end) & UInt64(self.mask))
+        var hash = hash_bytes(data, start, end)
+        var tag = hash >> TAG_SHIFT
+        var slot = Int(hash & UInt64(self.mask))
         while True:
-            var entry = self.slots[slot]
-            if entry < 0:
+            var cell = self.slots[slot]
+            if cell == EMPTY_SLOT:
                 return MISSING
-            if self._matches(entry, data, start, end):
-                return entry
+            if (cell >> TAG_SHIFT) == tag:
+                var entry = Int(cell & ENTRY_MASK) - 1
+                if self._matches(entry, data, start, end):
+                    return entry
             slot = (slot + 1) & self.mask
 
     def lookup(self, data: Span[UInt8, _], start: Int, end: Int) -> Int:
@@ -265,10 +367,13 @@ struct ByteMap(Movable):
             self.key_data.append(data[index])
         self.payload.append(value)
 
-        var slot = Int(hash_bytes(data, start, end) & UInt64(self.mask))
-        while self.slots[slot] >= 0:
+        var hash = hash_bytes(data, start, end)
+        var slot = Int(hash & UInt64(self.mask))
+        while self.slots[slot] != EMPTY_SLOT:
             slot = (slot + 1) & self.mask
-        self.slots[slot] = entry
+        self.slots[slot] = ((hash >> TAG_SHIFT) << TAG_SHIFT) | UInt64(
+            entry + 1
+        )
         return True
 
 

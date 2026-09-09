@@ -181,10 +181,26 @@ megabytes of text, which is not a number any real corpus produces.
 The lesson generalises past this project: a benchmark that reads the start of
 a file is measuring whatever happens to be at the start of that file.
 
-The merge loop itself is unchanged and is still quadratic in the piece
-length. Removing an allocation is a much smaller claim than replacing a clear
-algorithm with a heap, and if the quadratic term ever becomes the cost there
-will be a number saying so first.
+The merge loop itself was left alone at that point, and the sentence that
+stood here said that if the quadratic term ever became the cost there would
+be a number saying so first. There was, and it did. A profile of the two
+stages showed pre-tokenization taking 184 ms of a 987 ms encode of 4 MB,
+which puts four fifths of the time in the merge path, and the loop was
+asking the rank table for every adjacent pair on every round.
+
+Four changes followed, and together they made encode 1.39 to 1.85 times
+faster with byte identical output over the 110 MB gate:
+
+| Change | What it removes |
+| --- | --- |
+| Ask whether the whole piece is already a token before splitting it | The entire loop, for the majority of pieces. Prose averages 1.39 tokens per pre-token. |
+| Keep each adjacent pair's rank instead of recomputing it | The quadratic number of hash lookups. A merge changes exactly two pairs. |
+| A direct array for the 256 single byte tokens, and part ids carried through merges | One lookup per input byte and one per output token. |
+| A tag from the hash packed into the probe table | Three of the four arrays a failing probe used to touch. |
+
+The scan for the lowest ranked pair is still quadratic in the worst case. It
+is now a walk over integers rather than over hash lookups, which is why it
+stopped being the cost. See [docs/BENCHMARKS.md](BENCHMARKS.md).
 
 `ByteMap` is shared by the rank table and the piece cache. Both ask the same
 question, what integer is stored against this byte range, and both are
@@ -194,17 +210,27 @@ handed a range inside a buffer they do not own.
 
 ### Merge loop
 
-The naive merge loop rescans the piece for the minimum rank on each round.
-With $n$ the piece length in bytes, that is $O(n)$ work per round across
-$O(n)$ rounds, so
+The merge loop rescans the remaining pairs for the minimum rank on each
+round. With $n$ the piece length in bytes, that is $O(n)$ work per round
+across $O(n)$ rounds, so
 
 $$T_{\text{merge}}(n) = O(n^{2})$$
 
-This is acceptable in practice because $n$ stays small. Pre-tokenization
-bounds piece length well below the point where the quadratic term matters:
-pieces are single words, short whitespace runs, or digit runs of at most
-three, as the worked example above shows. Optimising this loop before
-measuring would be optimising the wrong thing.
+What that costs depends entirely on what the $O(n)$ work per round is. It
+used to be a hash lookup per pair, which made the loop quadratic in lookups.
+It is now a comparison of two integers, and the lookups are
+
+$$L(n) = n - 1 + 2m$$
+
+for $m$ merges, which is linear. The distinction matters because a hash
+lookup on a two hundred thousand entry table is a probable cache miss and an
+integer comparison is not.
+
+Two shortcuts run before the loop is entered at all. A single byte is a
+token by construction and is answered from a 256 entry array. A piece that
+is already a token merges to itself, so one lookup answers it. Over 4 MB of
+prose the second shortcut answers most pieces, because `cl100k_base`
+produces 1.39 tokens per pre-token.
 
 ### SIMD classifier
 
@@ -490,7 +516,7 @@ Corrections to widely held assumptions, each verified by compiling:
 | `len(s)` works on a `String` | Refused, and the error is right to refuse it: bytes, code points and grapheme clusters are three different answers. Use `s.byte_length()`, `len(s.codepoints())`, or `len(s.graphemes())` and say which you meant. |
 | A tuple literal can be iterated | `Tuple` does not implement `__iter__`, so `for x in (a, b, c)` is a compile error. Build a `List`. |
 | `/dev/stdout` can always be opened for writing | It cannot. Opening it works when standard output is a file or a terminal and fails when it is a pipe, because the path resolves through `/proc/self/fd` to a pipe node. `FileDescriptor(1).write_bytes` works everywhere. Reading `/dev/stdin` from a pipe does work, which is what makes the asymmetry easy to miss: the tool read piped input correctly and could not write piped output. |
-| Pointer arithmetic uses `+` | Deprecated. Use `unsafe_offset`. |
+| Pointer arithmetic uses `+` | Deprecated. Use `unsafe_offset`. The same applies to `bitcast` and `load`, which are `unsafe_bitcast` and `unsafe_load` in 1.0.0. All three still compile and only `--Werror` refuses them, so a deprecated spelling can pass a run and fail a build. |
 | Building and running a module type checks all of it | It does not. Elaboration is lazy, so a name that resolves nowhere sits undetected in a function nothing calls. A missing import in `scanner.mojo` survived both a build and a full run of a test that imports the module, and only `mojo doc` reported it. That makes the docstring gate the only whole module type check in this project, and it is the reason the gate runs over every Mojo file rather than over the library alone. |
 | A file may be named after the package it imports | A module's name is its file stem, so `cli/knap.mojo` declares a module called `knap` and the compiler refuses it: a module cannot import itself. The entry point is `cli/main.mojo` and only the binary is called `knap`. |
 
@@ -564,13 +590,15 @@ dependency is the pinned compiler itself.
 
 | Question | Status | Resolve by |
 | --- | --- | --- |
+| Can Knap beat `tiktoken` on encode throughput? | **Yes, on three of the four distinct encode behaviours, and level on the fourth.** Resolved 2026-09-09 by four changes to the merge path, none of them a language argument. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). `rs-bpe` still leads on the two encodings it ships. | Done |
+| Is the piece cache still worth having? | **Not on `cl100k_base`.** Measured 2026-09-09: 5.58 MB/s cached against 6.15 uncached, at a 92.7 percent hit rate. Making the uncached path faster moved the break even point. `o200k_base` still gains. The cache stays optional and off by default, which is what it always was. | Open, revisit if the uncached path changes again |
 | Can Mojo 1.0.0 build an importable Python extension module? | **Yes.** Resolved 2026-09-08. `PythonModuleBuilder` produces a real CPython extension, so the `ctypes` fallback was never built and the flat C surface it would have needed was never added. Three constraints were found while doing it, all recorded under [Toolchain ground truth](#toolchain-ground-truth): no globals, `add_type` requires `Writable`, and the auto downcast pointer cannot mutate. | Done |
 | Scanner design and transition table | Resolved at M2. Written up under [The scanner](#the-scanner). Ordered alternation rather than a merged state machine, because alternation priority is load bearing. | Done |
 | Two stage table against sorted range binary search | Resolved at M2, remeasured on Unicode 16.0.0. Sorted runs hold 2391 runs in 15542 bytes; the best two stage layout needs 38272. Sorted runs chosen, because the ASCII fast path means these tables are reached only on the documented slow path. See [docs/UNICODE.md](UNICODE.md). | Done |
 | Piece cache hit rate on real text | Measured at M5. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). | Done |
 | Does the vectorised classifier pay for itself? | **Cannot be resolved on this machine.** Measured 2026-09-08: scalar and vectorised differ by less than one standard deviation over five repetitions. Kept behind `-D KNAP_SIMD=1`, default off, because an unmeasurable gain does not justify a second implementation. | Open, needs a quieter machine or a wider vector unit |
 | Should the encoding be a compile time parameter rather than a field? | **No.** Considered and rejected 2026-09-09. `Tokenizer[pattern: Int]` is the idiomatic Mojo shape and the argument for it was that it removes a branch from the hot path. It does not: `self.pattern` is read in exactly one place, inside `_scan`, which runs once per segment, and a segment is the whole document for the ordinary encode path. The branch executes once per document. Against no measurable gain it would break the public API, force a runtime dispatch at the top of the command line tool and the Python bindings, and double the compiled code. Recorded because the claim that it was a hot path branch was made in this project before it was checked. | Closed |
-| Why is the 99th percentile latency three to five times the reference, while the median is one and a half times it? | **Open, and one hypothesis is already eliminated.** Allocation spikes were the obvious explanation and were written down as such. Removing the per-piece allocation moved the percentiles by less than the run to run spread. See [docs/BENCHMARKS.md](BENCHMARKS.md). The next candidates are the output buffer's growth sequence, which a capacity hint now covers and which should therefore also be eliminated, and the vocabulary's page fault behaviour on a cold table. Neither has been profiled. | Needs a profiler |
+| Why is the 99th percentile latency several times the reference, while the median is close to it? | **Open, and two hypotheses are now eliminated.** Allocation spikes were the obvious explanation and were written down as such. Removing the per-piece allocation moved the percentiles by less than the run to run spread, and so did removing three quarters of the merge loop's hash lookups. See [docs/BENCHMARKS.md](BENCHMARKS.md). The next candidates are the output buffer's growth sequence, which a capacity hint now covers and which should therefore also be eliminated, and the vocabulary's page fault behaviour on a cold table. Neither has been profiled. | Needs a profiler |
 | Does task parallelism work in Mojo 1.0.0? | **No.** Resolved 2026-09-08. No `parallelize`, and `TaskGroup` aborts at runtime. Batch encoding is single threaded as a consequence, not as a decision. | Revisit on the next compiler release |
 
 ---

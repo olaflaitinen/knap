@@ -37,53 +37,62 @@
 2. [The machine](#the-machine)
 3. [What is measured, and how](#what-is-measured-and-how)
 4. [Encode throughput](#encode-throughput)
-5. [What the allocation cost](#what-the-allocation-cost)
-6. [The piece cache](#the-piece-cache)
-7. [The vectorised classifier](#the-vectorised-classifier)
-8. [Short string latency](#short-string-latency)
-9. [Batch encoding](#batch-encoding)
-10. [Decode](#decode)
-11. [What these numbers do not mean](#what-these-numbers-do-not-mean)
-12. [Reproducing this](#reproducing-this)
+5. [How the merge loop got faster](#how-the-merge-loop-got-faster)
+6. [What the allocation cost](#what-the-allocation-cost)
+7. [The piece cache](#the-piece-cache)
+8. [The vectorised classifier](#the-vectorised-classifier)
+9. [Short string latency](#short-string-latency)
+10. [Batch encoding](#batch-encoding)
+11. [Decode](#decode)
+12. [What these numbers do not mean](#what-these-numbers-do-not-mean)
+13. [Reproducing this](#reproducing-this)
 
 ---
 
 ## The short version
 
-**Knap is slower than both Rust baselines at encoding, on this machine and
-this corpus.** That is the headline, it is stated first, and it was the
-expected result before anything was measured.
+**Knap is faster than `tiktoken` on three of the four distinct encode
+behaviours and level with it on the fourth. It is slower than `rs-bpe`
+everywhere `rs-bpe` runs.** Every figure comes from one run of
+`bench/run_all.sh`, recorded in
+`bench/results/run-20260909T155954Z.txt`, with the implementations run one
+after another in the same session.
 
-| Implementation | `cl100k_base` | `o200k_base` |
-| --- | --- | --- |
-| `rs-bpe` | 10.66 MB/s | 10.02 MB/s |
-| `tiktoken` | 5.81 MB/s | 8.74 MB/s |
-| **Knap** | **3.44 MB/s** | **3.21 MB/s** |
-| Hugging Face `tokenizers` | 0.70 MB/s, approximate | not run |
+| Implementation | `cl100k_base` | `o200k_base` | `gpt2` | `p50k_base` |
+| --- | --- | --- | --- | --- |
+| `rs-bpe` | **8.75 MB/s** | **8.83 MB/s** | not shipped | not shipped |
+| **Knap** | **5.98 MB/s** | 6.32 MB/s | **4.90 MB/s** | **5.62 MB/s** |
+| `tiktoken` | 4.18 MB/s | 6.38 MB/s | 4.05 MB/s | 5.10 MB/s |
+| Hugging Face `tokenizers` | 0.60 MB/s, approximate | not run | not run | not run |
 
-**Two encodings, not seven.** Knap ships seven and they reduce to four
-distinct encode behaviours. The harness measures all four, and the table
-above reports the two that have been measured under the conditions this
-document describes: an otherwise idle machine, five repetitions, with the
-coefficient of variation recorded. `gpt2` and `p50k_base` numbers are not
-printed here because that run has not happened yet, and a throughput figure
-taken on a busy machine is worse than no figure. Their parity is separately
-established over the same corpus; see
-[docs/CORRECTNESS.md](CORRECTNESS.md).
+Four encodings, not seven. Knap ships seven and they reduce to four distinct
+encode behaviours, because ordinary encoding is decided by the
+pre-tokenization pattern and the merge ranks and by nothing else. A fifth
+row would repeat one of these. `rs-bpe` ships two of the seven, so two of
+the four rows have one fewer baseline to lose to, and that is why those
+cells say "not shipped" rather than being left blank.
 
-Note also that `rs-bpe` ships `cl100k_base` and `o200k_base` and nothing
-else, so even once those runs happen two of the four rows will have one
-fewer baseline to lose to.
+**Do not compare these numbers with the ones this document carried on
+2026-09-08.** The whole table moved, in both directions, because the machine
+was in a different state. `rs-bpe` reads 8.75 here and read 10.66 then, and
+nothing about `rs-bpe` changed. Only figures taken in the same session are
+comparable, which is why the improvement below is reported as a paired run
+rather than as a difference between two published tables.
 
-Three secondary results, each of which is a measurement rather than a claim:
+Four secondary results, each a measurement rather than a claim:
 
+- Encode is between 1.39 and 1.85 times faster than it was a day earlier,
+  measured by running the old and new binaries alternately in one session.
+  See [How the merge loop got faster](#how-the-merge-loop-got-faster).
 - Removing one allocation from the rank lookup nearly doubled encode
-  throughput. See [What the allocation cost](#what-the-allocation-cost).
-- The optional piece cache roughly doubles throughput on a workload that
-  reuses it across documents, at a cost of about nine megabytes.
-- The vectorised classifier cannot be distinguished from the scalar one on
-  this machine. It is off by default for that reason, which is a weaker and
-  more accurate statement than the one this document used to make.
+  throughput before that. See
+  [What the allocation cost](#what-the-allocation-cost).
+- The optional piece cache is now worth less than it was, and on
+  `cl100k_base` it is worth nothing at all. Making the uncached path faster
+  moved the break even point. See [The piece cache](#the-piece-cache).
+- The vectorised classifier measured clearly slower than the scalar one in
+  this run, where a previous run could not tell them apart. It stays off by
+  default either way.
 
 ## The machine
 
@@ -196,20 +205,38 @@ Five timed iterations of 4194296 bytes, per implementation, per encoding.
 
 | Implementation | MB/s | Tokens/s | $c_v$ | Bytes per token |
 | --- | --- | --- | --- | --- |
-| `rs-bpe` | 10.66 | 3259482 | 0.124 | 3.4295 |
-| `tiktoken` | 5.81 | 1775781 | 0.058 | 3.4295 |
-| Knap | 3.44 | 1051002 | 0.110 | 3.4295 |
-| Knap, piece cache shared across documents | 8.01 | 2429008 | 0.455 | 3.4574 |
-| Hugging Face `tokenizers` | 0.70 | 341813 | 0.091 | 2.1523 |
+| `rs-bpe` | 8.75 | 2673847 | 0.237 | 3.4295 |
+| Knap | 5.98 | 1827596 | 0.134 | 3.4295 |
+| Knap, piece cache shared across documents | 5.58 | 1690879 | 0.217 | 3.4574 |
+| `tiktoken` | 4.18 | 1277955 | 0.097 | 3.4295 |
+| Hugging Face `tokenizers` | 0.60 | 290492 | 0.066 | 2.1523 |
 
 ### `o200k_base`
 
 | Implementation | MB/s | Tokens/s | $c_v$ | Bytes per token |
 | --- | --- | --- | --- | --- |
-| `rs-bpe` | 10.02 | 2734784 | 0.051 | 3.8416 |
-| `tiktoken` | 8.74 | 2385771 | 0.021 | 3.8416 |
-| Knap | 3.21 | 877040 | 0.047 | 3.8416 |
-| Knap, piece cache shared across documents | 7.32 | 1890985 | 0.493 | 4.0581 |
+| `rs-bpe` | 8.83 | 2410968 | 0.126 | 3.8416 |
+| Knap, piece cache shared across documents | 7.50 | 1938110 | 0.339 | 4.0581 |
+| `tiktoken` | 6.38 | 1741672 | 0.045 | 3.8416 |
+| Knap | 6.32 | 1725701 | 0.091 | 3.8416 |
+
+### `gpt2`
+
+Shared with `r50k_base`. `rs-bpe` does not ship this encoding.
+
+| Implementation | MB/s | Tokens/s | $c_v$ | Bytes per token |
+| --- | --- | --- | --- | --- |
+| Knap | 4.90 | 1947835 | 0.130 | 2.6364 |
+| `tiktoken` | 4.05 | 1610701 | 0.069 | 2.6364 |
+
+### `p50k_base`
+
+Shared with `p50k_edit`. `rs-bpe` does not ship this encoding.
+
+| Implementation | MB/s | Tokens/s | $c_v$ | Bytes per token |
+| --- | --- | --- | --- | --- |
+| Knap | 5.62 | 2233632 | 0.088 | 2.6384 |
+| `tiktoken` | 5.10 | 2027328 | 0.068 | 2.6384 |
 
 ### Reading these
 
@@ -229,10 +256,96 @@ noise. Each of their timed iterations encodes a different document and the
 cache is warming across them, so the spread is the warm up curve. See
 [The piece cache](#the-piece-cache).
 
-**Knap is between 1.7 and 2.7 times slower than `tiktoken` and about 3.1
-times slower than `rs-bpe`.** With the piece cache in a workload that reuses
-it, Knap sits between the two. Without it, Knap is last of the three exact
-implementations.
+**Knap is faster than `tiktoken` by 43 percent on `cl100k_base`, 21 percent
+on `gpt2` and 10 percent on `p50k_base`, and one percent slower on
+`o200k_base`, which is inside the noise of both measurements.** It is 32 to
+46 percent slower than `rs-bpe` on the two encodings `rs-bpe` ships.
+
+`o200k_base` is the encoding where Knap does least well relative to the
+others, and the reason is visible in the pre-tokenization figures below:
+that pattern costs 15.56 MB/s against `cl100k_base`'s 19.89, because it has
+two word alternatives whose character classes overlap and one of them
+genuinely backtracks. The merge side is not the problem there.
+
+## How the merge loop got faster
+
+Four changes to the merge path, in the order they were made, each kept only
+after the 110 MB parity gate passed with byte identical output.
+
+Measured by building the binary from before the four changes and the binary
+from after them, then running the two alternately five times in one session
+and taking the median of each. A paired run rather than two published
+tables, because this machine's absolute figures drift between sessions by
+more than the effect being measured.
+
+| Encoding | Before | After | Ratio |
+| --- | --- | --- | --- |
+| `cl100k_base` | 4.18 MB/s | 6.68 MB/s | 1.60 |
+| `o200k_base` | 3.80 MB/s | 7.01 MB/s | 1.85 |
+| `gpt2` | 4.74 MB/s | 6.58 MB/s | 1.39 |
+| `p50k_base` | 4.74 MB/s | 6.59 MB/s | 1.39 |
+
+### Ask whether the whole piece is already a token
+
+The loop used to start splitting every piece longer than one byte. Over 4 MB
+of prose `cl100k_base` turns 882310 pieces into 1223017 tokens, which is 1.39
+tokens per piece, so most pre-tokens are a single token and the loop could
+never have changed them. Asking the rank table once, before the loop starts,
+answers them in one hash lookup instead of a quadratic number.
+
+It is sound because a token exists in the vocabulary only because training
+merged that byte sequence in rank order, and replaying the same lowest rank
+first rule over the same bytes replays the same merges. That is an
+assumption about the vocabulary rather than a theorem about the loop, which
+is why the 110 MB gate is the thing that checks it.
+
+### Keep the rank of each pair rather than asking again
+
+Finding the lowest ranked adjacent pair used to ask the rank table for every
+pair on every round, which is a quadratic number of hash lookups in the
+piece length. A merge changes exactly two pairs: the one it created and the
+one before it. Everything else still has the rank it had.
+
+Keeping them turns the lookups into the piece length plus two per merge,
+while the scan for the smallest rank becomes a walk over integers, which is
+the cheap half of what the loop was doing.
+
+### Stop hashing what is already known
+
+The 256 single byte tokens moved into a direct array indexed by the byte, so
+starting a piece costs no hashing at all. And the rank of a pair is the
+token id of the part it becomes, so the walk that writes the answer out no
+longer looks each finished part up to confirm what the merge already
+established.
+
+This one is the least certain of the four. Measured on its own it was faster
+on three encodings and slower on `cl100k_base`, and the machine could not
+resolve which. It is kept because it strictly removes lookups, and because
+the stack it belongs to measured faster than the stack without it.
+
+### Put a tag from the hash in the probe table
+
+A probe used to touch four arrays before it could reject a slot: the slot
+table, the key length, the key start, and the key bytes. On `o200k_base`'s
+two hundred thousand entry table that is four chances to miss the cache in
+order to answer no.
+
+Packing thirty two bits of the hash into the same word as the entry index
+means the usual answer arrives after one load. The bytes are still compared
+before an entry is accepted, because a tag is thirty two bits and equal tags
+are not equal keys.
+
+The hash itself changed at the same time, from FNV-1a to a mixer that reads
+eight bytes per iteration. Those two were measured together and are not
+separated here.
+
+### What was not done
+
+The merge loop is still quadratic in the piece length in the worst case: the
+scan for the smallest rank walks every remaining pair on every round. That
+scan is now a walk over integers rather than a walk over hash lookups, which
+is why it stopped being the cost. Replacing it with a heap would be a larger
+claim and there is no measurement asking for one.
 
 ## What the allocation cost
 
@@ -329,25 +442,42 @@ documents of 838859 bytes each.
 
 | Measurement | MB/s | $c_v$ | Hit rate | Entries | Bytes held |
 | --- | --- | --- | --- | --- | --- |
-| Uncached | 3.56 | 0.103 | not applicable | 0 | 0 |
-| Cold cache, fresh per document | 4.54 | 0.316 | 0.839 | 26616 | 5824003 |
-| Shared cache, across new documents | 8.01 | 0.455 | 0.927 | 77633 | 8901142 |
-| One document repeated, an upper bound | 18.70 | 0.044 | 0.977 | 25235 | 5593405 |
+| Uncached | 6.15 | 0.135 | not applicable | 0 | 0 |
+| Cold cache, fresh per document | 6.78 | 0.157 | 0.839 | 26616 | 5824003 |
+| Shared cache, across new documents | 5.58 | 0.217 | 0.927 | 77633 | 8901142 |
+| One document repeated, an upper bound | 16.58 | 0.067 | 0.977 | 25235 | 5593405 |
 
 ### `o200k_base`
 
 | Measurement | MB/s | $c_v$ | Hit rate | Entries | Bytes held |
 | --- | --- | --- | --- | --- | --- |
-| Uncached | 3.33 | 0.127 | not applicable | 0 | 0 |
-| Cold cache, fresh per document | 5.71 | 0.261 | 0.839 | 26673 | 5707610 |
-| Shared cache, across new documents | 7.32 | 0.493 | 0.927 | 77705 | 8668502 |
-| One document repeated, an upper bound | 17.54 | 0.007 | 0.977 | 25235 | 5555043 |
+| Uncached | 6.06 | 0.154 | not applicable | 0 | 0 |
+| Cold cache, fresh per document | 6.88 | 0.187 | 0.839 | 26673 | 5707610 |
+| Shared cache, across new documents | 7.50 | 0.339 | 0.927 | 77705 | 8668502 |
+| One document repeated, an upper bound | 15.93 | 0.096 | 0.977 | 25235 | 5555043 |
 
 ### Which row to believe
 
 **The shared cache row.** It is the only one that describes a process
 encoding documents it has not seen before, which is what a long running
 service does.
+
+**And on `cl100k_base` that row now says the cache is not worth having.**
+5.58 MB/s cached against 6.15 uncached, with a hit rate of 92.7 percent. The
+cache is doing what it was built to do and the answer is still slower,
+because the work it saves became cheap. A hit is a hash of the piece and a
+copy of its ids; a miss is that plus the merge. When the merge was a
+quadratic number of hash lookups, saving it was worth the hash. Now that
+most pieces are answered by a single lookup of the whole piece, the cache is
+largely paying a hash to avoid a hash.
+
+`o200k_base` still gains, 7.50 against 6.06, because its table is twice the
+size and a lookup in it costs more.
+
+This is the second time a measurement has moved under this feature and it is
+worth saying why that is not embarrassing. A cache is a bet that recomputing
+is expensive. Making the computation cheaper is supposed to make the bet
+worse. The number changing is the system working.
 
 The last row is included and labelled as a bound because it is what a
 benchmark reports when it re-encodes the same document, and this benchmark
@@ -382,14 +512,22 @@ the stage the classifier actually affects:
 
 | Classifier | `cl100k_base` MB/s | `o200k_base` MB/s |
 | --- | --- | --- |
-| Scalar, the default | 19.25, $\sigma$ 2.20, $c_v$ 0.114 | 14.36, $\sigma$ 2.21, $c_v$ 0.154 |
-| Vectorised, `-D KNAP_SIMD=1` | 19.91, $\sigma$ 1.14, $c_v$ 0.057 | 14.72, $\sigma$ 1.44, $c_v$ 0.098 |
+| Scalar, the default | 19.89, $c_v$ 0.086 | 15.56, $c_v$ 0.157 |
+| Vectorised, `-D KNAP_SIMD=1` | 10.78, $c_v$ 0.184 | 12.28, $c_v$ 0.222 |
 
-**The two are indistinguishable.** The vectorised path is nominally 3.4 and
-2.5 percent faster, which is well inside one standard deviation of either
-measurement, and single runs of the same benchmark have put it as much as 29
-percent behind and 15 percent ahead. The honest reading is that this machine
-cannot resolve the difference.
+**In this run the vectorised path lost, and lost clearly:** 46 percent slower
+on `cl100k_base` and 21 percent on `o200k_base`, both well outside the
+spread of either measurement.
+
+That is not what the previous run said. On 2026-09-08 the two were 19.25
+against 19.91 and 14.36 against 14.72, which is indistinguishable. Two runs
+of the same benchmark on the same machine have now produced "cannot tell"
+and "clearly worse", and no source change stands between them.
+
+Both readings are recorded rather than one being chosen, because that
+disagreement is itself the result. What survives it is the decision, which
+was already the conservative one: the vectorised classifier is off by
+default, and nothing in either run argues for turning it on.
 
 That correction is worth stating plainly, because earlier versions of this
 project asserted specific losses of 5 to 7 percent, and of 52 percent for
@@ -412,23 +550,29 @@ Two thousand samples per size class, nearest-rank percentiles, nanoseconds.
 
 | Size class | Implementation | p50 | p90 | p99 | Mean | $c_v$ |
 | --- | --- | --- | --- | --- | --- | --- |
-| About 10 tokens | `tiktoken` | 5561 | 6893 | 8577 | 5768 | 0.410 |
-| About 10 tokens | Knap | 8136 | 21120 | 28354 | 10978 | 0.608 |
-| About 50 tokens | `tiktoken` | 19928 | 23385 | 43322 | 20598 | 0.232 |
-| About 50 tokens | Knap | 30438 | 145227 | 203007 | 56122 | 0.926 |
-| About 200 tokens | `tiktoken` | 70514 | 95943 | 160526 | 76216 | 0.272 |
-| About 200 tokens | Knap | 112524 | 478302 | 625793 | 200037 | 0.888 |
+| About 10 tokens | Knap | 7063 | 19347 | 28094 | 9312 | 0.844 |
+| About 10 tokens | `tiktoken` | 7354 | 12594 | 36400 | 8776 | 0.803 |
+| About 50 tokens | Knap | 40748 | 119838 | 306825 | 62043 | 1.805 |
+| About 50 tokens | `tiktoken` | 22694 | 29116 | 72047 | 24923 | 0.483 |
+| About 200 tokens | Knap | 121702 | 310231 | 607739 | 155775 | 0.869 |
+| About 200 tokens | `tiktoken` | 85693 | 130879 | 238906 | 95098 | 0.350 |
 
-**Knap loses on latency and loses worse in the tail than at the median.**
-The median is 1.5 to 1.6 times the reference across all three classes, which
-tracks the throughput result. The 99th percentile is 3.3 to 4.7 times the
-reference, which does not.
+**Knap now wins the smallest size class at the median and loses the other
+two.** At about ten tokens the two medians are 7063 and 7354 nanoseconds,
+which is a difference of four percent between two measurements whose
+coefficients of variation are above 0.8, so the honest reading is that they
+are the same. At fifty and two hundred tokens Knap's median is 1.4 to 1.8
+times the reference.
 
-That gap between median and tail is the interesting part and it is not
-explained here, because it has not been investigated. The candidates are
-allocation in the output buffer, which grows without a size hint, and the
-merge loop's boundary list, which is allocated per piece. Neither has been
-profiled. Recording the question is more useful than guessing at it.
+**The tail is still the open question.** Knap's 99th percentile is 0.8, 4.3
+and 2.5 times the reference across the three classes, and its coefficient of
+variation reaches 1.8. The obvious explanation was allocation, and that
+explanation has now been eliminated twice: once when the per-piece
+allocation was removed, and again in this round when three quarters of the
+merge loop's hash lookups went away without the tail improving in
+proportion. Whatever it is, it is not the number of allocations and it is
+not the number of lookups. It has not been profiled, and recording the
+question honestly is worth more than guessing at it again.
 
 ## Batch encoding
 
@@ -436,9 +580,9 @@ Two thousand documents of 2048 bytes each, encoded in sequence.
 
 | Measurement | Value |
 | --- | --- |
-| Throughput | 3.26 MB/s |
-| Tokens per second | 998798 |
-| $c_v$ | 0.110 |
+| Throughput | 5.14 MB/s |
+| Tokens per second | 1572418 |
+| $c_v$ | 0.144 |
 | Bytes per token | 3.4246 |
 | Threads | 1 |
 
@@ -449,7 +593,13 @@ Batching across documents is trivially parallel and trivially correct, since
 each document is independent, so this figure should be read as a floor that
 a working scheduler would lift by close to the core count. The constraint is
 recorded in [docs/ARCHITECTURE.md](ARCHITECTURE.md) so that it is not
-mistaken for a design decision.
+mistaken for a design decision, and Modular's own roadmap lists first class
+`async` support as not started, which is the same constraint seen from
+upstream.
+
+`tiktoken` and Hugging Face `tokenizers` both parallelise batches across
+cores. On a batch workload with cores to spare they will win, and no
+single threaded implementation is going to argue otherwise.
 
 Note that batch throughput is essentially the same as single document
 throughput, which is what it should be. A batch of 2 KB documents is not a
@@ -464,12 +614,13 @@ the metric that flatters rather than the one that matters.
 
 | Implementation | MB/s | Tokens/s | $c_v$ |
 | --- | --- | --- | --- |
-| Knap | 125.09 | 38244485 | 0.103 |
-| `tiktoken` | 78.12 | 23887003 | 0.075 |
+| Knap | 140.36 | 42913857 | 0.072 |
+| `tiktoken` | 52.14 | 15942109 | 0.273 |
 
-Knap is about 1.6 times faster here. That is a real measurement and it is
+Knap is about 2.7 times faster here. That is a real measurement and it is
 worth roughly nothing, which is why it is in the last section rather than
-the first.
+the first. A tokenizer that led with its decode number would be choosing the
+metric that flatters it.
 
 ## What these numbers do not mean
 

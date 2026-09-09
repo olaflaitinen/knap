@@ -57,7 +57,7 @@ body:
     attributes:
       label: What kind of change is this
       options:
-        - "Support for another tiktoken encoding"
+        - "Support for a tokenizer or vocabulary tiktoken does not ship"
         - "Support for another vocabulary file format"
         - "A new entry point on the existing API"
         - "A change to an existing entry point"

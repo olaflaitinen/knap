@@ -58,7 +58,8 @@ flowchart TD
     M5 --> M6B
     M6A[M6 Track A<br/>Mojo packaging] --> M7
     M6B[M6 Track B<br/>Python bindings] --> M7
-    M7[M7 The remaining five encodings]
+    M7[M7 The remaining five encodings] --> M8
+    M8[M8 The merge path]
 ```
 
 Two orderings are binding and cannot be traded away:
@@ -81,8 +82,23 @@ defects it found were found by those gates rather than by a user.
 
 ## Current position
 
-**M0 through M7 are complete.** Every condition below was observed, not
+**M0 through M8 are complete.** Every condition below was observed, not
 inferred.
+
+M8 made encode between 1.39 and 1.85 times faster with byte identical
+output, which took Knap past `tiktoken` on three of the four distinct encode
+behaviours and level with it on the fourth. It is the milestone the
+project's own rules made possible: parity was established first, so every
+change had a gate that could refuse it.
+
+| M8 condition | Evidence |
+| --- | --- |
+| The cost was measured before anything was changed | Pre-tokenization takes 184 ms of a 987 ms encode of 4 MB, so four fifths of the time was in the merge path. Optimising the other fifth would have been optimising the wrong thing. |
+| Every change passed the parity gate | 191762320 tokens over 110 MB, byte identical, after each of the four changes rather than once at the end. |
+| The speedup is a paired measurement | The binary from before and the binary from after, run alternately five times in one session, medians compared. This machine's absolute figures drift between sessions by more than the effect. |
+| The baselines were re-run in the same session | `tiktoken`, `rs-bpe` and Hugging Face `tokenizers` all measured in `bench/results/run-20260909T155954Z.txt`, not quoted from an earlier run. |
+| A change that could not be shown to pay was labelled as such | The third of the four measured faster on three encodings and slower on one, and the machine could not resolve it. It is kept and the ambiguity is written down rather than rounded away. |
+| A result that moved under the change was republished, not hidden | The piece cache is now slower than the uncached path on `cl100k_base`, because the work it saves became cheap. Both numbers are in [docs/BENCHMARKS.md](BENCHMARKS.md). |
 
 M7 added the five remaining `tiktoken` encodings, taking the total from two
 to all seven. Its real content is that adding them found two defects in code

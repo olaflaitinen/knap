@@ -75,9 +75,19 @@ changes this file.
 
 The byte pair encoding merge loop.
 
+#### `MergeScratch`
+
+Working space for the merge loop, owned by the caller and reused.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `boundaries` | `List[Int]` | Split points of the piece. Part i spans [boundaries[i], [i + 1]). |
+| `pair_ranks` | `List[Int]` | Rank of joining part i with part i + 1, or UNRANKED when unmergeable. |
+| `part_ids` | `List[Int]` | Token id of each part, which is the answer being built. |
+
 | Function | Description |
 | --- | --- |
-| `def merge_piece_into(ranks: RankTable, data: Span[UInt8], start: Int, end: Int, mut out: List[Int], mut boundaries: List[Int])` | Merge one piece into a buffer, using a scratch list the caller owns. |
+| `def merge_piece_into(ranks: RankTable, data: Span[UInt8], start: Int, end: Int, mut out: List[Int], mut scratch: MergeScratch)` | Merge one piece into a buffer, using a scratch list the caller owns. |
 | `def merge_piece(ranks: RankTable, data: Span[UInt8], start: Int, end: Int, mut out: List[Int])` | Merge one piece, allocating its own scratch space. |
 | `def merge_piece_to_list(ranks: RankTable, data: Span[UInt8], start: Int, end: Int) -> List[Int]` | Merge one piece and return its token ids. |
 
@@ -87,9 +97,14 @@ A map from a byte range to an integer, looked up without allocating.
 
 | Constant | Description |
 | --- | --- |
-| `FNV_OFFSET_BASIS` | The 64 bit FNV-1a offset basis, as published. |
-| `FNV_PRIME` | The 64 bit FNV-1a prime, as published. |
+| `HASH_SEED` | Starting value for the hash. Any odd constant would do. |
+| `HASH_MULTIPLIER` | Mixing multiplier, the 64 bit golden ratio constant. |
+| `HASH_ROTATION` | Bits to rotate the accumulator by before folding in the next word. |
+| `WORD_BYTES` | Bytes consumed per iteration of the wide loop. |
 | `MISSING` | Returned by lookup when a byte range is not in the map. |
+| `EMPTY_SLOT` | Value of an unused probe cell. |
+| `ENTRY_MASK` | Low half of a probe cell, holding the entry index plus one. |
+| `TAG_SHIFT` | Bits to shift the hash tag by when packing it into a probe cell. |
 
 #### `ByteMap`
 
@@ -101,7 +116,7 @@ A fixed capacity map from a byte range to an integer.
 | `key_start` | `List[Int]` | Offset into key_data where each entry's key begins. |
 | `key_length` | `List[Int]` | Length in bytes of each entry's key. |
 | `payload` | `List[Int]` | The integer stored against each entry. |
-| `slots` | `List[Int]` | Probe table. Each cell holds an entry index, or -1 when empty. |
+| `slots` | `List[UInt64]` | Probe table, one packed word per cell. |
 | `mask` | `Int` | One less than the slot count, which is always a power of two. |
 | `capacity` | `Int` | Most entries this map will hold. Zero makes every lookup a miss. |
 
@@ -116,7 +131,7 @@ A fixed capacity map from a byte range to an integer.
 
 | Function | Description |
 | --- | --- |
-| `def hash_bytes(data: Span[UInt8], start: Int, end: Int) -> UInt64` | Hash a byte range with FNV-1a. |
+| `def hash_bytes(data: Span[UInt8], start: Int, end: Int) -> UInt64` | Hash a byte range, eight bytes at a time. |
 
 ### `cache`
 
@@ -228,9 +243,11 @@ Maps a token's bytes to its merge rank.
 | Field | Type | Description |
 | --- | --- | --- |
 | `map` | `ByteMap` | Byte sequence to rank. The rank is also the token id. |
+| `singles` | `List[Int]` | Rank of each of the 256 single byte tokens, indexed by byte value. |
 
 | Method | Description |
 | --- | --- |
+| `def single_byte(self, value: UInt8) -> Int` | Return the token id of a one byte sequence. |
 | `def size(self) -> Int` | Return how many ranked sequences the table holds. |
 | `def rank_of(self, data: Span[UInt8], start: Int, end: Int) -> Int` | Look up the merge rank of one byte range. |
 | `def token_of(self, data: Span[UInt8], start: Int, end: Int) -> Int` | Look up the token id of a byte range that must be a token. |

@@ -85,6 +85,15 @@ struct RankTable(Movable):
     var map: ByteMap
     """Byte sequence to rank. The rank is also the token id."""
 
+    var singles: List[Int]
+    """Rank of each of the 256 single byte tokens, indexed by byte value.
+
+    A direct array rather than a hash lookup. Every piece starts as one part
+    per byte, so this is the most asked question in the encoder, and it has
+    exactly 256 possible answers. Building the array costs 256 lookups once
+    at load time and removes a hash of every input byte from every piece.
+    """
+
     def __init__(out self, vocabulary: FlatVocab) raises:
         """Build the rank table from a loaded vocabulary.
 
@@ -115,13 +124,17 @@ struct RankTable(Movable):
             var token = vocabulary.token_bytes(token_id)
             _ = self.map.insert(Span(token), 0, len(token), token_id)
 
-        # Every byte must be representable on its own.
+        # Every byte must be representable on its own, and its rank is
+        # kept so the encoder never has to hash a single byte again.
         var single = List[UInt8](capacity=1)
         single.append(UInt8(0))
+        self.singles = List[Int](capacity=BYTE_VALUES)
         var missing = 0
         for value in range(BYTE_VALUES):
             single[0] = UInt8(value)
-            if self.map.lookup(Span(single), 0, 1) == UNRANKED:
+            var rank = self.map.lookup(Span(single), 0, 1)
+            self.singles.append(rank)
+            if rank == UNRANKED:
                 missing += 1
         if missing != 0:
             var message = String(
@@ -132,6 +145,22 @@ struct RankTable(Movable):
             )
             message += String(" to represent every byte on its own.")
             raise Error(message)
+
+    def single_byte(self, value: UInt8) -> Int:
+        """Return the token id of a one byte sequence.
+
+        Args:
+            value: The byte.
+
+        Returns:
+            Its token id, which is always defined because the constructor
+            refuses a vocabulary missing any of the 256.
+
+        No hashing and no comparison, just an index. The merge loop asks
+        this once per input byte, which makes it the hottest lookup in the
+        encoder and the one most worth not being a hash lookup.
+        """
+        return self.singles[Int(value)]
 
     def size(self) -> Int:
         """Return how many ranked sequences the table holds.

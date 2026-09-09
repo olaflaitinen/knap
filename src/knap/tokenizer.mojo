@@ -38,7 +38,7 @@ Encoding an unexpected marker as though it were text would let untrusted
 input inject control tokens into a prompt, so the default is to raise.
 """
 
-from .bpe import merge_piece_into
+from .bpe import MergeScratch, merge_piece_into
 from .cache import PieceCache
 from .errors import special_token_disallowed
 from .pretokenize.scanner import scan_cl100k, scan_gpt2, scan_o200k
@@ -205,10 +205,10 @@ struct Tokenizer(Movable):
         var ends = List[Int](capacity=estimated_tokens(len(data)))
         self._scan(data, ends)
 
-        # One scratch list for every piece in the segment. The merge loop
-        # needs somewhere to keep split points, and allocating that per
-        # piece is a million allocations on four megabytes of prose.
-        var boundaries = List[Int]()
+        # One scratch buffer for every piece in the segment. Allocating the
+        # merge loop's working lists per piece is millions of allocations on
+        # four megabytes of prose, for structures that die immediately.
+        var scratch = MergeScratch()
 
         var start = 0
         for index in range(len(ends)):
@@ -228,13 +228,13 @@ struct Tokenizer(Movable):
                 # own and out already holds everything before it.
                 var produced = List[Int]()
                 merge_piece_into(
-                    self.ranks, data, start, end, produced, boundaries
+                    self.ranks, data, start, end, produced, scratch
                 )
                 cache.insert(data, start, end, Span(produced))
                 for slot in range(len(produced)):
                     out.append(produced[slot])
             else:
-                merge_piece_into(self.ranks, data, start, end, out, boundaries)
+                merge_piece_into(self.ranks, data, start, end, out, scratch)
 
             start = end
 

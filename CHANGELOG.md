@@ -56,7 +56,7 @@ produce output yet.
 
 ## 1.0.0, not yet released
 
-Milestones M1 through M7. The version number is declared, the tag and the
+Milestones M1 through M8. The version number is declared, the tag and the
 GitHub release are not, and the heading says so rather than implying
 otherwise. It becomes a dated release heading on the day the tag is created.
 
@@ -75,6 +75,55 @@ published.
 One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
 untouched.
+
+### Changed, milestone M8, the merge path
+
+**Encode is between 1.39 and 1.85 times faster, with byte identical
+output.** That took Knap past `tiktoken` on three of the four distinct
+encode behaviours and level with it on the fourth, on the published machine.
+`rs-bpe` still leads on the two encodings it ships. Numbers, method and the
+baselines that win are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+The work started with a measurement rather than a guess: pre-tokenization
+takes 184 ms of a 987 ms encode of four megabytes, so four fifths of the
+time was in the merge path and the other fifth was not worth touching.
+
+- **The merge loop asks whether the whole piece is already a token before it
+  splits anything.** Over four megabytes of prose `cl100k_base` turns 882310
+  pieces into 1223017 tokens, which is 1.39 tokens per pre-token, so most
+  pieces are a single token and the loop could never have changed them.
+- **The rank of each adjacent pair is kept rather than recomputed.** A merge
+  changes exactly two pairs, so the hash lookups per piece fall from
+  quadratic in the piece length to linear.
+- **The 256 single byte tokens moved into a direct array, and the id of a
+  merged part is the rank the merge already found.** One lookup per input
+  byte and one per output token disappear. Measured on its own this was
+  faster on three encodings and slower on one, and the machine could not
+  resolve it; it is kept because it strictly removes lookups.
+- **The probe table carries a tag from the key's hash.** A failing probe used
+  to touch four arrays before it could reject a slot; now it usually rejects
+  after one load. The hash changed at the same time from FNV-1a to a mixer
+  that reads eight bytes per iteration.
+- `merge_piece_into` now takes a `MergeScratch` rather than a list. The
+  number of working lists is an implementation detail and it grew from one
+  to three during this work, which would otherwise have been three breaking
+  changes to a public signature.
+
+### Changed, milestone M8, results that moved under it
+
+- **The piece cache is now slower than the uncached path on `cl100k_base`:**
+  5.58 MB/s against 6.15, at a 92.7 percent hit rate. A cache is a bet that
+  recomputing is expensive, and the recomputation got cheap. `o200k_base`
+  still gains, 7.50 against 6.06, because its table is twice the size.
+- **The vectorised classifier measured clearly slower in this run**, 46
+  percent on `cl100k_base`, where the previous run could not tell it apart
+  from the scalar one. Two runs of the same benchmark on the same machine
+  with no source change between them now disagree. Both are recorded. The
+  decision does not move: it stays off by default.
+- Short string latency at about ten tokens is now level with `tiktoken` at
+  the median. The tail is still worse and is still unexplained, and a second
+  hypothesis has now been eliminated: removing three quarters of the merge
+  loop's lookups did not improve it in proportion.
 
 ### Added, milestone M7, the remaining five encodings
 
@@ -369,6 +418,10 @@ untouched.
 
 ### Verified
 
+- **Encode parity survived the merge path rewrite.** All four corpus gates,
+  191762320 tokens, byte identical to `tiktoken` after each of the four
+  changes rather than once at the end. The decode, round trip, cache,
+  hazard and fixture suites were re-run after each as well.
 - **Encode parity across seven encodings.** Every token Knap emits matches
   `tiktoken` at the same position across a 110 MB corpus, for each of the
   four distinct encode behaviours the seven names reduce to: 43529983

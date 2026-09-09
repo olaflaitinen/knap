@@ -72,11 +72,18 @@ written to be read rather than skimmed.
 
 ## Questions that already have answers
 
-**Is Knap faster than tiktoken?** No. It is between 1.7 and 2.7 times slower
-at encoding on the published machine, and about three times slower than
-`rs-bpe`. The numbers and the machine are in
-[docs/BENCHMARKS.md](docs/BENCHMARKS.md), and the baselines that win are in
-the same table with the same prominence.
+**Is Knap faster than tiktoken?** On the published machine, yes on three of
+the four distinct encode behaviours and level on the fourth. It is still 32
+to 46 percent slower than `rs-bpe` on the two encodings `rs-bpe` ships, and
+it is single threaded where both `tiktoken` and Hugging Face `tokenizers`
+parallelise a batch across cores. The numbers, the machine, and the
+baselines that win are all in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md) with the same prominence.
+
+That answer changed on 2026-09-09 and the previous one is worth keeping in
+view: Knap was between 1.7 and 2.7 times slower than `tiktoken` a day
+earlier. Four changes to the merge path closed it, none of them a language
+argument, and all four are described in that document.
 
 **Which encodings are supported?** All seven that `tiktoken` ships:
 `cl100k_base`, `o200k_base`, `o200k_harmony`, `p50k_base`, `p50k_edit`,

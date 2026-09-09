@@ -31,12 +31,54 @@ boundary, so a piece of n bytes can survive at most n - 1 rounds.
 
 The naive form is quadratic in the piece length, and that is left alone
 deliberately. Pre-tokenization bounds pieces to single words, short
-whitespace runs, or digit runs of at most three, so n stays small. Optimising
-this loop before measuring would be optimising the wrong thing, and
-docs/BENCHMARKS.md is where that argument has to be settled with numbers.
+whitespace runs, or digit runs of at most three, so n stays small.
+
+What is not left alone is how often the loop runs at all. Two shortcuts
+answer before it starts: a single byte is a token by construction, and a
+piece that is already a token merges to itself. Measurement said those two
+cover most of the work, and docs/BENCHMARKS.md carries the numbers.
 """
 
 from .ranks import RankTable, UNRANKED
+
+
+struct MergeScratch(Movable):
+    """Working space for the merge loop, owned by the caller and reused.
+
+    The merge loop needs three parallel lists per piece, and a piece is a
+    word. Allocating them per piece is three million allocations on four
+    megabytes of prose, for structures that live a few microseconds each.
+    Handing the same scratch back on every call makes that number three.
+
+    A struct rather than three parameters because the number of lists is an
+    implementation detail. It has grown from one to three while the encoder
+    was being made faster, and each growth would otherwise have been a
+    breaking change to a public signature.
+    """
+
+    var boundaries: List[Int]
+    """Split points of the piece. Part i spans [boundaries[i], [i + 1])."""
+
+    var pair_ranks: List[Int]
+    """Rank of joining part i with part i + 1, or UNRANKED when unmergeable.
+
+    Always two shorter than boundaries, so pair i is the byte range
+    [boundaries[i], boundaries[i + 2]).
+    """
+
+    var part_ids: List[Int]
+    """Token id of each part, which is the answer being built."""
+
+    def __init__(out self):
+        """Create empty scratch space.
+
+        The lists grow to the longest piece the caller ever passes and then
+        stop growing, which is why reusing one instance is worth the
+        parameter.
+        """
+        self.boundaries = List[Int]()
+        self.pair_ranks = List[Int]()
+        self.part_ids = List[Int]()
 
 
 def merge_piece_into(
@@ -45,7 +87,7 @@ def merge_piece_into(
     start: Int,
     end: Int,
     mut out: List[Int],
-    mut boundaries: List[Int],
+    mut scratch: MergeScratch,
 ) raises:
     """Merge one piece into a buffer, using a scratch list the caller owns.
 
@@ -55,12 +97,19 @@ def merge_piece_into(
         start: Inclusive start offset of the piece.
         end: Exclusive end offset of the piece.
         out: Buffer receiving the token ids, in order.
-        boundaries: Scratch space, cleared on entry. Its contents on entry
-            are ignored and its contents on exit are meaningless.
+        scratch: Working space the caller owns and reuses. Cleared on entry
+            and meaningless on exit.
 
     Raises:
-        Error: if a finished part is not in the vocabulary, which would mean
-            the loop stopped early rather than that the input was unusual.
+        Error: if a single byte piece is not in the vocabulary, which the
+            rank table's constructor already refuses to allow.
+
+    Nothing else here can fail. Every part is either one byte, whose id came
+    from the single byte array, or a merge whose id is the rank that chose
+    it, so a finished part cannot be absent from the vocabulary. That used
+    to be checked by looking each finished part up again, which cost one
+    hash lookup per output token to confirm something the loop had just
+    established. The 110 MB corpus gate is what checks it now.
 
     The scratch list is the whole point of this entry point. The version
     that allocates its own does one heap allocation per pre-token, which on
@@ -76,33 +125,79 @@ def merge_piece_into(
     An empty range appends nothing. A single byte is looked up directly,
     skipping the loop entirely, which is worth the special case because
     single byte pieces are common in punctuation heavy text.
+
+    So is a piece that is already a token, and that case is not a rarity.
+    Measured over four megabytes of prose, cl100k_base turns 882310 pieces
+    into 1223017 tokens, which is 1.39 tokens per piece: most pre-tokens are
+    one token and the loop below cannot change them. See the whole piece
+    shortcut for why that is sound.
     """
     var length = end - start
     if length <= 0:
         return
     if length == 1:
-        out.append(ranks.token_of(data, start, end))
+        out.append(ranks.single_byte(data[start]))
+        return
+
+    # The whole piece shortcut.
+    #
+    # If the piece is itself a token, the merge loop below is guaranteed to
+    # arrive at exactly that token, so asking once is the same answer for a
+    # fraction of the work. The guarantee comes from how the vocabulary was
+    # built: a token exists because training merged that byte sequence in
+    # rank order, and replaying the same lowest rank first rule over the
+    # same bytes replays the same merges.
+    #
+    # This is an assumption about the vocabulary rather than a theorem about
+    # the loop, so it is not taken on faith. The 110 MB corpus gate compares
+    # 191762320 tokens against tiktoken with this path enabled, and
+    # tests/test_bpe.mojo asserts the shortcut and the loop agree on a
+    # vocabulary small enough to check by hand.
+    var whole = ranks.rank_of(data, start, end)
+    if whole != UNRANKED:
+        out.append(whole)
         return
 
     # Boundaries hold the split points of the piece, so part i spans
     # [boundaries[i], boundaries[i + 1]). Starting with every byte separate
     # means there are length + 1 boundaries.
-    boundaries.clear()
+    #
+    # pair_ranks[i] is the rank of the pair made by joining part i and part
+    # i + 1, or UNRANKED when that join is not a token. The invariant is
+    # that len(pair_ranks) is always len(boundaries) - 2, so pair i is
+    # always the range [boundaries[i], boundaries[i + 2]).
+    #
+    # Keeping these is the whole point. The loop used to ask the rank table
+    # for every adjacent pair on every round, which is a quadratic number of
+    # hash lookups in the piece length. A merge changes exactly two pairs:
+    # the one it created and the one before it. Everything else is still
+    # the answer it was, so it is kept rather than asked for again. That
+    # turns the lookups into length plus two per merge, while the scan for
+    # the smallest rank stays a walk over integers, which is the cheap half.
+    scratch.boundaries.clear()
     for offset in range(length + 1):
-        boundaries.append(start + offset)
+        scratch.boundaries.append(start + offset)
 
-    while len(boundaries) > 2:
-        # Find the adjacent pair with the lowest rank. Recomputing every
-        # rank each round is what makes this quadratic; it is also what
-        # makes it obviously correct, which is the trade this project wants
-        # until a benchmark says otherwise.
+    # Every part begins as one byte, and a byte's token id is an array
+    # index rather than a hash lookup.
+    scratch.part_ids.clear()
+    for offset in range(length):
+        scratch.part_ids.append(ranks.single_byte(data[start + offset]))
+
+    scratch.pair_ranks.clear()
+    for index in range(length - 1):
+        scratch.pair_ranks.append(
+            ranks.rank_of(
+                data, scratch.boundaries[index], scratch.boundaries[index + 2]
+            )
+        )
+
+    while len(scratch.pair_ranks) > 0:
         var best_rank = UNRANKED
         var best_index = -1
 
-        for index in range(len(boundaries) - 2):
-            var pair_start = boundaries[index]
-            var pair_end = boundaries[index + 2]
-            var rank = ranks.rank_of(data, pair_start, pair_end)
+        for index in range(len(scratch.pair_ranks)):
+            var rank = scratch.pair_ranks[index]
             if rank == UNRANKED:
                 continue
             if best_index == -1 or rank < best_rank:
@@ -113,14 +208,39 @@ def merge_piece_into(
             # No adjacent pair is ranked, so the piece is fully merged.
             break
 
-        # Joining the pair at best_index means dropping the boundary
-        # between its two halves.
-        _ = boundaries.pop(best_index + 1)
+        # The rank of a pair is the token id of the part it becomes, so the
+        # merge already knows the answer that used to be looked up again
+        # after the loop finished.
+        scratch.part_ids[best_index] = best_rank
+        _ = scratch.part_ids.pop(best_index + 1)
 
-    for index in range(len(boundaries) - 1):
-        out.append(
-            ranks.token_of(data, boundaries[index], boundaries[index + 1])
-        )
+        # Joining the pair at best_index means dropping the boundary between
+        # its two halves. The pair that started at that boundary goes with
+        # it, except when the merge was the last pair, in which case there is
+        # no following pair and the list simply gets shorter.
+        _ = scratch.boundaries.pop(best_index + 1)
+        if best_index + 1 < len(scratch.pair_ranks):
+            _ = scratch.pair_ranks.pop(best_index + 1)
+        else:
+            _ = scratch.pair_ranks.pop()
+
+        # The merged pair and the pair immediately before it are the only
+        # two whose bytes changed.
+        if best_index < len(scratch.pair_ranks):
+            scratch.pair_ranks[best_index] = ranks.rank_of(
+                data,
+                scratch.boundaries[best_index],
+                scratch.boundaries[best_index + 2],
+            )
+        if best_index > 0:
+            scratch.pair_ranks[best_index - 1] = ranks.rank_of(
+                data,
+                scratch.boundaries[best_index - 1],
+                scratch.boundaries[best_index + 1],
+            )
+
+    for index in range(len(scratch.part_ids)):
+        out.append(scratch.part_ids[index])
 
 
 def merge_piece(
@@ -146,8 +266,8 @@ def merge_piece(
     costs nothing and a scratch parameter would be noise. Anything encoding
     in a loop should use merge_piece_into and hand back the same list.
     """
-    var boundaries = List[Int](capacity=end - start + 1)
-    merge_piece_into(ranks, data, start, end, out, boundaries)
+    var scratch = MergeScratch()
+    merge_piece_into(ranks, data, start, end, out, scratch)
 
 
 def merge_piece_to_list(

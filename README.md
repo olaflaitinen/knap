@@ -15,121 +15,78 @@
   </picture>
 </p>
 
-Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo, built
-to produce byte identical output to `tiktoken` on arbitrary input.
+<p align="center">
+  <a href="https://github.com/olaflaitinen/knap/actions/workflows/ci.yml"><img
+    src="https://github.com/olaflaitinen/knap/actions/workflows/ci.yml/badge.svg"
+    alt="CI"></a>
+  <a href="https://github.com/olaflaitinen/knap/actions/workflows/sanitize.yml"><img
+    src="https://github.com/olaflaitinen/knap/actions/workflows/sanitize.yml/badge.svg"
+    alt="Sanitizers"></a>
+  <a href="https://github.com/olaflaitinen/knap/actions/workflows/fuzz.yml"><img
+    src="https://github.com/olaflaitinen/knap/actions/workflows/fuzz.yml/badge.svg"
+    alt="Fuzzing"></a>
+  <img src="https://img.shields.io/badge/Mojo-1.0.0-orange" alt="Mojo 1.0.0">
+  <img src="https://img.shields.io/badge/encodings-7-blue" alt="7 encodings">
+  <img src="https://img.shields.io/badge/licence-EUPL--1.2-green"
+       alt="EUPL-1.2">
+</p>
 
-## Status
+**A byte level Byte Pair Encoding tokenizer in pure Mojo, producing byte
+identical output to `tiktoken` on arbitrary input.**
 
-All seven milestones are complete. Every claim below was observed rather than
-inferred.
+Knap exists so that a Mojo or MAX program can tokenize without a Python
+interpreter in the process, without a foreign function boundary, and without
+having to take the result on trust. All seven `tiktoken` encodings are
+supported, and the evidence for that claim is published rather than asserted:
+191762320 tokens compared against the reference over a 110 MB corpus, every
+token id in every encoding decoded and compared, and tens of millions of
+generated inputs fuzzed against the reference.
 
-| Component | State | Milestone |
-| --- | --- | --- |
-| Toolchain, standards gates, CI | Working | M0, complete |
-| Vocabulary loading and decode | Working, decode parity verified | M1, complete |
-| Pre-tokenizer, scalar | Working, boundary parity verified | M2, complete |
-| BPE merge and encode | Working, encode parity verified | M3, complete |
-| Differential fuzzing against `tiktoken` | 20 million inputs, zero divergences | M4, complete |
-| Vectorised classifier | Working, indistinguishable from scalar on the test machine, off by default | M5, complete |
-| Piece cache | Working, parity verified, opt in | M5, complete |
-| Benchmarks against three baselines | Published, including where they win | M5, complete |
-| Conda packaging | Builds and imports without the source tree | M6 Track A, complete |
-| Python bindings | Native extension, parity verified through the bindings | M6 Track B, complete |
+## Contents
 
-Two things are deliberately absent. There is no Hugging Face
-`tokenizer.json` loader: that format specifies its own pre-tokenizer, so a
-loader needs its own parity corpus and its own reference implementation, and
-shipping one without those would put an unverified path inside a library
-whose whole claim is verification. And batch encoding is single threaded,
-which is not a choice: Mojo 1.0.0 has no working task parallelism.
+1. [What Knap is](#what-knap-is)
+2. [Installation](#installation)
+3. [Quickstart](#quickstart)
+4. [Supported encodings](#supported-encodings)
+5. [Correctness](#correctness)
+6. [Performance](#performance)
+7. [How Knap compares](#how-knap-compares)
+8. [From Mojo and MAX](#from-mojo-and-max)
+9. [Limitations](#limitations)
+10. [When not to use Knap](#when-not-to-use-knap)
+11. [Project status](#project-status)
+12. [Getting help, and helping](#getting-help-and-helping)
+13. [Citation](#citation)
+14. [Author and contact](#author-and-contact)
+15. [Licence](#licence)
 
-Nothing in this repository is a stub. Every file present is complete and
-working, and anything not built is absent rather than faked. See
-[docs/ROADMAP.md](docs/ROADMAP.md) for the full deferred list with reasons.
+## What Knap is
 
-## Correctness
-
-Correctness is the product. Speed is secondary. When a design choice trades
-correctness for speed, correctness wins.
-
-| Measure | Value |
+| | |
 | --- | --- |
-| Encodings supported, matching `tiktoken` exactly | 7 |
-| Tokens compared against `tiktoken` over 110 MB | 191762320 |
-| Piece boundaries compared over the same corpus | 83025959 |
-| Token ids decoded and compared | 702463, every id in every encoding |
-| Unicode code points verified against an independent reference | 1114112 |
-| Strings fuzzed against `tiktoken` | 20000000, ten million each on two encodings |
-| Of those, compared token for token | 16661834 |
-| Of those, round trip checked because they are not valid UTF-8 | 3338166 |
-| Fuzzed again under the address sanitizer | 200000, on the same two |
-| Divergences outstanding | 0 |
-| Divergences found and fixed | 1 class, described below |
-| Known divergences | None recorded, see docs/CORRECTNESS.md |
+| Language | Mojo 1.0.0, pinned exactly. No Python at run time. |
+| Algorithm | Byte level BPE, the same one `tiktoken` implements |
+| Encodings | All seven that `tiktoken` ships |
+| Interfaces | Mojo library, `knap` command line tool, Python extension |
+| Parity | Byte identical to `tiktoken`, measured rather than intended |
+| Licence | EUPL-1.2, a reciprocal licence |
 
-Read that table precisely. Encode and decode parity are both established,
-over 110 MB of mixed text covering hundreds of languages and over 20 million
-generated inputs including deliberately malformed UTF-8.
+Three properties are worth stating before anything else, because they are
+what this project is for.
 
-The seven encodings reduce to four distinct ordinary behaviours, because
-ordinary encoding is decided by the pre-tokenization pattern and the merge
-ranks and by nothing else. The corpus gate is therefore run four times
-rather than seven, and the encodings that share a behaviour are held to
-separate `tiktoken` fixtures instead, which is what catches a loader that
-picked the wrong file. Decode is run for all seven, because their special
-token registries genuinely differ.
+**Correctness is the product.** Speed is secondary, and where a design choice
+trades one for the other, correctness wins. Every performance change in this
+repository had to pass the 110 MB parity gate before it was kept, and several
+were reverted for failing to earn their complexity.
 
-The fuzzing rows are the exception, and they are labelled rather than
-rounded up. The differential fuzzer takes all seven encodings and the
-nightly job runs all seven, but the reported figures come from the run that
-covered two, because that is the run whose report is committed. A number
-this project has not observed does not go in this table.
+**Nothing here is a stub.** Every file in the tree is complete and working.
+Anything not built is absent rather than faked, and
+[docs/ROADMAP.md](docs/ROADMAP.md) lists what is deferred together with the
+reason for each.
 
-**The fuzzer found a real bug, and that is the most useful thing in this
-README.** After 19288 inputs it produced a string where Knap and `tiktoken`
-placed a pre-token boundary differently. The cause was that Knap's Unicode
-tables came from Python's `unicodedata` module, which answers from Unicode
-15.0.0, while the tables `tiktoken` actually behaves as are 16.0.0. About six
-hundred code points changed general category between those releases.
-
-Three things about that are worth your attention if you are evaluating this
-library:
-
-- The 110 MB corpus did not find it and would not have. Natural language
-  barely contains the code points involved. Only uniform generation over the
-  code point space reaches them.
-- The obvious fix was also wrong. Regenerating against the `regex` module's
-  tables moved the divergence instead of removing it.
-- What settled it was a measurement, not an argument: inputs constructed so
-  that their answer differs between the candidate Unicode versions, handed to
-  the reference. It agreed with 16.0.0 on 400 of 400.
-
-The full account is in [docs/UNICODE.md](docs/UNICODE.md), and the
-methodology behind every number above is in
-[docs/CORRECTNESS.md](docs/CORRECTNESS.md).
-
-## Performance
-
-**Knap is slower than both Rust baselines at encoding, on this machine and
-this corpus.** That is the headline because it is the result, and it was the
-expected result before anything was measured.
-
-| Implementation | `cl100k_base` | `o200k_base` |
-| --- | --- | --- |
-| `rs-bpe` | 10.66 MB/s | 10.02 MB/s |
-| `tiktoken` | 5.81 MB/s | 8.74 MB/s |
-| **Knap** | **3.44 MB/s** | **3.21 MB/s** |
-
-Every baseline was run on the same machine, from the same corpus slice, by
-the author, and the ones that win are printed in the same table at the same
-size. The full method, the machine, the versions, and the run to run spread
-are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
-
-Two results there are worth more than the table. Removing a single
-allocation from the rank lookup nearly doubled encode throughput, and the
-vectorised classifier cannot be distinguished from the scalar one on this
-machine, which is why it is off by default. Both are measurements. Neither
-is a claim about Mojo.
+**Claims are labelled.** Where a number comes from a run, this repository
+says which run. Where something has not been measured, it says that instead
+of rounding up.
 
 ## Installation
 
@@ -144,7 +101,8 @@ With `uv`, which is the primary development environment:
 git clone https://github.com/olaflaitinen/knap.git knap
 cd knap
 uv sync --group dev
-uv run mojo run tests/test_toolchain.mojo
+uv run python scripts/fetch_vocabs.py
+uv run mojo run -I src tests/test_toolchain.mojo
 ```
 
 With `pixi`, which pulls Mojo from the stable `max` conda channel:
@@ -160,30 +118,39 @@ Both pin the compiler to Mojo 1.0.0 exactly. Mojo guarantees source level
 stability only, and its ABI is explicitly not stable, so a floating compiler
 version would silently invalidate both benchmarks and any built binding.
 
-A Python binding is built from source rather than installed from a wheel:
+Vocabulary files are downloaded by `scripts/fetch_vocabs.py` rather than
+committed, so no licence question attaches to this repository and the exact
+source of each file is recorded rather than assumed.
 
-```bash
-python bindings/python/build.py
-python bindings/python/tests/test_bindings.py
+## Quickstart
+
+### From Mojo
+
+```mojo
+from knap.tokenizer import load_cl100k_base_tokenizer
+
+def main() raises:
+    var knap = load_cl100k_base_tokenizer(
+        "tests/fixtures/vocabs/cl100k_base.tiktoken"
+    )
+    var ids = knap.encode_ordinary("Knap tokenizes 1234 bytes.")
+    print(len(ids), "tokens")
+    print(knap.decode(ids))
 ```
 
-No wheel is published, and that is deliberate. A wheel is a promise that a
-binary keeps working, and the Mojo ABI is not stable, so the binding is
-locked to the exact toolchain it was built against. See
-[bindings/python/README.md](bindings/python/README.md).
+Run it with `uv run mojo run -I src your_program.mojo`. The full surface is
+in [docs/API.md](docs/API.md), which is generated from the source rather
+than written alongside it.
 
-## Command line
-
-The easiest way to use Knap, and the only one that does not need a Mojo
-toolchain once the package is installed.
+### From the command line
 
 ```bash
 knap count "how many tokens is this"
 cat prompt.txt | knap count
 knap encode --format json "hello world" | jq
 knap encode "round trip" | knap decode
-knap vocab -e o200k_base
 knap count -e p50k_base "how many tokens does Codex see"
+knap vocab -e o200k_harmony
 ```
 
 | Command | Does |
@@ -210,29 +177,177 @@ document is free of them.
 **`knap encode X | knap decode` returns X byte for byte**, including when X is
 not valid UTF-8. Decode writes raw bytes and adds no newline. That is the
 property a byte level tokenizer exists to have, and it is checked over all
-256 byte values in `cli/tests/test_end_to_end.py`.
+256 byte values for all seven encodings in `cli/tests/test_end_to_end.py`.
 
-Vocabularies are not bundled. `knap help` lists the five places the tool
-looks for them, in order.
+### From Python
 
-## Quickstart
-
-The encode and decode quickstart arrives with M3. What runs today is the
-toolchain smoke test and the repository standards gates:
-
-```mojo
-from knap.tokenizer import load_cl100k_base_tokenizer
-
-def main() raises:
-    var knap = load_cl100k_base_tokenizer(
-        "tests/fixtures/vocabs/cl100k_base.tiktoken"
-    )
-    var ids = knap.encode_ordinary("Knap tokenizes 1234 bytes.")
-    print(knap.decode(ids))
+```bash
+uv run python bindings/python/build.py
 ```
 
-Fetch a vocabulary first with `uv run python scripts/fetch_vocabs.py`, then
-run it with `uv run mojo run -I src your_program.mojo`.
+```python
+import sys
+sys.path.insert(0, "bindings/python")
+from knap_py import Tokenizer
+
+knap = Tokenizer.cl100k_base("tests/fixtures/vocabs/cl100k_base.tiktoken")
+print(knap.encode_ordinary("Knap tokenizes 1234 bytes."))
+```
+
+No wheel is published, and that is deliberate. A wheel is a promise that a
+binary keeps working, and the Mojo ABI is not stable, so the extension is
+locked to the exact toolchain that built it. See
+[bindings/python/README.md](bindings/python/README.md).
+
+## Supported encodings
+
+All seven `tiktoken` encodings are supported, and each was checked against
+`tiktoken` itself rather than against another encoding that resembles it.
+
+| Encoding | Used by | Verified against |
+| --- | --- | --- |
+| `cl100k_base` | GPT-4, GPT-3.5-turbo, `text-embedding-ada-002` | 43529983 tokens over 110 MB, all 100277 ids |
+| `o200k_base` | GPT-4o, o1 | 36927147 tokens over 110 MB, all 200019 ids |
+| `o200k_harmony` | The harmony message format | All 201088 ids, including 1091 special tokens |
+| `p50k_base` | Codex, `text-davinci-002` and `003` | 55582056 tokens over 110 MB, all 50281 ids |
+| `p50k_edit` | The edit models | All 50284 ids |
+| `r50k_base` | GPT-3, `davinci` | 50257 ids |
+| `gpt2` | GPT-2 | 55723134 tokens over 110 MB, all 50257 ids |
+| Hugging Face `tokenizer.json` | Not supported | Nothing yet |
+
+Seven names, three pre-tokenization patterns, four vocabulary files, and four
+distinct ordinary encoding behaviours. `o200k_harmony` shares `o200k_base`'s
+merge table and differs only in its special tokens; `p50k_edit` shares
+`p50k_base`'s; and `gpt2` has merge ranks byte identical to `r50k_base`'s,
+which was checked entry by entry rather than assumed. That is why the corpus
+column is filled in for four rows and not for seven: running the same 110 MB
+three more times would reproduce a file the gate already compares against,
+while the per-encoding fixture and decode gates prove the part that could
+actually go wrong.
+
+## Correctness
+
+Correctness is the product. Speed is secondary. When a design choice trades
+correctness for speed, correctness wins.
+
+| Measure | Value |
+| --- | --- |
+| Encodings supported, matching `tiktoken` exactly | 7 |
+| Tokens compared against `tiktoken` over 110 MB | 191762320 |
+| Piece boundaries compared over the same corpus | 83025959 |
+| Token ids decoded and compared | 702463, every id in every encoding |
+| Unicode code points verified against an independent reference | 1114112 |
+| Strings fuzzed against `tiktoken` | 20000000, ten million each on two encodings |
+| Of those, compared token for token | 16661834 |
+| Of those, round trip checked because they are not valid UTF-8 | 3338166 |
+| Fuzzed again under the address sanitizer | 200000, on the same two |
+| Divergences outstanding | 0 |
+| Divergences found and fixed | 1 class, described below |
+| Known divergences | None recorded, see docs/CORRECTNESS.md |
+
+Read that table precisely. Encode and decode parity are both established,
+over 110 MB of mixed text covering hundreds of languages and over 20 million
+generated inputs including deliberately malformed UTF-8.
+
+The fuzzing rows are labelled rather than rounded up. The differential fuzzer
+takes all seven encodings and the nightly job runs all seven, but the
+reported figures come from the run whose report is committed, which covered
+two. A number this project has not observed does not go in this table.
+
+**The fuzzer found a real bug, and that is the most useful thing in this
+README.** After 19288 inputs it produced a string where Knap and `tiktoken`
+placed a pre-token boundary differently. The cause was that Knap's Unicode
+tables had been generated from Python's `unicodedata`, which answers from
+Unicode 15.0.0, while `tiktoken` behaves as 16.0.0. About six hundred code
+points changed general category between those releases, and each one is a
+pre-token boundary in the wrong place. A 110 MB corpus of natural language
+had not found it and would not have.
+
+The full account, the hazard list, and the methodology behind every number
+above is in [docs/CORRECTNESS.md](docs/CORRECTNESS.md).
+
+## Performance
+
+Every figure below comes from one machine in one session, with the
+implementations run alternately so that a drift in the machine moves all of
+them together. The machine is a modest laptop, the input is 4 MB of prose,
+and the full method is in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+**Encode throughput, higher is better:**
+
+| Implementation | `cl100k_base` | `o200k_base` | `gpt2` | `p50k_base` |
+| --- | --- | --- | --- | --- |
+| `rs-bpe` | **8.75** | **8.83** | not shipped | not shipped |
+| **Knap** | **5.98** | 6.32 | **4.90** | **5.62** |
+| `tiktoken` | 4.18 | 6.38 | 4.05 | 5.10 |
+| Hugging Face `tokenizers` | 0.60 | not run | not run | not run |
+
+Knap is faster than `tiktoken` on `cl100k_base`, `gpt2` and `p50k_base`, and
+level with it on `o200k_base`. It is slower than `rs-bpe` everywhere
+`rs-bpe` runs, which is two of the four.
+
+That was not true a day earlier, when Knap was between 1.7 and 2.7 times
+slower than `tiktoken`. Four changes closed it, measured as a paired run of
+the old and new binaries in one session, and none of them is a language
+argument:
+
+- The merge loop now asks whether the whole piece is already a token before
+  it starts. Over 4 MB of prose `cl100k_base` turns 882310 pieces into
+  1223017 tokens, so most pre-tokens are one token and the loop could never
+  have changed them.
+- The rank of each adjacent pair is kept rather than recomputed. A merge
+  changes exactly two pairs, so the number of hash lookups per piece falls
+  from quadratic in the piece length to linear.
+- The 256 single byte tokens moved into a direct array, and the id of a
+  merged part is the rank the merge already found.
+- The probe table carries a tag from the key's hash, so a lookup that is
+  going to fail usually fails after one load instead of four.
+
+Two further results, each a measurement rather than a claim:
+
+- With the optional piece cache and a workload that re-encodes the same
+  document, throughput is 16.58 MB/s, which is above every baseline here.
+  That is a cache hit rate result and it is labelled as one.
+- Decoding runs at 140.36 MB/s against `tiktoken`'s 52.14. Decode is a
+  footnote metric in this project and is deliberately not the headline: it
+  is a memory copy, and no one's pipeline is decode bound.
+
+`tiktoken` and Hugging Face `tokenizers` parallelise batches across cores and
+Knap does not, because Mojo 1.0.0 has no working task parallelism. On a
+multi-core batch workload they will win, and
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md) says so.
+
+## How Knap compares
+
+The feature rows below were read from the installed packages and their own
+documentation on 2026-09-09, not recalled. `tokenizers` is version 0.23.2,
+`tiktoken` 0.14.0, `rs-bpe` 0.1.0.
+
+| | Knap | `tiktoken` | `rs-bpe` | HF `tokenizers` |
+| --- | --- | --- | --- | --- |
+| Implementation language | Mojo | Rust with a Python API | Rust | Rust with a Python API |
+| Runs with no Python interpreter | Yes | No | Yes | Yes |
+| `tiktoken` encodings shipped | 7 | 7 | 2 | Through conversion |
+| Byte level BPE | Yes | Yes | Yes | Yes |
+| WordPiece, Unigram, WordLevel | No | No | No | Yes |
+| BPE training | No | No | No | Yes, four trainers |
+| `tokenizer.json` loading | No | No | No | Yes |
+| Character offsets per token | No | No | Yes | Yes |
+| Padding and truncation | No | No | No | Yes |
+| Normalizers, NFC and NFKC | No | No | No | Yes |
+| Parallel batch encoding | No | Yes | Yes | Yes |
+| Published parity evidence | Yes, per encoding | No | No | No |
+
+Read that honestly. Hugging Face `tokenizers` is a far larger library than
+Knap and covers work Knap does not attempt: four model families, four
+trainers, twelve pre-tokenizers, eleven decoders, normalizers, post
+processors, padding, truncation, and character offsets on every token. If you
+need any of those, use it.
+
+What Knap offers instead is a narrow claim, held to an unusually high
+standard, in a place none of the others reach: a Mojo or MAX program can
+tokenize in its own runtime, get output byte identical to `tiktoken`, and
+read the evidence for that rather than take it on faith.
 
 ## From Mojo and MAX
 
@@ -276,36 +391,6 @@ could add next. It is not built here because building it against an interface
 this project has not verified against would be exactly the kind of unchecked
 claim the rest of this repository exists to avoid.
 
-## Supported vocabularies
-
-All seven `tiktoken` encodings are supported, and each was checked against
-`tiktoken` itself rather than against another encoding that looks like it.
-
-| Encoding | Used by | Verified against |
-| --- | --- | --- |
-| `cl100k_base` | GPT-4, GPT-3.5-turbo, `text-embedding-ada-002` | 43529983 tokens over 110 MB, all 100277 ids |
-| `o200k_base` | GPT-4o, o1 | 36927147 tokens over 110 MB, all 200019 ids |
-| `o200k_harmony` | Open weight harmony format | All 201088 ids, including 1091 special tokens |
-| `p50k_base` | Codex, `text-davinci-002` and `003` | 55582056 tokens over 110 MB, all 50281 ids |
-| `p50k_edit` | The edit models | All 50284 ids |
-| `r50k_base` | GPT-3, `davinci` | 50257 ids |
-| `gpt2` | GPT-2 | 55723134 tokens over 110 MB, all 50257 ids |
-| Hugging Face `tokenizer.json` | Not supported | Nothing yet |
-
-Seven names, three pre-tokenization patterns, four vocabulary files, and
-four distinct ordinary encoding behaviours. `o200k_harmony` shares
-`o200k_base`'s merge table and differs only in its special tokens;
-`p50k_edit` shares `p50k_base`'s; and `gpt2` has merge ranks byte identical
-to `r50k_base`'s, which was checked entry by entry rather than assumed. That
-is why the corpus column above is filled in for four rows and not for seven:
-running the same 110 MB three more times would produce the same numbers and
-prove nothing new, while the per-encoding fixture and decode gates prove the
-part that could actually go wrong.
-
-Vocabulary files are downloaded by a script rather than committed, so that no
-licence question attaches to this repository and the exact source is recorded
-rather than assumed.
-
 ## Limitations
 
 - No BPE training. Encoding only.
@@ -317,17 +402,16 @@ rather than assumed.
 - No chat templates and no GPU tokenization.
 - A single document is not parallelized across threads. Chunking a byte stream
   and pre-tokenizing chunks independently can change the result, because a
-  pattern match may span a chunk boundary. Batches are parallelized instead,
-  which is where the throughput is and which is trivially correct.
+  pattern match may span a chunk boundary. Batches would be parallelized
+  instead, and cannot be either: Mojo 1.0.0 has no working task parallelism,
+  which Modular's own roadmap lists as not started.
 - The Mojo ABI is not stable, so any Python binding is version locked and must
   be rebuilt for each toolchain release.
 - Parity is evidenced, not proved. It rests on 110 MB of corpus, every token
   id in every encoding, and tens of millions of generated inputs. That is
   evidence about the inputs that were tried. It is not a proof about all
   inputs, and this project will not describe it as one.
-- Encoding is slower than both Rust baselines. See
-  [docs/BENCHMARKS.md](docs/BENCHMARKS.md), where the winners are printed in
-  the same table.
+- Encoding is slower than `rs-bpe` on the two encodings `rs-bpe` ships.
 
 ## When not to use Knap
 
@@ -336,14 +420,44 @@ If you are running Python and tokenization is not your bottleneck, use
 rather than a bottleneck, and it is battle tested in a way this project is
 not.
 
+If you need training, offsets, padding, or a format other than `.tiktoken`,
+use Hugging Face `tokenizers`. Knap does not attempt any of it.
+
 In LLM inference specifically, tokenization is a rounding error next to the
 forward pass. Faster tokenization does not give you faster inference, and
 Knap will not claim otherwise.
 
 Knap is worth your attention in exactly three cases: you want a Mojo native
-tokenizer with no Python interpreter in the process, you want the SIMD
+tokenizer with no Python interpreter in the process, you want the
 pre-tokenizer as a standalone module, or you are interested in the parity
 methodology itself.
+
+## Project status
+
+All nine milestones, M0 through M8, are complete. Every claim was observed
+rather than inferred.
+
+| Component | State | Milestone |
+| --- | --- | --- |
+| Toolchain, standards gates, CI | Working | M0 |
+| Vocabulary loading and decode | Working, decode parity verified | M1 |
+| Pre-tokenizer, scalar | Working, boundary parity verified | M2 |
+| BPE merge and encode | Working, encode parity verified | M3 |
+| Differential fuzzing against `tiktoken` | 20 million inputs, zero divergences | M4 |
+| Vectorised classifier | Working, no measurable gain, off by default | M5 |
+| Piece cache | Working, parity verified, opt in | M5 |
+| Benchmarks against three baselines | Published, including where they win | M5 |
+| Conda packaging | Builds and imports without the source tree | M6 Track A |
+| Python bindings | Native extension, parity verified through them | M6 Track B |
+| All seven `tiktoken` encodings | Working, parity verified per encoding | M7 |
+| Merge path performance | 1.39 to 1.85 times faster, output unchanged | M8 |
+
+Two things are deliberately absent. There is no Hugging Face
+`tokenizer.json` loader: that format specifies its own pre-tokenizer, so a
+loader needs its own parity corpus and its own reference implementation, and
+shipping one without those would put an unverified path inside a library
+whose whole claim is verification. And batch encoding is single threaded,
+which is not a choice: Mojo 1.0.0 has no working task parallelism.
 
 ## Getting help, and helping
 
@@ -354,6 +468,7 @@ methodology itself.
 | Report a vulnerability | [SECURITY.md](SECURITY.md), privately, not as an issue |
 | Contribute code | [CONTRIBUTING.md](CONTRIBUTING.md), then [docs/STYLE.md](docs/STYLE.md) |
 | Understand what is expected of participants | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| See what changed and when | [CHANGELOG.md](CHANGELOG.md) |
 
 The issue forms ask for a great deal. That is deliberate. A parity report
 without the exact bytes, the reference version, and how the reference output

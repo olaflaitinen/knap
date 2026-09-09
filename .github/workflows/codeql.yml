@@ -1,0 +1,86 @@
+# =============================================================================
+# Project     : Knap, a pure Mojo byte level BPE tokenizer
+# File        : .github/workflows/codeql.yml
+# Purpose     : Static analysis of every language in this repository that
+#               CodeQL can read, which is Python and the workflows.
+# Stage       : Distribution. See docs/PACKAGING.md
+# Depends on  : github/codeql-action
+# Invariants  : Mojo is not a CodeQL language and is not claimed to be
+#               covered. What this scans is the Python around the library.
+# -----------------------------------------------------------------------------
+# Author      : Olaf Yunus Laitinen Imanov <yunus.imanov@metropolia.fi>
+# ORCID       : 0009-0006-5184-0810
+# Affiliation : School of Information and Communication Technology,
+#               Metropolia University of Applied Sciences
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+# =============================================================================
+#
+# The modular-community channel requires CodeQL scanning on the source
+# repository of any package that contains a language other than Mojo, and a
+# badge for it in the README. Knap contains a good deal of Python: the
+# generators, the standards gates, the fuzzing driver, the benchmark
+# baselines, and the Python bindings.
+#
+# Worth saying plainly what this does and does not cover. CodeQL has no
+# Mojo analysis, so the library itself is not scanned by it. The library is
+# held to the address sanitizer instead, in sanitize.yml, over generated
+# input and with no interpreter in the process.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, because a scheduled scan catches an advisory published after
+    # the code stopped changing, which is the case a push trigger misses.
+    - cron: "27 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    runs-on: ubuntu-24.04
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            build-mode: none
+          - language: actions
+            build-mode: none
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-and-quality
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+# =============================================================================
+# End of file: .github/workflows/codeql.yml
+# =============================================================================

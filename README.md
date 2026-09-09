@@ -25,6 +25,9 @@
   <a href="https://github.com/olaflaitinen/knap/actions/workflows/fuzz.yml"><img
     src="https://github.com/olaflaitinen/knap/actions/workflows/fuzz.yml/badge.svg"
     alt="Fuzzing"></a>
+  <a href="https://github.com/olaflaitinen/knap/actions/workflows/codeql.yml"><img
+    src="https://github.com/olaflaitinen/knap/actions/workflows/codeql.yml/badge.svg"
+    alt="CodeQL"></a>
   <img src="https://img.shields.io/badge/Mojo-1.0.0-orange" alt="Mojo 1.0.0">
   <img src="https://img.shields.io/badge/encodings-7-blue" alt="7 encodings">
   <img src="https://img.shields.io/badge/licence-EUPL--1.2-green"
@@ -121,6 +124,11 @@ version would silently invalidate both benchmarks and any built binding.
 Vocabulary files are downloaded by `scripts/fetch_vocabs.py` rather than
 committed, so no licence question attaches to this repository and the exact
 source of each file is recorded rather than assumed.
+
+There is no conda package published yet. The recipe that would produce one
+is written, checked on every push, and builds; publishing it is a separate
+decision and has not been taken. See [docs/PACKAGING.md](docs/PACKAGING.md)
+for what is prepared and what is not.
 
 ## Quickstart
 
@@ -469,6 +477,7 @@ which is not a choice: Mojo 1.0.0 has no working task parallelism.
 | Contribute code | [CONTRIBUTING.md](CONTRIBUTING.md), then [docs/STYLE.md](docs/STYLE.md) |
 | Understand what is expected of participants | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | See what changed and when | [CHANGELOG.md](CHANGELOG.md) |
+| Package or repackage Knap | [docs/PACKAGING.md](docs/PACKAGING.md) |
 
 The issue forms ask for a great deal. That is deliberate. A parity report
 without the exact bytes, the reference version, and how the reference output

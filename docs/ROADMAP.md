@@ -123,7 +123,7 @@ exists.
 
 | M6 condition | Evidence |
 | --- | --- |
-| Track A, package builds | `recipe/recipe.yaml`, built by rattler-build to `knap-0.1.0-hb0f4dca_0.conda`, 174.56 KiB. That artefact was built before the version was declared 1.0.0, and the name is left as it was rather than edited to match, because it records what was actually produced. |
+| Track A, package builds | `conda.recipe/recipe.yaml`, built by rattler-build to `knap-0.1.0-hb0f4dca_0.conda`, 174.56 KiB. That artefact was built before the version was declared 1.0.0, and the name is left as it was rather than edited to match, because it records what was actually produced. The recipe moved to the conventional path and was rewritten to build from a git revision during packaging preparation; see [docs/PACKAGING.md](PACKAGING.md). |
 | Track A, package imports without the source tree | The recipe's own test compiles and runs a program against the installed artefact only. Mirrored as a CI job. |
 | Track A, compiler pinned | `mojo-compiler ==1.0.0` in both build and run requirements. A consumer on another toolchain gets a solver error rather than a link error. |
 | Track B, native extension | `PythonModuleBuilder` builds a real CPython extension. The `ctypes` fallback was never needed and the flat C surface it would have required was never added. |

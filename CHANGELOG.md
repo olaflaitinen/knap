@@ -76,6 +76,48 @@ One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
 untouched.
 
+### Added, packaging preparation
+
+Everything up to publishing, and nothing beyond it. No tag, no release, and
+no pull request to the modular-community repository: those are one decision
+and it is the author's to take. See [docs/PACKAGING.md](docs/PACKAGING.md).
+
+- The recipe moved from `recipe/recipe.yaml` to `conda.recipe/recipe.yaml`,
+  which is where rattler-build looks by default and where
+  `rattler-build-action` expects it.
+- The recipe builds from a git URL and a full commit SHA rather than a local
+  path. A path source cannot be built by anyone but the author, and the
+  modular-community repository holds only the recipe, so it could not have
+  built the package at all.
+- `conda.recipe/smoke.mojo`, the package acceptance test, is a real file
+  named by the recipe's test section rather than a heredoc inside it. The
+  CI job that imports the precompiled package now runs the same file, so
+  the two cannot drift.
+- `scripts/check_recipe.py` gates the recipe on every push: the version
+  against `CITATION.cff`, the compiler pin against `pixi.toml` and
+  `pyproject.toml`, the source revision against the commits in this
+  repository, the named test files against the recipe directory, and the
+  licence file against the tree. It reads the YAML subset the recipe uses
+  and refuses anything else, because a parser that skipped what it did not
+  understand would report a clean result for a recipe it never read.
+- `python scripts/check_recipe.py --selftest` plants seven violations
+  against the real recipe and confirms each is rejected. That is the
+  standard every other gate here is held to, and it runs in CI.
+- `.github/workflows/codeql.yml`. The modular-community channel requires
+  CodeQL scanning of any package containing a language other than Mojo, and
+  a badge in the README. Knap contains a good deal of Python. CodeQL has no
+  Mojo analysis, so what it covers is stated rather than implied.
+- A CI job that builds the package with rattler-build. It is not a required
+  check, because it builds the commit the recipe names rather than the
+  commit under test, which makes it a rehearsal of publishing rather than a
+  test of the branch.
+
+### Fixed, packaging preparation
+
+- The CI packaging job wrote a `.mojopkg`, an extension deprecated in Mojo
+  1.0.0 that warns. It writes a `.mojoc` now, which is what the recipe
+  produces.
+
 ### Changed, milestone M8, the merge path
 
 **Encode is between 1.39 and 1.85 times faster, with byte identical
@@ -216,7 +258,8 @@ time was in the merge path and the other fifth was not worth touching.
 
 ### Added, milestone M6, distribution
 
-- `recipe/recipe.yaml`, a conda recipe targeting the `modular-community`
+- `conda.recipe/recipe.yaml`, a conda recipe targeting the
+  `modular-community`
   channel. The compiler is pinned exactly in both build and run
   requirements, so a consumer on a different toolchain gets a solver error
   rather than a link error deep in their build.

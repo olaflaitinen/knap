@@ -8,6 +8,12 @@
 __pycache__/
 *.pyc
 
+# rattler-build writes the built conda package and its repodata here. The
+# artefact is not committed: it is reproducible from the recipe, it is tied
+# to one platform and one compiler version, and a committed binary invites
+# somebody to use a stale one.
+output/
+
 # Mojo build and cache outputs.
 .mojo_cache/
 *.mojopkg

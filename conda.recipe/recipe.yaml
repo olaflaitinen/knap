@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+#
+# Conda recipe for Knap, targeting the modular-community channel.
+#
+# Mojo libraries are distributed as conda packages; there is no native Mojo
+# package manager yet. The artefact is a precompiled Mojo package, which the
+# compiler's own documentation is careful to say is tied to the exact
+# compiler version that produced it. That is why the compiler is pinned
+# exactly in the run requirements rather than given a range: a consumer on a
+# different toolchain gets a solver error, which is far better than a link
+# error deep in their build.
+#
+# This file lives at conda.recipe/recipe.yaml because that is where
+# rattler-build looks by default and where rattler-build-action expects it.
+#
+# Build it from the repository root:
+#
+#     rattler-build build \
+#       --recipe conda.recipe/recipe.yaml \
+#       -c conda-forge \
+#       -c https://conda.modular.com/max \
+#       -c https://repo.prefix.dev/modular-community
+#
+# Publishing is a separate, deliberate act and is not done by building. See
+# docs/PACKAGING.md for the checklist, which is not yet complete.
+
+schema_version: 1
+
+context:
+  version: "1.0.0"
+  mojo_version: "1.0.0"
+
+package:
+  name: knap
+  version: ${{ version }}
+
+# A git source at a full commit SHA rather than a local path. Two reasons,
+# and the second is the one that matters. A path source cannot be built by
+# anyone but the author, so the modular-community repository, which holds
+# only the recipe, could not build it at all. And a SHA is reproducible in a
+# way a branch or a tag is not: a tag can be moved, a branch always is.
+#
+# The SHA below is updated as part of preparing a release, and
+# scripts/check_recipe.py refuses a value that is not a commit in this
+# repository.
+source:
+  - git: https://github.com/olaflaitinen/knap.git
+    rev: eebb252a41a6416bd73e1c300d5b3e0551e3e733
+
+build:
+  number: 0
+  # Noarch is wrong here even though a precompiled Mojo package contains no
+  # elaborated code. The package is tied to a compiler version rather than to
+  # an architecture, and conda has no way to express that, so it is built per
+  # platform and pinned to the compiler instead.
+  script:
+    interpreter: bash
+    content: |
+      set -euo pipefail
+
+      # Into $PREFIX/lib/mojo, which is the path that makes the package
+      # discoverable by the compiler without a -I flag.
+      mkdir -p "${PREFIX}/lib/mojo"
+      mojo precompile src/knap -o "${PREFIX}/lib/mojo/knap.mojoc"
+
+      # The command line tool, so that installing the package gives a person
+      # a working `knap` command rather than a library they have to write a
+      # program against. Counting tokens is the most common thing anyone
+      # does with a tokenizer, and it should not require a toolchain.
+      mkdir -p "${PREFIX}/bin"
+      mojo build -I src -I cli -o "${PREFIX}/bin/knap" cli/main.mojo
+
+requirements:
+  build:
+    - mojo-compiler ==${{ mojo_version }}
+  host:
+    - mojo-compiler ==${{ mojo_version }}
+  # pin_compatible would be the idiomatic choice here and it is deliberately
+  # not used. It derives a range from whatever version resolved at build
+  # time, and a range is exactly what a precompiled Mojo artefact cannot
+  # honour: the compiler's own documentation says a .mojoc file may not be
+  # compatible with another compiler version, and the ABI is explicitly not
+  # stable. An exact pin turns that into a solver error at install time.
+  run:
+    - mojo-compiler ==${{ mojo_version }}
+
+tests:
+  - script:
+      interpreter: bash
+      content: |
+        set -euo pipefail
+        test -f "${PREFIX}/lib/mojo/knap.mojoc"
+        test -x "${PREFIX}/bin/knap"
+        "${PREFIX}/bin/knap" version
+        mojo run -I "${PREFIX}/lib/mojo" smoke.mojo
+    files:
+      recipe:
+        - smoke.mojo
+
+about:
+  homepage: https://github.com/olaflaitinen/knap
+  repository: https://github.com/olaflaitinen/knap.git
+  documentation: https://github.com/olaflaitinen/knap/blob/main/README.md
+  license: EUPL-1.2
+  license_file: LICENSE
+  summary: A pure Mojo byte level BPE tokenizer with exact tiktoken parity.
+  description: |
+    Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo,
+    verified to produce byte identical output to tiktoken. All seven
+    tiktoken encodings are supported and each was checked against tiktoken
+    itself: 191762320 tokens over a 110 MB corpus, every token id in every
+    encoding, and tens of millions of fuzzed inputs.
+
+    Installing it gives both a Mojo library and a `knap` command for
+    counting, encoding, and decoding from a shell. Vocabularies are not
+    bundled and are fetched separately; `knap help` says where the tool
+    looks for them.
+
+    Correctness is the product. Knap is faster than tiktoken on three of the
+    four distinct encode behaviours on the published machine and slower than
+    rs-bpe everywhere rs-bpe runs, and its benchmarks publish the cases
+    where the alternatives win.
+
+extra:
+  maintainers:
+    - olaflaitinen

@@ -73,6 +73,15 @@ jobs:
       # A gate that has never been observed failing is not known to work.
       # This plants one violation per gate, asserts each is rejected, and
       # asserts the matching clean control is accepted.
+      # The recipe is the one file nothing else exercises until somebody
+      # tries to publish, and by then the mistakes are public. This needs
+      # no network and no build, so it runs with the other prose gates.
+      - name: Conda recipe is consistent
+        run: python scripts/check_recipe.py
+
+      - name: Recipe gate self test
+        run: python scripts/check_recipe.py --selftest
+
       - name: Standards gate self test
         run: python scripts/selftest_gates.py
 
@@ -238,23 +247,58 @@ jobs:
 
       # Track A of the distribution milestone. A package that builds but
       # cannot be imported without the source tree is not a package.
+      # The artefact is a .mojoc file. The .mojopkg extension this job used
+      # to write is deprecated in Mojo 1.0.0 and warns.
+      #
+      # The program it runs is conda.recipe/smoke.mojo, the same one the
+      # conda recipe's test section runs, rather than a copy pasted into a
+      # heredoc here. Two copies of an acceptance test drift, and the copy
+      # that drifts is the one nobody runs.
       - name: Precompile and import without the source tree
         run: |
           mkdir -p "${RUNNER_TEMP}/pkg"
-          uv run mojo precompile src/knap -o "${RUNNER_TEMP}/pkg/knap.mojopkg"
-          cat > "${RUNNER_TEMP}/smoke.mojo" <<'SMOKE'
-          from knap.flat_vocab import FlatVocab
-
-          def main() raises:
-              var data = List[UInt8]()
-              data.append(UInt8(72))
-              data.append(UInt8(105))
-              var offsets: List[Int] = [0]
-              var lengths: List[Int] = [2]
-              var vocabulary = FlatVocab(data^, offsets^, lengths^)
-              print(vocabulary.decode([0]))
-          SMOKE
+          uv run mojo precompile src/knap -o "${RUNNER_TEMP}/pkg/knap.mojoc"
+          cp conda.recipe/smoke.mojo "${RUNNER_TEMP}/smoke.mojo"
           uv run mojo run -I "${RUNNER_TEMP}/pkg" "${RUNNER_TEMP}/smoke.mojo"
+
+  conda-package:
+    name: Conda package builds from the recipe
+    runs-on: ubuntu-24.04
+    # Not a required check. It builds the commit named in the recipe rather
+    # than the commit under test, because that is what the modular-community
+    # repository will do with this file, so it is a rehearsal of publishing
+    # rather than a test of the branch. A failure here means the recipe is
+    # wrong, which is worth knowing before a pull request is opened against
+    # somebody else's repository.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pixi
+        run: |
+          curl -fsSL https://pixi.sh/install.sh | sh
+          echo "$HOME/.pixi/bin" >> "$GITHUB_PATH"
+
+      - name: Install rattler-build
+        run: pixi global install rattler-build
+
+      - name: Build the package
+        run: |
+          rattler-build build \
+            --recipe conda.recipe/recipe.yaml \
+            -c conda-forge \
+            -c https://conda.modular.com/max \
+            -c https://repo.prefix.dev/modular-community
+
+      - name: Record what was produced
+        run: |
+          find output -name '*.conda' -printf '%p  %s bytes\n'
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: conda-package
+          path: output/**/*.conda
+          if-no-files-found: error
 
   command-line-tool:
     name: Command line tool

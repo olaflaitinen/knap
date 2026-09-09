@@ -73,8 +73,8 @@ written to be read rather than skimmed.
 ## Questions that already have answers
 
 **Is Knap faster than tiktoken?** On the published machine, yes on three of
-the four distinct encode behaviours and level on the fourth. It is still 32
-to 46 percent slower than `rs-bpe` on the two encodings `rs-bpe` ships, and
+the four distinct encode behaviours and level on the fourth. It is still 28
+to 32 percent slower than `rs-bpe` on the two encodings `rs-bpe` ships, and
 it is single threaded where both `tiktoken` and Hugging Face `tokenizers`
 parallelise a batch across cores. The numbers, the machine, and the
 baselines that win are all in

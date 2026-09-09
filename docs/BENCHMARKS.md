@@ -258,8 +258,9 @@ cache is warming across them, so the spread is the warm up curve. See
 
 **Knap is faster than `tiktoken` by 43 percent on `cl100k_base`, 21 percent
 on `gpt2` and 10 percent on `p50k_base`, and one percent slower on
-`o200k_base`, which is inside the noise of both measurements.** It is 32 to
-46 percent slower than `rs-bpe` on the two encodings `rs-bpe` ships.
+`o200k_base`, which is inside the noise of both measurements.** It is 28 to
+32 percent slower than `rs-bpe` on the two encodings `rs-bpe` ships, which is
+the same gap read the other way as `rs-bpe` being 40 to 46 percent faster.
 
 `o200k_base` is the encoding where Knap does least well relative to the
 others, and the reason is visible in the pre-tokenization figures below:

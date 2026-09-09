@@ -56,6 +56,7 @@ GENERATORS = (
         "scripts/gen_unicode_tables.py",
         "src/knap/pretokenize/unicode_tables.mojo",
     ),
+    ("scripts/gen_api_reference.py", "docs/API.md"),
 )
 
 

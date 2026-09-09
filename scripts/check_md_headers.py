@@ -385,6 +385,44 @@ def check_fence_languages(
     return problems
 
 
+def blank_inline_code(text: str) -> str:
+    """Replace backtick delimited spans with spaces, preserving every offset.
+
+    Args:
+        text: One line of Markdown.
+
+    Returns:
+        The line with the contents of inline code spans blanked out.
+
+    Offsets are preserved so that a column reported against the blanked line
+    still points at the right place in the original.
+
+    This exists because a Mojo signature is full of brackets and parentheses
+    and reads to a naive scanner as a link. `ascii_run[kind: Int](data: ...)`
+    matched the link pattern and sent the gate looking for a file called
+    "data: Span[UInt8], start: Int". Text inside backticks is code, and code
+    is not a link. lint_style.py already does the same thing for the
+    exclamation rule.
+    """
+    out = list(text)
+    index = 0
+    length = len(text)
+    while index < length:
+        if text[index] != "`":
+            index += 1
+            continue
+        fence = 0
+        while index + fence < length and text[index + fence] == "`":
+            fence += 1
+        closing = text.find("`" * fence, index + fence)
+        if closing < 0:
+            break
+        for position in range(index + fence, closing):
+            out[position] = " "
+        index = closing + fence
+    return "".join(out)
+
+
 def check_links(
     relative_path: str,
     lines: list[str],
@@ -405,7 +443,7 @@ def check_links(
     for index, line in enumerate(lines):
         if mask[index]:
             continue
-        for target in LINK_PATTERN.findall(line):
+        for target in LINK_PATTERN.findall(blank_inline_code(line)):
             target = target.strip()
             if not target or target.startswith(("http://", "https://", "mailto:")):
                 continue

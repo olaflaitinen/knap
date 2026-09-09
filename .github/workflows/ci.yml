@@ -40,7 +40,7 @@ jobs:
     name: Repository standards
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -71,7 +71,7 @@ jobs:
     name: Build and test
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         run: |
@@ -154,7 +154,7 @@ jobs:
     name: Both classifier builds agree
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         run: |
@@ -190,7 +190,7 @@ jobs:
     name: Python bindings
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         run: |
@@ -215,7 +215,7 @@ jobs:
     name: Mojo package builds and imports
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         run: |
@@ -249,7 +249,7 @@ jobs:
     name: Command line tool
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         run: |
@@ -278,7 +278,7 @@ jobs:
     # exposure, not a clean result. See docs/ARCHITECTURE.md.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install uv
         run: |

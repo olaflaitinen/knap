@@ -119,6 +119,7 @@ jobs:
           uv run python scripts/gen_encode_golden.py
           uv run python scripts/gen_unicode_tables.py
           uv run python scripts/gen_pretoken_golden.py
+          uv run python scripts/gen_api_reference.py
 
       # A committed generated file that no longer matches its generator
       # means Knap is matching a pattern the reference no longer uses, which
@@ -181,6 +182,7 @@ jobs:
           uv run python scripts/gen_encode_golden.py
           uv run python scripts/gen_unicode_tables.py
           uv run python scripts/gen_pretoken_golden.py
+          uv run python scripts/gen_api_reference.py
 
       # The scalar classifier is the reference and the default. The
       # vectorised one is off by default because it measured slower, but it

@@ -41,6 +41,13 @@ build:
       mkdir -p "${PREFIX}/lib/mojo"
       mojo precompile src/knap -o "${PREFIX}/lib/mojo/knap.mojoc"
 
+      # The command line tool, so that installing the package gives a person
+      # a working `knap` command rather than a library they have to write a
+      # program against. Counting tokens is the most common thing anyone
+      # does with a tokenizer, and it should not require a toolchain.
+      mkdir -p "${PREFIX}/bin"
+      mojo build -I src -I cli -o "${PREFIX}/bin/knap" cli/main.mojo
+
 requirements:
   build:
     - mojo-compiler ==${{ mojo_version }}
@@ -53,6 +60,8 @@ tests:
       content: |
         set -euo pipefail
         test -f "${PREFIX}/lib/mojo/knap.mojoc"
+        test -x "${PREFIX}/bin/knap"
+        "${PREFIX}/bin/knap" version
         cat > smoke.mojo <<'SMOKE'
         from knap.flat_vocab import FlatVocab
 
@@ -78,6 +87,11 @@ about:
     Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo,
     verified to produce byte identical output to tiktoken across 110 MB of
     mixed text and 20 million fuzzed inputs.
+
+    Installing it gives both a Mojo library and a `knap` command for
+    counting, encoding, and decoding from a shell. Vocabularies are not
+    bundled and are fetched separately; `knap help` says where the tool
+    looks for them.
 
     Correctness is the product. Knap does not claim to beat the established
     Rust implementations on raw speed, and its benchmarks publish the cases

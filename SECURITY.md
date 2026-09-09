@@ -103,9 +103,10 @@ discussion thread, before the report has been answered.
 
 Stated plainly so that a report is not written for nothing.
 
-- **Performance.** Knap is slower than both Rust baselines at encoding and
-  says so in [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Slowness is not a
-  vulnerability unless it is unbounded in the sense above.
+- **Performance.** Where Knap is slower than a baseline it says so in
+  [docs/BENCHMARKS.md](docs/BENCHMARKS.md), with the winner in the same
+  table. Slowness is not a vulnerability unless it is unbounded in the sense
+  above.
 - **A plain parity divergence.** Use the parity divergence issue form. Those
   are the highest priority ordinary bug this project receives, and they are
   handled in public because the fix benefits from the exact bytes being

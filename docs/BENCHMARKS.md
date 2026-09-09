@@ -412,12 +412,14 @@ measurement.
 
 ### A prediction this refuted
 
-The tail latency in [Short string latency](#short-string-latency) is three to
-five times the reference at the 99th percentile while the median is only one
-and a half times it. The obvious explanation was allocation spikes, and it
-was written down as such before being tested.
+Knap's tail latency in [Short string latency](#short-string-latency) is
+several times the reference at the 99th percentile while the median is close
+to it. The obvious explanation was allocation spikes, and it was written
+down as such before being tested.
 
-It is wrong. With the per-piece allocation gone, the percentiles do not move:
+It is wrong. With the per-piece allocation gone, the percentiles do not move.
+The figures below are from the 2026-09-08 run, which is the pair that tested
+this specific hypothesis:
 
 | Size class | p50 before | p50 after | p99 before | p99 after |
 | --- | --- | --- | --- | --- |
@@ -426,8 +428,13 @@ It is wrong. With the per-piece allocation gone, the percentiles do not move:
 | About 200 tokens | 110361 | 116522 | 763926 | 761862 |
 
 Every figure is inside the run to run spread. Whatever produces that tail, it
-is not this. The cause is now an open question in
-[docs/ARCHITECTURE.md](ARCHITECTURE.md) rather than a second guess.
+is not this.
+
+A second hypothesis has since been eliminated the same way. The M8 work
+removed roughly three quarters of the merge loop's hash lookups, and the
+tail did not improve in proportion either. Two of the obvious candidates are
+now gone and the cause is an open question in
+[docs/ARCHITECTURE.md](ARCHITECTURE.md) rather than a third guess.
 
 ## The piece cache
 

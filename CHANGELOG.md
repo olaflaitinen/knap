@@ -204,7 +204,7 @@ time was in the merge path and the other fifth was not worth touching.
   it previously required a Mojo toolchain and a program. Input comes from an
   argument, a file, or standard input; exit status separates a bad command
   line from a bad input.
-- `tests/test_cli.mojo`, eighteen tests over the parser. Most of them assert
+- `tests/test_cli.mojo`, nineteen tests over the parser. Most of them assert
   refusals, because a parser that accepts a good command line is the easy
   half and one that quietly resolves a contradiction is how somebody gets a
   token count they did not ask for.

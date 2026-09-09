@@ -40,7 +40,7 @@ Consumers pin token ids into caches, datasets, and evaluation results, so an
 output change breaks them as thoroughly as a changed signature would.
 
 If output changes, say which inputs change, how many token ids differ across
-the 110 MB corpus, and which of the two encodings are affected:
+the 110 MB corpus, and which of the seven encodings are affected:
 
 <!-- Answer here. -->
 
@@ -114,9 +114,11 @@ Totals and seeds, copied from `tests/fuzz/last_run.json`:
 
 Before and after, with the spread:
 
-<!-- For example: cl100k_base encode, 1.79 MB/s cv 0.11 before, 3.44 MB/s
-     cv 0.11 after, five iterations, 4194296 bytes at corpus offset
-     30408704. -->
+<!-- For example: cl100k_base encode, 4.18 MB/s before, 6.68 MB/s after,
+     medians of five alternating runs of the two binaries in one session,
+     4194296 bytes at corpus offset 30408704. Alternating matters: this
+     machine's absolute figures drift between sessions by more than most
+     changes are worth. -->
 
 ## If this changes a public interface
 

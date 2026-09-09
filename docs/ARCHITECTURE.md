@@ -60,9 +60,16 @@ genuinely pays. A Python free path for Mojo and MAX applications comes third.
 
 Raw merge speed is explicitly not a goal. The BPE merge loop is hash lookups,
 data dependent branching, and a priority selection. It does not vectorize.
-Prior art in pure Mojo is already slower than `rs-bpe` in Rust, and beating
-the best Rust implementation on merge speed is unlikely. Where a design choice
-trades correctness for speed, correctness wins.
+Beating the best Rust implementation on merge speed is unlikely, and where a
+design choice trades correctness for speed, correctness wins.
+
+That paragraph was written before anything was measured and it is left as it
+was, because it turned out to be half right and the half it got wrong is
+instructive. Knap is now faster than `tiktoken` on three of the four
+distinct encode behaviours, and it got there by removing lookups rather than
+by making the loop clever. It is still slower than `rs-bpe`. The prediction
+that raw merge speed was unreachable was too pessimistic; the prediction
+that it would not come from vectorising the loop was right.
 
 ## Encoding pipeline
 
@@ -141,7 +148,7 @@ and replaces the pair at $i^{*}$ with its concatenation. The loop terminates
 when no adjacent pair is ranked, at which point each remaining element maps
 to exactly one token id.
 
-Ties cannot occur, because ranks are unique per merge in both target
+Ties cannot occur, because ranks are unique per merge in all seven shipped
 vocabularies. Where a pair is unranked it is simply not a candidate, which is
 what makes termination guaranteed: every round strictly reduces $|s|$ by one.
 
@@ -167,6 +174,11 @@ gate, with byte identical output.
 | Encode, `cl100k_base` | 1.79 MB/s | 3.44 MB/s |
 | Encode, `o200k_base` | 1.90 MB/s | 3.21 MB/s |
 | 110 MB encode parity gate | 208.5 s | 105.8 s |
+
+Those four throughput figures are the state on 2026-09-08 and are kept as
+the record of that change. The current numbers are higher again, because the
+merge path was rewritten the next day. See
+[How the merge loop got faster](BENCHMARKS.md#how-the-merge-loop-got-faster).
 
 **It was invisible for three milestones, and the reason is the interesting
 part.** Every benchmark before this read a prefix of the mixed corpus, and
@@ -253,19 +265,26 @@ $$n < W \quad\text{for the overwhelming majority of calls,}$$
 which makes every vector iteration a masked load over mostly empty lanes plus
 the fixed cost of setting one up. So the model predicts a loss.
 
-**The measurement does not confirm one, and it does not refute one either.**
-Over five repetitions the scalar and vectorised paths differ by less than one
-standard deviation on both encodings. This machine cannot resolve the
-difference. The classifier is therefore off unless `-D KNAP_SIMD=1` is
-passed, on the ground that an unmeasurable gain does not justify a second
-implementation of a load bearing function, rather than on the ground that it
-lost. The numbers are in [docs/BENCHMARKS.md](BENCHMARKS.md).
+**Two runs of the same benchmark now disagree about whether the model is
+right.** On 2026-09-08 the scalar and vectorised paths differed by less than
+one standard deviation on both encodings, which is a result of "cannot
+tell". On 2026-09-09 the vectorised path measured 46 percent slower on
+`cl100k_base` and 21 percent slower on `o200k_base`, both well outside the
+spread. No source change stands between the two runs.
+
+The classifier is off unless `-D KNAP_SIMD=1` is passed. That decision was
+already the conservative one under the first reading, on the ground that an
+unmeasurable gain does not justify a second implementation of a load bearing
+function, and the second reading only strengthens it. Both runs are recorded
+in [docs/BENCHMARKS.md](BENCHMARKS.md) rather than one being chosen.
 
 Two earlier versions of this section quoted confident losses, of 5 to 7
 percent and of 52 percent. Both came from a benchmark reading the corpus's
 generated hazard section rather than prose. Both were wrong, and the model
 above is the reason they were believed: a prediction that agrees with a bad
-measurement is the hardest kind of bad measurement to catch.
+measurement is the hardest kind of bad measurement to catch. The current
+pair of disagreeing runs is the same trap seen from the other side, which is
+why neither is being called the answer.
 
 ### Piece cache
 

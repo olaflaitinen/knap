@@ -209,9 +209,14 @@ agreement with a reference.
 
 ## Current status
 
-Knap is at M7. **Encode and decode parity are both established** for all
+Knap is at M8. **Encode and decode parity are both established** for all
 seven `tiktoken` encodings, over a 110 MB corpus and over tens of millions
 of generated inputs, with zero divergences outstanding.
+
+M8 rewrote the merge path for speed and changed no output. Each of its four
+changes was held to the whole gate below before it was kept, which is the
+reason a rewrite of the hottest code in the project is a footnote here
+rather than a section.
 
 | Measure | Value | Milestone |
 | --- | --- | --- |
@@ -303,7 +308,7 @@ the reference rather than predicted.
 Pre-tokenization parity was measured over a 110 MB corpus of mixed text:
 1.79 million multilingual sentences, five books, and a generated section
 concentrating the hazards below. Every piece boundary matched the reference
-for both patterns.
+for all three patterns.
 
 | Pattern | Pieces | Result |
 | --- | --- | --- |

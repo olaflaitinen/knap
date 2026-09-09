@@ -247,9 +247,13 @@ by ASCII. Paying double the memory to speed up the documented slow path is
 the wrong trade.
 
 That reasoning is recorded rather than assumed, and it is falsifiable. If a
-profile at milestone M5 shows non-ASCII classification consuming meaningful
-time on a realistic corpus, the two stage table is already measured and ready
-to swap in behind the same interface.
+profile shows non-ASCII classification consuming meaningful time on a
+realistic corpus, the two stage table is already measured and ready to swap
+in behind the same interface.
+
+It has not been falsified yet. The stage split measured at M8 puts
+pre-tokenization at 184 ms of a 987 ms encode of four megabytes, and the
+classifier is one part of that fifth. Nothing in the profile points here.
 
 ## Why the tables are strings
 

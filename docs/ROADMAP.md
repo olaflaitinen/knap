@@ -262,9 +262,13 @@ rather than substitutions, and neither creates a parallel directory:
 | `cli/` | The command line tool, added after milestone M6. It is an application rather than part of the library, so it sits outside `src/knap` and the library has no dependency on it. `cli/args.mojo` holds everything pure, which is what lets `tests/test_cli.mojo` check the parser without a vocabulary; `cli/tests/test_end_to_end.py` runs the built binary against the reference, because a parser test cannot tell you whether the numbers are right. |
 | `scripts/selftest_gates.py` | M0 requires each standards gate to be observed failing on a planted violation. Doing that once by hand proves it once. This makes it repeatable and runs it in CI, so a gate that silently stops working is caught. |
 
-`docs/BENCHMARKS.md` is deliberately absent rather than present and empty. A
-benchmarks document with no benchmarks in it invites exactly the kind of
-unsupported claim this project is trying to avoid.
+That last paragraph used to say that `docs/BENCHMARKS.md` was deliberately
+absent rather than present and empty, because a benchmarks document with no
+benchmarks in it invites exactly the kind of unsupported claim this project
+is trying to avoid. It was written at M0 and it held until M5, when the
+document arrived with a real run behind it. The rule it states still holds
+and is worth keeping in view: nothing goes in that document that was not
+run and observed on a described machine.
 
 ## Deferred beyond version 1
 

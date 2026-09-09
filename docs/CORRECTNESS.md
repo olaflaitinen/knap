@@ -235,12 +235,16 @@ cannot be replayed is an anecdote:
 
 | Run | Base seed | Shards | Shard size | Elapsed |
 | --- | --- | --- | --- | --- |
-| Differential, both encodings | 20260908 | 10 per encoding | 1000000 | 1293 seconds |
-| Differential under the address sanitizer | 1 | 4 per encoding | 25000 | 103 seconds |
+| Differential, both encodings | 20260908 | 10 per encoding | 1000000 | 1417 seconds |
+| Differential under the address sanitizer | 1 | 4 per encoding | 25000 | 92 seconds |
 
-The sanitizer run is about eight times slower per input, at roughly 1942
-inputs per second against the unsanitized run's 15468. That ratio is the
-reason the sanitized subset is a subset.
+The sanitizer run is roughly an order of magnitude slower per input, which
+is the reason the sanitized subset is a subset.
+
+Read the elapsed column loosely. Unlike every figure in
+[docs/BENCHMARKS.md](BENCHMARKS.md), these were not taken on an idle machine:
+the most recent run had a compiler working alongside it. The counts are
+exact and reproducible from the seeds; the seconds are incidental.
 
 Both runs were repeated after the merge rank table stopped allocating on
 every lookup, and both produced counts identical to the runs before it, to

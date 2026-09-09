@@ -39,14 +39,15 @@ docs/BENCHMARKS.md is where that argument has to be settled with numbers.
 from .ranks import RankTable, UNRANKED
 
 
-def merge_piece(
+def merge_piece_into(
     ranks: RankTable,
     data: Span[UInt8, _],
     start: Int,
     end: Int,
     mut out: List[Int],
+    mut boundaries: List[Int],
 ) raises:
-    """Merge one piece and append its token ids to a buffer.
+    """Merge one piece into a buffer, using a scratch list the caller owns.
 
     Args:
         ranks: The merge rank table.
@@ -54,10 +55,23 @@ def merge_piece(
         start: Inclusive start offset of the piece.
         end: Exclusive end offset of the piece.
         out: Buffer receiving the token ids, in order.
+        boundaries: Scratch space, cleared on entry. Its contents on entry
+            are ignored and its contents on exit are meaningless.
 
     Raises:
         Error: if a finished part is not in the vocabulary, which would mean
             the loop stopped early rather than that the input was unusual.
+
+    The scratch list is the whole point of this entry point. The version
+    that allocates its own does one heap allocation per pre-token, which on
+    four megabytes of prose is about a million allocations for a structure
+    that is a few dozen bytes and dies immediately. Handing the same list
+    back on every call makes that number one.
+
+    This is the same shape of waste as the String key the rank table used to
+    allocate on every lookup, and that one cost a factor of nearly two. The
+    lesson generalises: in a loop this tight, the allocations are the
+    algorithm.
 
     An empty range appends nothing. A single byte is looked up directly,
     skipping the loop entirely, which is worth the special case because
@@ -73,7 +87,7 @@ def merge_piece(
     # Boundaries hold the split points of the piece, so part i spans
     # [boundaries[i], boundaries[i + 1]). Starting with every byte separate
     # means there are length + 1 boundaries.
-    var boundaries = List[Int](capacity=length + 1)
+    boundaries.clear()
     for offset in range(length + 1):
         boundaries.append(start + offset)
 
@@ -107,6 +121,33 @@ def merge_piece(
         out.append(
             ranks.token_of(data, boundaries[index], boundaries[index + 1])
         )
+
+
+def merge_piece(
+    ranks: RankTable,
+    data: Span[UInt8, _],
+    start: Int,
+    end: Int,
+    mut out: List[Int],
+) raises:
+    """Merge one piece, allocating its own scratch space.
+
+    Args:
+        ranks: The merge rank table.
+        data: The bytes containing the piece.
+        start: Inclusive start offset of the piece.
+        end: Exclusive end offset of the piece.
+        out: Buffer receiving the token ids, in order.
+
+    Raises:
+        Error: if a finished part is not in the vocabulary.
+
+    For callers encoding one piece, where an allocation that happens once
+    costs nothing and a scratch parameter would be noise. Anything encoding
+    in a loop should use merge_piece_into and hand back the same list.
+    """
+    var boundaries = List[Int](capacity=end - start + 1)
+    merge_piece_into(ranks, data, start, end, out, boundaries)
 
 
 def merge_piece_to_list(

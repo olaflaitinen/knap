@@ -38,12 +38,43 @@ Encoding an unexpected marker as though it were text would let untrusted
 input inject control tokens into a prompt, so the default is to raise.
 """
 
-from .bpe import merge_piece
+from .bpe import merge_piece_into
 from .cache import PieceCache
 from .errors import special_token_disallowed
 from .pretokenize.scanner import scan_cl100k, scan_o200k
 from .ranks import RankTable
 from .vocab import Vocabulary, load_cl100k_base, load_o200k_base
+
+comptime BYTES_PER_TOKEN: Int = 3
+"""A low estimate of how many input bytes one token consumes.
+
+Used only to size the output buffer before encoding. Measured at 3.43 bytes
+per token for cl100k_base and 3.84 for o200k_base on prose, so three over
+allocates by between fourteen and twenty eight percent and never under
+allocates on realistic text.
+
+Deliberately an underestimate. Guessing high leaves the buffer growing, which
+means a reallocation and a copy of everything written so far, repeated about
+twenty times over a document of a million tokens. Guessing low wastes memory
+that is freed immediately. The two mistakes are not the same size.
+"""
+
+
+def estimated_tokens(byte_count: Int) -> Int:
+    """Estimate how many tokens a byte count will produce.
+
+    Args:
+        byte_count: How many input bytes there are.
+
+    Returns:
+        A capacity to reserve, never less than a small floor.
+
+    The floor matters for short input, where a capacity of zero would put
+    the first few appends straight back into the growth path this exists to
+    avoid.
+    """
+    return byte_count // BYTES_PER_TOKEN + 16
+
 
 comptime PATTERN_CL100K: Int = 0
 """Selects the cl100k_base pre-tokenization pattern."""
@@ -145,8 +176,13 @@ struct Tokenizer(Movable):
         boundary arithmetic to drift, and the cached path would stop being
         testable against the uncached one.
         """
-        var ends = List[Int]()
+        var ends = List[Int](capacity=estimated_tokens(len(data)))
         self._scan(data, ends)
+
+        # One scratch list for every piece in the segment. The merge loop
+        # needs somewhere to keep split points, and allocating that per
+        # piece is a million allocations on four megabytes of prose.
+        var boundaries = List[Int]()
 
         var start = 0
         for index in range(len(ends)):
@@ -165,12 +201,14 @@ struct Tokenizer(Movable):
                 # because the cache has to store this piece's ids on their
                 # own and out already holds everything before it.
                 var produced = List[Int]()
-                merge_piece(self.ranks, data, start, end, produced)
+                merge_piece_into(
+                    self.ranks, data, start, end, produced, boundaries
+                )
                 cache.insert(data, start, end, Span(produced))
                 for slot in range(len(produced)):
                     out.append(produced[slot])
             else:
-                merge_piece(self.ranks, data, start, end, out)
+                merge_piece_into(self.ranks, data, start, end, out, boundaries)
 
             start = end
 
@@ -242,6 +280,46 @@ struct Tokenizer(Movable):
             Error: if the scanner or the merge loop fails.
         """
         return self.encode_ordinary_bytes(text.as_bytes())
+
+    def encode_ordinary_bytes_into(
+        self, data: Span[UInt8, _], mut out: List[Int]
+    ) raises:
+        """Encode bytes into a buffer the caller owns.
+
+        Args:
+            data: The bytes to encode.
+            out: Buffer receiving the token ids. **Appended to, not
+                cleared.** Clear it first if you want only this input's
+                tokens.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+
+        The allocation free entry point. Every other encode method returns a
+        fresh list, which means a heap allocation and a growth sequence on
+        every call. A caller encoding many documents in a loop can hand the
+        same buffer back each time and pay for that once.
+
+        Appending rather than clearing, because clearing is one line the
+        caller can write and un-appending is not, and because encoding
+        several inputs into one buffer is a real thing to want. The cost is
+        that forgetting to clear doubles the output, which is why it is the
+        first thing this docstring says.
+        """
+        self.encode_segment(data, out)
+
+    def encode_ordinary_into(self, text: String, mut out: List[Int]) raises:
+        """Encode text into a buffer the caller owns.
+
+        Args:
+            text: The text to encode.
+            out: Buffer receiving the token ids, appended to rather than
+                cleared.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+        """
+        self.encode_ordinary_bytes_into(text.as_bytes(), out)
 
     def encode_ordinary_bytes_cached(
         self, data: Span[UInt8, _], mut cache: PieceCache

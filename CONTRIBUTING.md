@@ -211,7 +211,27 @@ subject to the character rules like everything else.
 | Deletion blocked | Integrity | `main` cannot be deleted. |
 | Force push blocked | Integrity | `main` cannot be rewritten, by anyone, including the maintainer. |
 | Pull request required | Bypassable | Direct pushes to `main` are refused for everyone except the maintainer. |
-| Status checks required | Bypassable | A pull request cannot merge until the continuous integration and sanitizer jobs pass. |
+| Status checks required | Bypassable | A pull request cannot merge until all eight jobs pass. |
+
+The eight are `Repository standards`, `Build and test`, `Both classifier
+builds agree`, `Python bindings`, `Mojo package builds and imports`,
+`Command line tool`, `Address sanitizer, full suite`, and `Address sanitizer,
+no interpreter present`. A required check is named by its **job** name rather
+than by the workflow that contains it, which is easy to get wrong and quiet
+when you do: one of these was originally listed under a name no job has, and
+a check that does not exist can never report, so it would have blocked every
+merge with no explanation. Renaming a job means updating this list.
+
+`Unstable API inventory (reporting only)` is deliberately not required. It
+measures rather than judges.
+
+Extra approval for unattributed changes is switched off. It is on by default
+and it means that a change GitHub cannot attribute to a known account, which
+includes every Dependabot commit, needs an approval on top of the normal
+requirement. With one maintainer and no required approvals there is nobody to
+give it, so every dependency update would need an administrator bypass. That
+would make bypassing routine, and a bypass that is routine is not a bypass,
+it is the default with extra steps.
 
 Approvals are not required, and that is deliberate rather than an oversight.
 There is one maintainer, GitHub does not let anyone approve their own pull

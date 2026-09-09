@@ -61,6 +61,15 @@ jobs:
       - name: SPDX identifiers
         run: python scripts/check_spdx.py
 
+      # Compares the fuzzing figures quoted in prose against the committed
+      # run reports. It belongs here, on every push, rather than after a
+      # fresh fuzzing run: it is a consistency check between two committed
+      # artefacts, and running it against reports a job has just overwritten
+      # would compare new numbers against old prose and fail for the wrong
+      # reason. It did exactly that once, which is why it moved.
+      - name: The documented fuzzing figures match the reports
+        run: python scripts/check_fuzz_claims.py
+
       # A gate that has never been observed failing is not known to work.
       # This plants one violation per gate, asserts each is rejected, and
       # asserts the matching clean control is accepted.
@@ -133,7 +142,7 @@ jobs:
       - name: Build with warnings as errors
         run: |
           for f in tests/*.mojo; do
-            uv run mojo build --Werror -I src -o /dev/null "$f"
+            uv run mojo build --Werror -I src -I cli -o /dev/null "$f"
           done
 
       # The 110 MB corpus gates are excluded here and run in corpus.yml on
@@ -183,7 +192,7 @@ jobs:
             case "$f" in
               *_corpus.mojo) continue ;;
             esac
-            uv run mojo run -I src -D KNAP_SIMD=1 "$f"
+            uv run mojo run -I src -I cli -D KNAP_SIMD=1 "$f"
           done
 
   python-bindings:

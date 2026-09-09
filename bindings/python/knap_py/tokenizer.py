@@ -36,7 +36,34 @@ from pathlib import Path
 
 BINDINGS_DIR = Path(__file__).resolve().parent.parent
 
-ENCODINGS = ("cl100k_base", "o200k_base")
+ENCODINGS = (
+    "cl100k_base",
+    "o200k_base",
+    "o200k_harmony",
+    "gpt2",
+    "r50k_base",
+    "p50k_base",
+    "p50k_edit",
+)
+
+# Seven encodings, four vocabulary files. o200k_harmony shares o200k_base's
+# merge table and differs only in its special tokens; p50k_edit shares
+# p50k_base's; and gpt2's merge ranks are byte identical to r50k_base's, so
+# it loads from that file rather than from the GPT-2 era pair of files Knap
+# does not read.
+#
+# This mapping is advice, not enforcement. The constructor takes whatever
+# path it is given, because a caller with a vocabulary somewhere else has a
+# reason for it.
+VOCABULARY_FILE = {
+    "cl100k_base": "cl100k_base.tiktoken",
+    "o200k_base": "o200k_base.tiktoken",
+    "o200k_harmony": "o200k_base.tiktoken",
+    "gpt2": "r50k_base.tiktoken",
+    "r50k_base": "r50k_base.tiktoken",
+    "p50k_base": "p50k_base.tiktoken",
+    "p50k_edit": "p50k_base.tiktoken",
+}
 
 
 class KnapNotBuiltError(ImportError):
@@ -95,7 +122,7 @@ class Tokenizer:
 
         Args:
             vocabulary_path: Path to the .tiktoken vocabulary file.
-            encoding: Either cl100k_base or o200k_base.
+            encoding: One of the seven names in ENCODINGS.
 
         Raises:
             KnapNotBuiltError: if the native extension is not built.
@@ -140,6 +167,79 @@ class Tokenizer:
         """
         return cls(vocabulary_path, "o200k_base")
 
+    @classmethod
+    def o200k_harmony(cls, vocabulary_path: str | os.PathLike) -> "Tokenizer":
+        """Load the o200k_harmony encoding.
+
+        Args:
+            vocabulary_path: Path to o200k_base.tiktoken, which is the file
+                this encoding is stored in.
+
+        Returns:
+            A ready tokenizer.
+
+        Ordinary encoding is identical to o200k_base. What differs is the
+        special token registry: 1091 entries against two, which fill every
+        gap o200k_base leaves in its id space and continue to 201087.
+        """
+        return cls(vocabulary_path, "o200k_harmony")
+
+    @classmethod
+    def gpt2(cls, vocabulary_path: str | os.PathLike) -> "Tokenizer":
+        """Load the gpt2 encoding.
+
+        Args:
+            vocabulary_path: Path to r50k_base.tiktoken. The two encodings
+                have byte identical merge ranks, and Knap does not read the
+                GPT-2 era pair of files gpt2 is otherwise distributed as.
+
+        Returns:
+            A ready tokenizer.
+        """
+        return cls(vocabulary_path, "gpt2")
+
+    @classmethod
+    def r50k_base(cls, vocabulary_path: str | os.PathLike) -> "Tokenizer":
+        """Load the r50k_base encoding.
+
+        Args:
+            vocabulary_path: Path to r50k_base.tiktoken.
+
+        Returns:
+            A ready tokenizer.
+        """
+        return cls(vocabulary_path, "r50k_base")
+
+    @classmethod
+    def p50k_base(cls, vocabulary_path: str | os.PathLike) -> "Tokenizer":
+        """Load the p50k_base encoding.
+
+        Args:
+            vocabulary_path: Path to p50k_base.tiktoken.
+
+        Returns:
+            A ready tokenizer.
+
+        The only shipped encoding whose merge ranks are not dense. Rank
+        50256 holds no merge token because the special token sits there.
+        """
+        return cls(vocabulary_path, "p50k_base")
+
+    @classmethod
+    def p50k_edit(cls, vocabulary_path: str | os.PathLike) -> "Tokenizer":
+        """Load the p50k_edit encoding.
+
+        Args:
+            vocabulary_path: Path to p50k_base.tiktoken, which is the file
+                this encoding is stored in.
+
+        Returns:
+            A ready tokenizer.
+
+        p50k_base with three fill in the middle markers stacked above it.
+        """
+        return cls(vocabulary_path, "p50k_edit")
+
     @property
     def encoding(self) -> str:
         """Return the encoding name this tokenizer was loaded with."""
@@ -150,8 +250,9 @@ class Tokenizer:
         """Return one past the highest assigned token id.
 
         This is the size of the id space, matching what tiktoken calls
-        n_vocab. It is not the number of decodable ids: both encodings leave
-        gaps, and decoding an id in one of them raises.
+        n_vocab. It is not always the number of decodable ids. cl100k_base
+        leaves sixteen gaps and o200k_base nineteen, and decoding an id in
+        one of them raises. The other five have no gaps at all.
         """
         return int(self._inner.n_vocab())
 

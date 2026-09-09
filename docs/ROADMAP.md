@@ -56,8 +56,9 @@ flowchart TD
     M4[M4 Differential fuzzing] --> M5
     M5[M5 SIMD and benchmarks] --> M6A
     M5 --> M6B
-    M6A[M6 Track A<br/>Mojo packaging]
-    M6B[M6 Track B<br/>Python bindings]
+    M6A[M6 Track A<br/>Mojo packaging] --> M7
+    M6B[M6 Track B<br/>Python bindings] --> M7
+    M7[M7 The remaining five encodings]
 ```
 
 Two orderings are binding and cannot be traded away:
@@ -73,10 +74,31 @@ M6 splits into two independent tracks because one may succeed while the other
 does not. Track A should succeed. Track B depends on a capability that has not
 been verified to exist.
 
+M7 comes last on purpose. Adding encodings before the verification machinery
+existed would have meant adding them on trust; adding them afterwards meant
+every one arrived through the same gates the first two did, and the two
+defects it found were found by those gates rather than by a user.
+
 ## Current position
 
-**M0 through M6 are complete.** Every condition below was observed, not
+**M0 through M7 are complete.** Every condition below was observed, not
 inferred.
+
+M7 added the five remaining `tiktoken` encodings, taking the total from two
+to all seven. Its real content is that adding them found two defects in code
+that had been passing every gate for two encodings, and that both defects
+were in the assumptions rather than in the algorithms.
+
+| M7 condition | Evidence |
+| --- | --- |
+| All seven encodings load | Four vocabulary files serve seven names. `o200k_harmony` shares `o200k_base`'s table, `p50k_edit` shares `p50k_base`'s, and `gpt2` loads from `r50k_base.tiktoken` because their merge ranks are byte identical, which was checked entry by entry rather than assumed. |
+| The third pattern | `scan_gpt2` in `src/knap/pretokenize/scanner.mojo`, matching the reference over 28699602 piece boundaries across 110 MB. |
+| Encode parity | 191762320 tokens over 110 MB across the four distinct behaviours, plus a separate `tiktoken` fixture comparison for each of the seven names. |
+| Decode parity | All 702463 ids in all seven encodings, with the number of undecodable ids asserted exactly rather than loosely. |
+| The grouping is asserted, not assumed | `tests/test_encode.mojo` shows the encodings that share a table agreeing and the ones that do not differing, on an input chosen to separate every group. |
+| Reached through every entry point | The command line tool, the Python bindings, and the fuzzer all take all seven. The fuzzer's committed report still covers two, because that is the run that has been observed; the nightly job runs seven. |
+| Defect: a special token on a reserved merge rank | `p50k_base` puts its end of text marker at 50256, inside its merge range rather than above it. Decode tested the range instead of asking whether the rank was assigned, found the hole, and refused to decode the one special token that encoding has. Found by the decode gate on the day the encoding was added. |
+| Defect: a loose assertion that checked nothing | The decode gate required a golden fixture to hold at least one undecodable id. True of both encodings shipped at the time, false of four of the seven, so it would have passed while checking nothing on them. It now asserts the exact count. |
 
 M6 delivered both tracks. Track A packages the library for conda, Track B
 exports it to Python as a native extension. Track B was the one the plan
@@ -119,7 +141,8 @@ real divergence class this project has had.
 
 M3 delivered the merge rank table, the merge loop, and the public tokenizer
 API with both encode entry points. Its gate, matching `tiktoken.encode`
-across the corpus, passes for both encodings over 80.5 million tokens.
+across the corpus, passes for both encodings over 80.5 million tokens, and
+was extended at M7 to four encodings over 191.8 million.
 
 | M3 condition | Evidence |
 | --- | --- |
@@ -156,7 +179,7 @@ in both vocabularies byte identically against `tiktoken`, passes for all
 | --- | --- |
 | `.tiktoken` loader | `src/knap/vocab.mojo`, strict on every malformed shape, 7 rejection tests. |
 | FlatVocab | `src/knap/flat_vocab.mojo`, spans validated once at construction. |
-| Decode | Byte exact over both encodings, including the gaps, which raise. |
+| Decode | Byte exact over both encodings, including the gaps, which raise. Extended to all seven at M7. |
 | Special token registry | `src/knap/special.mojo`, ids cross checked by decoding each to its own literal text. |
 | EmberJson evaluated | Passed both acceptance criteria. Decision recorded in `docs/ARCHITECTURE.md`. |
 | Suite under ASan | All 26 tests pass with `--sanitize address`. |
@@ -236,7 +259,7 @@ Each of these is a decision, not an oversight.
 | BPE training | Knap encodes. Training is a different program with a different correctness story and no shared hot path. |
 | Offset mapping, character spans per token | Genuinely valuable, and it doubles the correctness surface. Every parity test would need a second dimension. Revisit once encode parity is established and stable. |
 | WordPiece, Unigram, SentencePiece | Different algorithms, not variations on this one. Each would need its own parity corpus and its own reference implementation. |
-| Normalization pipelines, NFC and NFKC | `cl100k_base` and `o200k_base` do not normalize. Adding a normalizer that is not needed can only introduce divergence. |
+| Normalization pipelines, NFC and NFKC | None of the seven encodings normalize. Adding a normalizer that is not needed can only introduce divergence. |
 | Chat templates | A serving concern layered above tokenization, not part of it. |
 | GPU tokenization | The merge loop does not vectorize on a CPU and will not on a GPU. The pre-tokenizer might, but the transfer cost would dominate at realistic input sizes. |
 | Hugging Face `tokenizer.json` loading | Deferred from the original layout, where it was listed as experimental. The format specifies its own pre-tokenizer rather than reusing either pattern Knap implements, so it needs a second parity corpus and a second reference implementation, which is the work of two milestones rather than one file. The dependency evaluated for it, EmberJson, passed its acceptance criteria and the finding is kept in [docs/ARCHITECTURE.md](ARCHITECTURE.md) for whoever picks this up. |
@@ -257,7 +280,33 @@ should be revisited when the toolchain moves.
 | `--Werror` and `--warn-on-unstable-apis` cannot be combined | CI runs them as separate jobs, one gating and one reporting. |
 | `mojo format` has no check mode | CI formats in place and then verifies the working tree is unchanged. |
 | No native Mojo package manager | Libraries are distributed as conda packages. Release targets the `modular-community` channel. |
-| Whether Mojo can export an importable Python extension module is unverified | M6 Track B is designed around a flat C compatible surface so the `--emit shared-lib` fallback stays open regardless of the answer. |
+| Whether Mojo can export an importable Python extension module is unverified | M6 Track B is designed around a flat C compatible surface so the `--emit shared-lib` fallback stays open regardless of the answer. Resolved: it can. |
+| Mojo 1.0.0 has no working task parallelism | Batch encoding is single threaded. Confirmed against the upstream roadmap below rather than only against this machine. |
+
+### What the upstream roadmap says about these
+
+The constraints above were each found by compiling against the pinned
+toolchain. Reading Modular's own published roadmap afterwards is worth the
+five minutes, because it separates a limit that is acknowledged and planned
+from one that might be a local mistake. Every row below is quoted from the
+roadmap for Mojo 1.0.0 at <https://mojolang.org/docs/roadmap/>, read on
+2026-09-09.
+
+| Knap's finding | Upstream status |
+| --- | --- |
+| No working task parallelism, so batch encoding is single threaded | Phase 2 lists first class `async` support as not started. The limitation is acknowledged and scheduled, not an error in how Knap invoked it. |
+| `mojo test` does not exist, so a test file is a program driving `TestSuite` | Phase 2 lists the testing framework as in progress. |
+| The benchmark harness is written by hand, including the statistics | Phase 2 lists the benchmarking framework as in progress. |
+| No native package manager, so distribution is a conda package | Phase 2 lists packaging and package management as not started. |
+| `@value` is gone and `comptime if` replaces `@parameter if` | Phase 1 lists attribute macros as in progress, replacing ad hoc constructs such as `@parameter` and `@value` with traits. |
+| Almost the whole standard library is unstable | Phase 1 lists stabilization markers as complete, which is what makes `--warn-on-unstable-apis` able to answer at all. |
+| Nothing enforces module boundaries, so the underscore convention is all there is | Phase 2 lists access control features, including `private`, as not started. |
+
+Two things follow. The single threaded batch path should be revisited when
+`async` lands rather than reworked now, and the hand written test and
+benchmark harnesses should be expected to be replaced rather than extended.
+Neither changes anything today, and both are cheaper to know than to
+rediscover.
 
 ## Release and archiving
 

@@ -38,7 +38,12 @@ from std.testing import assert_equal, assert_true, TestSuite
 from knap.tokenizer import (
     Tokenizer,
     load_cl100k_base_tokenizer,
+    load_gpt2_tokenizer,
     load_o200k_base_tokenizer,
+    load_o200k_harmony_tokenizer,
+    load_p50k_base_tokenizer,
+    load_p50k_edit_tokenizer,
+    load_r50k_base_tokenizer,
 )
 
 comptime FIXTURE_DIR = "tests/fixtures/corpus/"
@@ -55,6 +60,27 @@ comptime CL100K_GOLDEN = "tests/golden/cl100k_base/encode_expected.jsonl"
 
 comptime O200K_GOLDEN = "tests/golden/o200k_base/encode_expected.jsonl"
 """Reference token ids for o200k_base over the fixtures."""
+
+comptime R50K_VOCAB = "tests/fixtures/vocabs/r50k_base.tiktoken"
+"""Path to the fetched r50k_base merge vocabulary, shared with gpt2."""
+
+comptime P50K_VOCAB = "tests/fixtures/vocabs/p50k_base.tiktoken"
+"""Path to the fetched p50k_base vocabulary, shared with p50k_edit."""
+
+comptime HARMONY_GOLDEN = "tests/golden/o200k_harmony/encode_expected.jsonl"
+"""Reference token ids for o200k_harmony over the fixtures."""
+
+comptime GPT2_GOLDEN = "tests/golden/gpt2/encode_expected.jsonl"
+"""Reference token ids for gpt2 over the fixtures."""
+
+comptime R50K_GOLDEN = "tests/golden/r50k_base/encode_expected.jsonl"
+"""Reference token ids for r50k_base over the fixtures."""
+
+comptime P50K_GOLDEN = "tests/golden/p50k_base/encode_expected.jsonl"
+"""Reference token ids for p50k_base over the fixtures."""
+
+comptime P50K_EDIT_GOLDEN = "tests/golden/p50k_edit/encode_expected.jsonl"
+"""Reference token ids for p50k_edit over the fixtures."""
 
 comptime END_OF_TEXT = "<|endoftext|>"
 """The special token both target encodings define."""
@@ -181,6 +207,24 @@ def tokens_in(line: String) raises -> List[Int]:
     return out^
 
 
+def same_ids(left: List[Int], right: List[Int]) -> Bool:
+    """Report whether two token sequences are identical.
+
+    Args:
+        left: The first sequence.
+        right: The second.
+
+    Returns:
+        True when they have the same length and the same ids in order.
+    """
+    if len(left) != len(right):
+        return False
+    for index in range(len(left)):
+        if left[index] != right[index]:
+            return False
+    return True
+
+
 def check_fixture_encodings(
     tokenizer: Tokenizer, golden_path: String
 ) raises -> Int:
@@ -260,6 +304,139 @@ def test_o200k_fixture_encodings_match() raises:
     assert_true(
         compared > 100,
         String(t"only {compared} tokens compared, the fixtures look empty"),
+    )
+
+
+def test_o200k_harmony_fixture_encodings_match() raises:
+    """The harmony encoding must match the reference over every fixture.
+
+    Raises:
+        Error: on the first differing token.
+
+    It shares o200k_base's merge ranks and pattern, so ordinary encoding
+    cannot differ. What is actually under test is that the loader picked the
+    right vocabulary file and built the 1091 entry special registry without
+    disturbing anything, which a shared golden file would hide.
+    """
+    var tokenizer = load_o200k_harmony_tokenizer(O200K_VOCAB)
+    var compared = check_fixture_encodings(tokenizer, HARMONY_GOLDEN)
+    assert_true(compared > 0, String("no fixtures were compared"))
+
+
+def test_gpt2_fixture_encodings_match() raises:
+    """The gpt2 encoding must match the reference over every fixture.
+
+    Raises:
+        Error: on the first differing token.
+
+    The first test of the third pattern. Its contraction group is case
+    sensitive and its number runs are unbounded, so a matcher copied from
+    cl100k_base rather than written would fail here on any fixture holding
+    an uppercase apostrophe form or a long number.
+    """
+    var tokenizer = load_gpt2_tokenizer(R50K_VOCAB)
+    var compared = check_fixture_encodings(tokenizer, GPT2_GOLDEN)
+    assert_true(compared > 0, String("no fixtures were compared"))
+
+
+def test_r50k_base_fixture_encodings_match() raises:
+    """The r50k_base encoding must match the reference on every fixture.
+
+    Raises:
+        Error: on the first differing token.
+
+    Byte for byte the same table gpt2 uses, loaded under its own name.
+    """
+    var tokenizer = load_r50k_base_tokenizer(R50K_VOCAB)
+    var compared = check_fixture_encodings(tokenizer, R50K_GOLDEN)
+    assert_true(compared > 0, String("no fixtures were compared"))
+
+
+def test_p50k_base_fixture_encodings_match() raises:
+    """The p50k_base encoding must match the reference on every fixture.
+
+    Raises:
+        Error: on the first differing token.
+
+    The encoding whose merge ranks are not dense. Rank 50256 is reserved for
+    its special token, so this exercises the reserved id path through
+    loading, rank table construction, and encoding.
+    """
+    var tokenizer = load_p50k_base_tokenizer(P50K_VOCAB)
+    var compared = check_fixture_encodings(tokenizer, P50K_GOLDEN)
+    assert_true(compared > 0, String("no fixtures were compared"))
+
+
+def test_p50k_edit_fixture_encodings_match() raises:
+    """The p50k_edit encoding must match the reference on every fixture.
+
+    Raises:
+        Error: on the first differing token.
+
+    The same vocabulary file as p50k_base with three more special tokens
+    above it.
+    """
+    var tokenizer = load_p50k_edit_tokenizer(P50K_VOCAB)
+    var compared = check_fixture_encodings(tokenizer, P50K_EDIT_GOLDEN)
+    assert_true(compared > 0, String("no fixtures were compared"))
+
+
+def test_the_seven_encodings_fall_into_four_ordinary_groups() raises:
+    """Encodings sharing a pattern and a table must agree, and others differ.
+
+    Raises:
+        Error: if two encodings that should agree do not, or if two that
+            should differ happen to agree on this input.
+
+    Ordinary encoding is decided by the pattern and the merge ranks, and by
+    nothing else. That gives four groups across seven names, and asserting
+    it here means a future change that quietly makes one encoding behave
+    like another is caught by a test rather than by a user.
+
+    The negative half matters as much as the positive. If a loader silently
+    fell back to cl100k_base, every group would still be internally
+    consistent and only the comparison between groups would notice.
+
+    The input is chosen to separate every group, which took measuring. An
+    ordinary English sentence does not distinguish gpt2 from p50k_base: the
+    two differ by exactly 24 merge tokens and all of them are runs of two to
+    twenty five spaces, added so that Codex could tokenise indentation. The
+    four spaces before "indented" are the whole reason this assertion has
+    any force, and without them the test passed while proving less than it
+    claimed.
+    """
+    var text = String("Hello world 1234567890 don't 'S\n    indented")
+
+    var cl100k = load_cl100k_base_tokenizer(CL100K_VOCAB).encode_ordinary(text)
+    var o200k = load_o200k_base_tokenizer(O200K_VOCAB).encode_ordinary(text)
+    var harmony = load_o200k_harmony_tokenizer(O200K_VOCAB).encode_ordinary(
+        text
+    )
+    var gpt2 = load_gpt2_tokenizer(R50K_VOCAB).encode_ordinary(text)
+    var r50k = load_r50k_base_tokenizer(R50K_VOCAB).encode_ordinary(text)
+    var p50k = load_p50k_base_tokenizer(P50K_VOCAB).encode_ordinary(text)
+    var p50k_edit = load_p50k_edit_tokenizer(P50K_VOCAB).encode_ordinary(text)
+
+    assert_true(
+        same_ids(o200k, harmony),
+        String("o200k_base and o200k_harmony should agree"),
+    )
+    assert_true(same_ids(gpt2, r50k), String("gpt2 and r50k_base should agree"))
+    assert_true(
+        same_ids(p50k, p50k_edit),
+        String("p50k_base and p50k_edit should agree"),
+    )
+
+    assert_true(
+        not same_ids(cl100k, o200k),
+        String("cl100k_base and o200k_base should differ"),
+    )
+    assert_true(
+        not same_ids(cl100k, gpt2),
+        String("cl100k_base and gpt2 should differ"),
+    )
+    assert_true(
+        not same_ids(gpt2, p50k), String("gpt2 and p50k_base should differ")
     )
 
 

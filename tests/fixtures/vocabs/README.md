@@ -33,9 +33,24 @@
 
 ## Why this directory is empty
 
-Vocabulary files are fetched, not committed. `cl100k_base.tiktoken` and
-`o200k_base.tiktoken` are downloaded into this directory by
-`scripts/fetch_vocabs.py` and are excluded by `.gitignore`.
+Vocabulary files are fetched, not committed. Four files are downloaded into
+this directory by `scripts/fetch_vocabs.py` and are excluded by
+`.gitignore`:
+
+| File | Serves |
+| --- | --- |
+| `cl100k_base.tiktoken` | `cl100k_base` |
+| `o200k_base.tiktoken` | `o200k_base`, `o200k_harmony` |
+| `p50k_base.tiktoken` | `p50k_base`, `p50k_edit` |
+| `r50k_base.tiktoken` | `r50k_base`, `gpt2` |
+
+Seven encodings, four files. The pairs above share a merge table exactly:
+`o200k_harmony` and `p50k_edit` differ from their partners only in their
+special tokens, and `gpt2`'s merge ranks are byte identical to
+`r50k_base`'s, which was checked entry by entry rather than assumed. Knap
+does not read the GPT-2 era pair of files that `gpt2` is otherwise
+distributed as, because doing so would add a second vocabulary format to
+arrive at a table it already has.
 
 There are two reasons, and both matter:
 
@@ -51,15 +66,14 @@ The files are large as well, but that is the least important of the reasons.
 
 ## How to fetch them
 
-The fetch script arrives with milestone M1, together with the vocabulary
-loader it feeds. Until then this directory stays empty, because a fixture that
-nothing reads is not a fixture.
-
-Once it exists the command will be, from the repository root:
+From the repository root:
 
 ```bash
 uv run python scripts/fetch_vocabs.py
 ```
+
+The script records the URL and the SHA-256 of each file it downloads in
+`provenance.json`, next to the files themselves.
 
 Tests that need a vocabulary skip with a clear message when the files are
 absent, rather than failing. A missing download is a setup step that has not

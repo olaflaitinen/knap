@@ -93,6 +93,25 @@ print(knap.decode(ids))
 print(knap.n_vocab)
 ```
 
+All seven encodings have a named constructor, and each takes the path to the
+vocabulary file that encoding is stored in. Three of them are stored under
+another encoding's name, so the path is not always the obvious one:
+
+| Constructor | Vocabulary file |
+| --- | --- |
+| `Tokenizer.cl100k_base(path)` | `cl100k_base.tiktoken` |
+| `Tokenizer.o200k_base(path)` | `o200k_base.tiktoken` |
+| `Tokenizer.o200k_harmony(path)` | `o200k_base.tiktoken` |
+| `Tokenizer.p50k_base(path)` | `p50k_base.tiktoken` |
+| `Tokenizer.p50k_edit(path)` | `p50k_base.tiktoken` |
+| `Tokenizer.r50k_base(path)` | `r50k_base.tiktoken` |
+| `Tokenizer.gpt2(path)` | `r50k_base.tiktoken` |
+
+`knap_py.tokenizer.VOCABULARY_FILE` holds that mapping if you would rather
+look it up than write it out. The general constructor,
+`Tokenizer(path, name)`, takes whatever path it is given, because a caller
+with a vocabulary somewhere else has a reason for it.
+
 Special tokens follow the same rule as the Mojo API. Nothing is permitted by
 default, so a marker in the input is refused:
 

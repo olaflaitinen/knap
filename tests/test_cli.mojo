@@ -47,6 +47,7 @@ from args import (
     FORMAT_SPACE,
     format_ids,
     is_known_encoding,
+    vocabulary_stem,
     parse_arguments,
     parse_ids,
     usage,
@@ -262,15 +263,58 @@ def test_help_wins_wherever_it_appears() raises:
 
 
 def test_only_the_shipped_encodings_are_known() raises:
-    """The encoding check accepts exactly two names.
+    """The encoding check accepts the seven shipped names and nothing else.
 
     Raises:
         Error: if it accepts or rejects the wrong one.
     """
-    assert_true(is_known_encoding(String("cl100k_base")), String("cl100k"))
-    assert_true(is_known_encoding(String("o200k_base")), String("o200k"))
-    assert_true(not is_known_encoding(String("p50k_base")), String("p50k"))
+    var shipped = List[String]()
+    shipped.append(String("cl100k_base"))
+    shipped.append(String("o200k_base"))
+    shipped.append(String("o200k_harmony"))
+    shipped.append(String("gpt2"))
+    shipped.append(String("r50k_base"))
+    shipped.append(String("p50k_base"))
+    shipped.append(String("p50k_edit"))
+
+    for index in range(len(shipped)):
+        assert_true(
+            is_known_encoding(shipped[index]),
+            String(t"{shipped[index]} should be known"),
+        )
+
     assert_true(not is_known_encoding(String("")), String("empty"))
+    assert_true(not is_known_encoding(String("p100k_base")), String("p100k"))
+    assert_true(
+        not is_known_encoding(String("cl100k")),
+        String("a prefix is not a name"),
+    )
+
+
+def test_three_encodings_load_from_another_name() raises:
+    """The vocabulary file is not always named after the encoding.
+
+    Raises:
+        Error: if the mapping is wrong.
+
+    Four files serve seven encodings. Searching for `<encoding>.tiktoken`
+    would fail for three of them even with the right file present, which is
+    a confusing way to be told that nothing was found.
+    """
+    assert_equal(vocabulary_stem(String("cl100k_base")), String("cl100k_base"))
+    assert_equal(vocabulary_stem(String("o200k_base")), String("o200k_base"))
+    assert_equal(vocabulary_stem(String("p50k_base")), String("p50k_base"))
+    assert_equal(vocabulary_stem(String("r50k_base")), String("r50k_base"))
+
+    assert_equal(vocabulary_stem(String("o200k_harmony")), String("o200k_base"))
+    assert_equal(vocabulary_stem(String("p50k_edit")), String("p50k_base"))
+    assert_equal(vocabulary_stem(String("gpt2")), String("r50k_base"))
+
+    var candidates = vocabulary_candidates(String("gpt2"), String(""))
+    assert_true(
+        candidates[len(candidates) - 1] == String("r50k_base.tiktoken"),
+        String("gpt2 should look for the r50k_base file"),
+    )
 
 
 def test_ids_render_in_every_shape() raises:

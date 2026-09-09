@@ -39,17 +39,19 @@ BINDINGS_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BINDINGS_DIR.parent.parent
 sys.path.insert(0, str(BINDINGS_DIR))
 
+VOCABS = REPO_ROOT / "tests" / "fixtures" / "vocabs"
+
+# Seven encodings backed by four files. The three that load from a file
+# named after another encoding are the ones a careless mapping gets wrong,
+# so they are written out here rather than derived from the name.
 VOCABULARIES = {
-    "cl100k_base": REPO_ROOT
-    / "tests"
-    / "fixtures"
-    / "vocabs"
-    / "cl100k_base.tiktoken",
-    "o200k_base": REPO_ROOT
-    / "tests"
-    / "fixtures"
-    / "vocabs"
-    / "o200k_base.tiktoken",
+    "cl100k_base": VOCABS / "cl100k_base.tiktoken",
+    "o200k_base": VOCABS / "o200k_base.tiktoken",
+    "o200k_harmony": VOCABS / "o200k_base.tiktoken",
+    "gpt2": VOCABS / "r50k_base.tiktoken",
+    "r50k_base": VOCABS / "r50k_base.tiktoken",
+    "p50k_base": VOCABS / "p50k_base.tiktoken",
+    "p50k_edit": VOCABS / "p50k_base.tiktoken",
 }
 
 CASES = [
@@ -97,7 +99,22 @@ def main() -> int:
     except ImportError as exc:
         raise SystemExit(f"test_bindings: cannot import knap_py: {exc}")
 
+    from knap_py.tokenizer import ENCODINGS, VOCABULARY_FILE
+
+    # The list under test and the list the package advertises have to be the
+    # same list, or a user following the documentation reaches an encoding
+    # nothing here has checked.
+    check(
+        tuple(VOCABULARIES) == ENCODINGS,
+        f"the tested encodings {tuple(VOCABULARIES)} are not the ones "
+        f"knap_py advertises, {ENCODINGS}",
+    )
     for name, path in VOCABULARIES.items():
+        check(
+            VOCABULARY_FILE.get(name) == path.name,
+            f"{name}: knap_py says its file is "
+            f"{VOCABULARY_FILE.get(name)!r}, this test uses {path.name!r}",
+        )
         if not path.exists():
             raise SystemExit(
                 f"test_bindings: {path} is missing. Run "
@@ -165,6 +182,17 @@ def main() -> int:
         check(
             as_text == reference.encode_ordinary(with_marker),
             f"{name}: encode_ordinary mishandled a marker",
+        )
+
+        # The named constructor has to reach the same place as the general
+        # one. It is one line each, which is exactly the kind of line that
+        # is copied with the wrong name in it.
+        shortcut = getattr(Tokenizer, name)(path)
+        check(
+            shortcut.encoding == name
+            and shortcut.encode_ordinary("hello world")
+            == reference.encode_ordinary("hello world"),
+            f"{name}: the Tokenizer.{name} constructor disagreed",
         )
 
         print(f"  {name}: checked {len(CASES)} inputs and the special paths")

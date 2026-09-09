@@ -41,9 +41,18 @@ input inject control tokens into a prompt, so the default is to raise.
 from .bpe import merge_piece_into
 from .cache import PieceCache
 from .errors import special_token_disallowed
-from .pretokenize.scanner import scan_cl100k, scan_o200k
+from .pretokenize.scanner import scan_cl100k, scan_gpt2, scan_o200k
 from .ranks import RankTable
-from .vocab import Vocabulary, load_cl100k_base, load_o200k_base
+from .vocab import (
+    Vocabulary,
+    load_cl100k_base,
+    load_gpt2,
+    load_o200k_base,
+    load_o200k_harmony,
+    load_p50k_base,
+    load_p50k_edit,
+    load_r50k_base,
+)
 
 comptime BYTES_PER_TOKEN: Int = 3
 """A low estimate of how many input bytes one token consumes.
@@ -80,7 +89,18 @@ comptime PATTERN_CL100K: Int = 0
 """Selects the cl100k_base pre-tokenization pattern."""
 
 comptime PATTERN_O200K: Int = 1
-"""Selects the o200k_base pre-tokenization pattern."""
+"""Selects the o200k_base pre-tokenization pattern.
+
+Shared by o200k_base and o200k_harmony, whose patterns are identical.
+"""
+
+comptime PATTERN_GPT2: Int = 2
+"""Selects the gpt2 pre-tokenization pattern.
+
+Shared by gpt2, r50k_base, p50k_base and p50k_edit. Four encodings, one
+pattern: they differ in their vocabularies and their special tokens, not in
+how text is split.
+"""
 
 
 struct Tokenizer(Movable):
@@ -110,11 +130,15 @@ struct Tokenizer(Movable):
         roughly a hundred thousand for cl100k_base. It is paid once here
         rather than on every encode.
         """
-        if pattern != PATTERN_CL100K and pattern != PATTERN_O200K:
+        if (
+            pattern != PATTERN_CL100K
+            and pattern != PATTERN_O200K
+            and pattern != PATTERN_GPT2
+        ):
             raise Error(
                 String(
                     t"knap: unknown pattern selector {pattern}. Use"
-                    t" PATTERN_CL100K or PATTERN_O200K."
+                    t" PATTERN_CL100K, PATTERN_O200K, or PATTERN_GPT2."
                 )
             )
         self.ranks = RankTable(vocabulary.merges)
@@ -138,6 +162,8 @@ struct Tokenizer(Movable):
         """
         if self.pattern == PATTERN_CL100K:
             scan_cl100k(data, ends)
+        elif self.pattern == PATTERN_GPT2:
+            scan_gpt2(data, ends)
         else:
             scan_o200k(data, ends)
 
@@ -628,6 +654,86 @@ def load_o200k_base_tokenizer(path: String) raises -> Tokenizer:
     """
     var vocabulary = load_o200k_base(path)
     return Tokenizer(vocabulary^, PATTERN_O200K)
+
+
+def load_o200k_harmony_tokenizer(path: String) raises -> Tokenizer:
+    """Load an o200k_harmony tokenizer from the o200k_base vocabulary file.
+
+    Args:
+        path: Path to o200k_base.tiktoken.
+
+    Returns:
+        A tokenizer ready to encode and decode.
+
+    Raises:
+        Error: if the vocabulary cannot be loaded.
+    """
+    var vocabulary = load_o200k_harmony(path)
+    return Tokenizer(vocabulary^, PATTERN_O200K)
+
+
+def load_gpt2_tokenizer(path: String) raises -> Tokenizer:
+    """Load a gpt2 tokenizer from the r50k_base vocabulary file.
+
+    Args:
+        path: Path to r50k_base.tiktoken.
+
+    Returns:
+        A tokenizer ready to encode and decode.
+
+    Raises:
+        Error: if the vocabulary cannot be loaded.
+    """
+    var vocabulary = load_gpt2(path)
+    return Tokenizer(vocabulary^, PATTERN_GPT2)
+
+
+def load_r50k_base_tokenizer(path: String) raises -> Tokenizer:
+    """Load an r50k_base tokenizer from its vocabulary file.
+
+    Args:
+        path: Path to r50k_base.tiktoken.
+
+    Returns:
+        A tokenizer ready to encode and decode.
+
+    Raises:
+        Error: if the vocabulary cannot be loaded.
+    """
+    var vocabulary = load_r50k_base(path)
+    return Tokenizer(vocabulary^, PATTERN_GPT2)
+
+
+def load_p50k_base_tokenizer(path: String) raises -> Tokenizer:
+    """Load a p50k_base tokenizer from its vocabulary file.
+
+    Args:
+        path: Path to p50k_base.tiktoken.
+
+    Returns:
+        A tokenizer ready to encode and decode.
+
+    Raises:
+        Error: if the vocabulary cannot be loaded.
+    """
+    var vocabulary = load_p50k_base(path)
+    return Tokenizer(vocabulary^, PATTERN_GPT2)
+
+
+def load_p50k_edit_tokenizer(path: String) raises -> Tokenizer:
+    """Load a p50k_edit tokenizer from the p50k_base vocabulary file.
+
+    Args:
+        path: Path to p50k_base.tiktoken.
+
+    Returns:
+        A tokenizer ready to encode and decode.
+
+    Raises:
+        Error: if the vocabulary cannot be loaded.
+    """
+    var vocabulary = load_p50k_edit(path)
+    return Tokenizer(vocabulary^, PATTERN_GPT2)
 
 
 # =============================================================================

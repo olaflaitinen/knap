@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------
 # Generator   : scripts/extract_patterns.py
 # Upstream    : tiktoken 0.14.0, MIT licensed
-# Generated   : 2026-09-08
+# Generated   : 2026-09-09
 # NOTE        : This file is generated. Manual edits will be
 #               overwritten the next time the generator runs.
 # -----------------------------------------------------------------------------
@@ -91,6 +91,33 @@ comptime O200K_BASE_PATTERN_SHA256: StaticString = (
 
 comptime O200K_BASE_ALTERNATIVES: Int = 7
 """Number of top level alternatives in the o200k_base pattern."""
+
+# -----------------------------------------------------------------------------
+# gpt2
+#
+# 7 top level alternatives, tried in this order:
+#   0. '(?:[sdmt]|ll|ve|re)
+#   1.  ?\p{L}++
+#   2.  ?\p{N}++
+#   3.  ?[^\s\p{L}\p{N}]++
+#   4. \s++$
+#   5. \s+(?!\S)
+#   6. \s
+# -----------------------------------------------------------------------------
+
+comptime GPT2_PATTERN: StaticString = (
+    "'(?:[sdmt]|ll|ve|re)| ?\\p{L}++| ?\\p{N}++|"
+    " ?[^\\s\\p{L}\\p{N}]++|\\s++$|\\s+(?!\\S)|\\s"
+)
+"""The gpt2 pre-tokenization pattern, verbatim."""
+
+comptime GPT2_PATTERN_SHA256: StaticString = (
+    "bf51d578af57187876ec1c8a34fb0ee2fb3025c50ce663ac154b633ae39de092"
+)
+"""SHA-256 of the gpt2 pattern, for drift detection."""
+
+comptime GPT2_ALTERNATIVES: Int = 7
+"""Number of top level alternatives in the gpt2 pattern."""
 
 # =============================================================================
 # End of file: src/knap/pretokenize/pattern.mojo

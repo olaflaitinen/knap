@@ -120,6 +120,11 @@ measured rather than assumed. Reference behaviour across digit lengths:
 | 5 | `111`, `11` |
 | 8 | `111`, `111`, `11` |
 
+That cap is not universal. `cl100k_base` and `o200k_base` both stop a digit
+run at three; the `gpt2` pattern does not stop it at all, so `1234567890` is
+a single piece under the four encodings that use it. Anything reasoning
+about digit runs has to know which of the three patterns it is looking at.
+
 ## The merge rule
 
 Byte level BPE repeatedly merges the adjacent pair with the lowest merge rank
@@ -317,6 +322,25 @@ alternative 3, and its final whitespace alternative takes the whole run
 rather than a single character. It also drops the possessive quantifiers,
 which is why exactly one of its alternatives genuinely backtracks.
 
+`gpt2` is the third pattern, and it is the oldest and the least guarded. It
+serves four of the seven encodings: `gpt2`, `r50k_base`, `p50k_base` and
+`p50k_edit`, which differ from each other in their merge tables and their
+special tokens rather than in how text is split. It has seven alternatives
+against `cl100k_base`'s eight, and every difference below was measured
+against the reference engine rather than read off the pattern:
+
+| Difference from `cl100k_base` | Measured consequence |
+| --- | --- |
+| The contraction group is case sensitive | `DON'T` splits as `DON`, `'`, `T`. `cl100k_base` gives `DON`, `'T`. |
+| A word takes an optional literal space, not any non-alphanumeric character | `a`, U+00A0, `b` splits into three pieces. `cl100k_base` attaches the no-break space to the `b`. |
+| Digit runs are unbounded and take a leading space | `1234567890` is one piece against four, and ` 42` is one piece against two. |
+| The punctuation alternative has no trailing line break class | `!` followed by a line feed is two pieces against one. |
+| There is no alternative for a whitespace run ending at a line break | A blank line between two words is two pieces against one. |
+
+Because it folds no case, the U+017F rule below does not apply to it, which
+makes it the only pattern of the three where no Unicode case folding
+happens at all.
+
 ### Where the backtracking is
 
 `o200k_base` alternative 0 is the only place in either pattern where Knap
@@ -331,13 +355,20 @@ second may be empty, so the first exploration already succeeds.
 
 ### The contraction fold
 
-Both patterns match their contraction endings case insensitively, and the
-reference engine folds beyond ASCII. Enumerated over the whole code point
-space rather than recalled, there is exactly one such fold either pattern can
-reach: **U+017F, LATIN SMALL LETTER LONG S, matches "s"**. No other letter in
-either contraction set has a non-ASCII fold, and no single code point matches
-a two character ending. The matcher hardcodes that one case and uses plain
-ASCII folding for everything else.
+`cl100k_base` and `o200k_base` match their contraction endings case
+insensitively, and the reference engine folds beyond ASCII. Enumerated over
+the whole code point space rather than recalled, there is exactly one such
+fold either pattern can reach: **U+017F, LATIN SMALL LETTER LONG S, matches
+"s"**. No other letter in either contraction set has a non-ASCII fold, and no
+single code point matches a two character ending. The matcher hardcodes that
+one case and uses plain ASCII folding for everything else.
+
+`gpt2` does not fold at all. Its contraction alternatives are plain
+lowercase literals with no case insensitive group, so `'S`, `'T` and `'LL`
+are not contractions in the four encodings that use it. A matcher copied
+from `cl100k_base` rather than written would be wrong here on any text
+holding an uppercase apostrophe form, which is common enough that the 110 MB
+corpus gate finds it immediately.
 
 ## Alternation ordering
 
@@ -348,13 +379,15 @@ therefore changes the tokens.
 
 The scanner must encode that ordering explicitly rather than relying on a
 state machine that happens to reproduce it. Knap is not writing a regex
-engine: it is a hand rolled scanner that reproduces the behaviour of two
+engine: it is a hand rolled scanner that reproduces the behaviour of three
 specific patterns, which is a far smaller problem and the only tractable path
 to SIMD.
 
-The pattern itself is never transcribed by hand. Both patterns are long, and
-`o200k_base` especially so, and a single character error produces silent
-divergence on rare inputs. See [Generated files](#generated-files).
+The pattern itself is never transcribed by hand. The patterns are long,
+`o200k_base` especially so at 274 characters, and a single character error
+produces silent divergence on rare inputs. All three are extracted from
+`tiktoken` by a script and checked for drift. See
+[Generated files](#generated-files).
 
 ## Why single documents are not parallelized
 
@@ -458,6 +491,7 @@ Corrections to widely held assumptions, each verified by compiling:
 | A tuple literal can be iterated | `Tuple` does not implement `__iter__`, so `for x in (a, b, c)` is a compile error. Build a `List`. |
 | `/dev/stdout` can always be opened for writing | It cannot. Opening it works when standard output is a file or a terminal and fails when it is a pipe, because the path resolves through `/proc/self/fd` to a pipe node. `FileDescriptor(1).write_bytes` works everywhere. Reading `/dev/stdin` from a pipe does work, which is what makes the asymmetry easy to miss: the tool read piped input correctly and could not write piped output. |
 | Pointer arithmetic uses `+` | Deprecated. Use `unsafe_offset`. |
+| Building and running a module type checks all of it | It does not. Elaboration is lazy, so a name that resolves nowhere sits undetected in a function nothing calls. A missing import in `scanner.mojo` survived both a build and a full run of a test that imports the module, and only `mojo doc` reported it. That makes the docstring gate the only whole module type check in this project, and it is the reason the gate runs over every Mojo file rather than over the library alone. |
 | A file may be named after the package it imports | A module's name is its file stem, so `cli/knap.mojo` declares a module called `knap` and the compiler refuses it: a module cannot import itself. The entry point is `cli/main.mojo` and only the binary is called `knap`. |
 
 The SIMD comparison correction is the most dangerous of these, because the

@@ -34,7 +34,7 @@ is often split across several tokens. Everything here therefore works in
 List[UInt8], and conversion to String is offered separately and explicitly.
 """
 
-from .errors import token_id_out_of_range
+from .errors import token_id_out_of_range, token_id_unassigned
 
 
 struct FlatVocab(Copyable, Movable):
@@ -125,6 +125,25 @@ struct FlatVocab(Copyable, Movable):
         """
         return len(self.offsets)
 
+    def is_assigned(self, token_id: Int) -> Bool:
+        """Report whether an id has bytes behind it.
+
+        Args:
+            token_id: The id to test.
+
+        Returns:
+            True when the id decodes to something.
+
+        A length of zero marks a reserved id: one that is inside the rank
+        space but has no token. p50k_base has exactly one, at 50256, where
+        its special token sits. Zero is safe as the marker because no merge
+        token is empty, and it avoids a fourth parallel array that every
+        construction site would have to learn about.
+        """
+        if token_id < 0 or token_id >= len(self.lengths):
+            return False
+        return self.lengths[token_id] > 0
+
     def token_length(self, token_id: Int) raises -> Int:
         """Return the byte length of one token.
 
@@ -162,6 +181,8 @@ struct FlatVocab(Copyable, Movable):
         """
         if token_id < 0 or token_id >= len(self.offsets):
             raise token_id_out_of_range(token_id, len(self.offsets))
+        if self.lengths[token_id] == 0:
+            raise token_id_unassigned(token_id)
 
         var start = self.offsets[token_id]
         var length = self.lengths[token_id]
@@ -195,6 +216,8 @@ struct FlatVocab(Copyable, Movable):
         """
         if token_id < 0 or token_id >= len(self.offsets):
             raise token_id_out_of_range(token_id, len(self.offsets))
+        if self.lengths[token_id] == 0:
+            raise token_id_unassigned(token_id)
 
         var start = self.offsets[token_id]
         var length = self.lengths[token_id]

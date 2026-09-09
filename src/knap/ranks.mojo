@@ -106,6 +106,12 @@ struct RankTable(Movable):
         self.map = ByteMap(size, size * KEY_BYTES_PER_TOKEN)
 
         for token_id in range(size):
+            # A reserved rank has no bytes and nothing to key on. p50k_base
+            # has one, at 50256, where its special token sits. Reading it
+            # would raise, and inserting an empty key would make the empty
+            # string a merge token, which is worse.
+            if not vocabulary.is_assigned(token_id):
+                continue
             var token = vocabulary.token_bytes(token_id)
             _ = self.map.insert(Span(token), 0, len(token), token_id)
 

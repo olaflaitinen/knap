@@ -37,14 +37,25 @@ def build_sample() raises -> FlatVocab:
     """Build a small three token vocabulary for the tests below.
 
     Returns:
-        A FlatVocab holding "Hi", "!", and an empty token.
+        A FlatVocab holding "Hi", "!", and a reserved id.
 
     Raises:
         Error: never, since the arrays below are consistent by construction.
 
-    The empty token is deliberate. Zero length entries are legal, they occur
-    in real vocabularies, and they are the case most likely to be mishandled
-    by offset arithmetic.
+    The third entry has zero length, which marks it as reserved rather than
+    empty: an id inside the space with nothing assigned to it.
+
+    This docstring used to say that zero length entries are legal and occur
+    in real vocabularies. That was written without being checked and it is
+    false. No token in any of the seven shipped encodings is empty; the
+    shortest is one byte in all of them. An empty merge token would be
+    meaningless anyway, since it matches at every position and the merge
+    loop would never terminate on it.
+
+    The length is now the marker for a reserved id, which p50k_base needs at
+    rank 50256. The correction is recorded rather than quietly applied,
+    because a claim that survived in this repository without being tested is
+    worth noticing.
     """
     var data = List[UInt8]()
     data.append(UInt8(72))  # H
@@ -82,8 +93,46 @@ def test_token_bytes_returns_exact_bytes() raises:
     assert_equal(first[0], UInt8(72))
     assert_equal(first[1], UInt8(105))
 
-    var empty = vocabulary.token_bytes(2)
-    assert_equal(len(empty), 0)
+    var second = vocabulary.token_bytes(1)
+    assert_equal(len(second), 1)
+    assert_equal(second[0], UInt8(33))
+
+
+def test_a_reserved_id_refuses_to_decode() raises:
+    """An id with no bytes is not an empty token and does not decode.
+
+    Raises:
+        Error: if it returns empty bytes instead of refusing.
+
+    The distinction matters because the two failures look identical to a
+    caller until something downstream is wrong. An empty result silently
+    shortens a decoded document. A refusal says which id was missing.
+
+    p50k_base is the encoding that makes this real: rank 50256 is reserved
+    for its special token and has no merge bytes behind it.
+    """
+    var vocabulary = build_sample()
+
+    assert_true(vocabulary.is_assigned(0), String("id 0 should be assigned"))
+    assert_true(vocabulary.is_assigned(1), String("id 1 should be assigned"))
+    assert_true(
+        not vocabulary.is_assigned(2), String("id 2 should be reserved")
+    )
+
+    var refused = False
+    try:
+        _ = vocabulary.token_bytes(2)
+    except:
+        refused = True
+    assert_true(refused, String("token_bytes should refuse a reserved id"))
+
+    var appended = False
+    var out = List[UInt8]()
+    try:
+        vocabulary.append_token(2, out)
+    except:
+        appended = True
+    assert_true(appended, String("append_token should refuse a reserved id"))
 
 
 def test_decode_concatenates_in_order() raises:

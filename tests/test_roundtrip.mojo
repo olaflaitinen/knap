@@ -36,7 +36,12 @@ from std.testing import assert_equal, assert_true, TestSuite
 from knap.tokenizer import (
     Tokenizer,
     load_cl100k_base_tokenizer,
+    load_gpt2_tokenizer,
     load_o200k_base_tokenizer,
+    load_o200k_harmony_tokenizer,
+    load_p50k_base_tokenizer,
+    load_p50k_edit_tokenizer,
+    load_r50k_base_tokenizer,
 )
 
 comptime FIXTURE_DIR = "tests/fixtures/corpus/"
@@ -47,6 +52,12 @@ comptime CL100K_VOCAB = "tests/fixtures/vocabs/cl100k_base.tiktoken"
 
 comptime O200K_VOCAB = "tests/fixtures/vocabs/o200k_base.tiktoken"
 """Path to the fetched o200k_base merge vocabulary."""
+
+comptime R50K_VOCAB = "tests/fixtures/vocabs/r50k_base.tiktoken"
+"""Path to the fetched r50k_base merge vocabulary, shared with gpt2."""
+
+comptime P50K_VOCAB = "tests/fixtures/vocabs/p50k_base.tiktoken"
+"""Path to the fetched p50k_base vocabulary, shared with p50k_edit."""
 
 
 def read_bytes(path: String) raises -> List[UInt8]:
@@ -121,15 +132,20 @@ def bytes_of(text: String) -> List[UInt8]:
     return out^
 
 
-def test_fixtures_round_trip_under_both_encodings() raises:
-    """Check every committed fixture survives an encode and decode.
+def check_every_fixture_and_byte(tokenizer: Tokenizer, label: String) raises:
+    """Round trip every committed fixture and every byte value.
+
+    Args:
+        tokenizer: The loaded tokenizer under test.
+        label: The encoding name, for the failure message.
 
     Raises:
-        Error: if any fixture does not come back byte for byte.
+        Error: if anything does not come back byte for byte.
 
-    The malformed byte fixture is included on purpose. It has no reference
-    encoding, but it must still round trip, because byte level BPE
-    represents every byte value.
+    Both checks live in one function so that each encoding is loaded once.
+    Loading a vocabulary dominates the cost of this file, and seven
+    encodings times two tests would be fourteen loads to prove what seven
+    can.
     """
     var names: List[String] = [
         String("ascii_en.txt"),
@@ -140,31 +156,58 @@ def test_fixtures_round_trip_under_both_encodings() raises:
         String("invalid_utf8.bin"),
     ]
 
-    var cl100k = load_cl100k_base_tokenizer(String(CL100K_VOCAB))
-    var o200k = load_o200k_base_tokenizer(String(O200K_VOCAB))
-
     for index in range(len(names)):
         var data = read_bytes(String(FIXTURE_DIR) + names[index])
         assert_true(len(data) > 0, String("a fixture is empty"))
-        assert_round_trips(cl100k, data, String("cl100k ") + names[index])
-        assert_round_trips(o200k, data, String("o200k ") + names[index])
+        assert_round_trips(tokenizer, data, label + String(" ") + names[index])
+
+    for value in range(256):
+        var single = List[UInt8](capacity=1)
+        single.append(UInt8(value))
+        assert_round_trips(
+            tokenizer, single, label + String(t" single byte {value}")
+        )
 
 
-def test_every_single_byte_round_trips() raises:
-    """Check that each of the 256 byte values survives on its own.
+def test_fixtures_round_trip_under_every_encoding() raises:
+    """Check every fixture and every byte survives under all seven encodings.
 
     Raises:
-        Error: if any byte value fails to round trip.
+        Error: if any fixture or byte value does not come back byte for byte.
 
-    A byte level vocabulary must represent every byte. Testing all 256
-    individually is cheap and catches an off by one in the single byte
-    lookup that ordinary text would never reach.
+    The malformed byte fixture is included on purpose. It has no reference
+    encoding, but it must still round trip, because byte level BPE
+    represents every byte value.
+
+    All seven rather than the four distinct encode behaviours. Round
+    tripping is encode followed by decode, and decode is where the seven
+    genuinely differ: they have between one and 1091 special tokens, and
+    p50k_base puts one of them on a reserved merge rank. Deduplicating by
+    encode behaviour would drop exactly the half that differs.
     """
-    var tokenizer = load_cl100k_base_tokenizer(String(CL100K_VOCAB))
-    for value in range(256):
-        var data = List[UInt8](capacity=1)
-        data.append(UInt8(value))
-        assert_round_trips(tokenizer, data, String(t"single byte {value}"))
+    check_every_fixture_and_byte(
+        load_cl100k_base_tokenizer(String(CL100K_VOCAB)),
+        String("cl100k_base"),
+    )
+    check_every_fixture_and_byte(
+        load_o200k_base_tokenizer(String(O200K_VOCAB)), String("o200k_base")
+    )
+    check_every_fixture_and_byte(
+        load_o200k_harmony_tokenizer(String(O200K_VOCAB)),
+        String("o200k_harmony"),
+    )
+    check_every_fixture_and_byte(
+        load_gpt2_tokenizer(String(R50K_VOCAB)), String("gpt2")
+    )
+    check_every_fixture_and_byte(
+        load_r50k_base_tokenizer(String(R50K_VOCAB)), String("r50k_base")
+    )
+    check_every_fixture_and_byte(
+        load_p50k_base_tokenizer(String(P50K_VOCAB)), String("p50k_base")
+    )
+    check_every_fixture_and_byte(
+        load_p50k_edit_tokenizer(String(P50K_VOCAB)), String("p50k_edit")
+    )
 
 
 def test_malformed_sequences_round_trip() raises:

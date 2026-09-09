@@ -54,7 +54,12 @@ FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "corpus"
 GOLDEN_ROOT = REPO_ROOT / "tests" / "golden"
 CORPUS = REPO_ROOT / "bench" / "corpus" / "mixed.txt"
 
-ENCODINGS = ("cl100k_base", "o200k_base")
+# Three names for three patterns, not seven for seven encodings. Pre-token
+# boundaries depend only on the pattern, and the seven encodings share three
+# of them: o200k_harmony matches o200k_base, and gpt2, r50k_base, p50k_base
+# and p50k_edit all match gpt2. Generating the same boundaries four times
+# would take four times as long and prove the same thing once.
+ENCODINGS = ("cl100k_base", "o200k_base", "gpt2")
 
 ESCAPE = 0
 MAX_INLINE_LENGTH = 255

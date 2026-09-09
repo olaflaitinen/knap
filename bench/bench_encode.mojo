@@ -45,7 +45,12 @@ from harness import (
     read_corpus_slice,
     report_throughput,
 )
-from knap.tokenizer import load_cl100k_base_tokenizer, load_o200k_base_tokenizer
+from knap.tokenizer import (
+    load_cl100k_base_tokenizer,
+    load_gpt2_tokenizer,
+    load_o200k_base_tokenizer,
+    load_p50k_base_tokenizer,
+)
 
 comptime CORPUS = "bench/corpus/mixed.txt"
 """Path to the fetched mixed text corpus."""
@@ -56,6 +61,12 @@ comptime CL100K_VOCAB = "tests/fixtures/vocabs/cl100k_base.tiktoken"
 comptime O200K_VOCAB = "tests/fixtures/vocabs/o200k_base.tiktoken"
 """Path to the fetched o200k_base merge vocabulary."""
 
+comptime R50K_VOCAB = "tests/fixtures/vocabs/r50k_base.tiktoken"
+"""Path to the fetched r50k_base merge vocabulary, shared with gpt2."""
+
+comptime P50K_VOCAB = "tests/fixtures/vocabs/p50k_base.tiktoken"
+"""Path to the fetched p50k_base vocabulary, shared with p50k_edit."""
+
 comptime WARMUP_ITERATIONS = 1
 """Untimed iterations run before measurement, to warm caches."""
 
@@ -64,10 +75,15 @@ comptime MEASURED_ITERATIONS = 5
 
 
 def main() raises:
-    """Measure encode throughput for both encodings.
+    """Measure encode throughput for the four distinct encode behaviours.
 
     Raises:
         Error: if an input is missing.
+
+    Four rather than seven. Ordinary encoding is decided by the pattern and
+    the merge ranks and by nothing else, so the other three names would
+    reproduce a number already in the table and cost three more passes over
+    the corpus to do it.
     """
     var args = argv()
     var megabytes = 16
@@ -83,11 +99,17 @@ def main() raises:
 
     var cl100k = load_cl100k_base_tokenizer(String(CL100K_VOCAB))
     var o200k = load_o200k_base_tokenizer(String(O200K_VOCAB))
+    var gpt2 = load_gpt2_tokenizer(String(R50K_VOCAB))
+    var p50k = load_p50k_base_tokenizer(String(P50K_VOCAB))
 
-    for which in range(2):
+    for which in range(4):
         var name = String("encode_cl100k_base")
         if which == 1:
             name = String("encode_o200k_base")
+        elif which == 2:
+            name = String("encode_gpt2")
+        elif which == 3:
+            name = String("encode_p50k_base")
 
         # Warm up outside the timer. The first pass touches the whole rank
         # table and the corpus, and counting that would measure page faults
@@ -95,8 +117,12 @@ def main() raises:
         for _ in range(WARMUP_ITERATIONS):
             if which == 0:
                 var ignored = cl100k.encode_ordinary_bytes(Span(data))
-            else:
+            elif which == 1:
                 var ignored = o200k.encode_ordinary_bytes(Span(data))
+            elif which == 2:
+                var ignored = gpt2.encode_ordinary_bytes(Span(data))
+            else:
+                var ignored = p50k.encode_ordinary_bytes(Span(data))
 
         var samples = Samples()
         var tokens = 0
@@ -105,8 +131,14 @@ def main() raises:
             if which == 0:
                 var ids = cl100k.encode_ordinary_bytes(Span(data))
                 tokens = len(ids)
-            else:
+            elif which == 1:
                 var ids = o200k.encode_ordinary_bytes(Span(data))
+                tokens = len(ids)
+            elif which == 2:
+                var ids = gpt2.encode_ordinary_bytes(Span(data))
+                tokens = len(ids)
+            else:
+                var ids = p50k.encode_ordinary_bytes(Span(data))
                 tokens = len(ids)
             samples.add(now() - start)
 

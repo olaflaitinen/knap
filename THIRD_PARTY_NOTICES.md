@@ -107,13 +107,14 @@ prominence as any Knap result.
 | Hugging Face `tokenizers` | <https://github.com/huggingface/tokenizers> | Apache-2.0 | Nothing was taken. The `tokenizer.json` format was read while scoping a loader for it, and that loader was deferred rather than written. See [docs/ROADMAP.md](docs/ROADMAP.md). No source code. |
 | `atsentia/mojo-tokenizer` | <https://github.com/atsentia/mojo-tokenizer> | See upstream | Prior art in pure Mojo, noted for its published throughput. No source code. |
 | `mojo-regex` | <https://github.com/msaelices/mojo-regex> | See upstream | Read for reference only. Rejected as a dependency because it pins a pre-1.0 compiler. No source code. |
+| The Mojo roadmap | <https://mojolang.org/docs/roadmap/> | See upstream | Read to check which toolchain limits this project hit are acknowledged upstream and which might be local mistakes. Summarised in [docs/ROADMAP.md](docs/ROADMAP.md), quoted rather than copied. |
 
 ## Data sources
 
 | Source | Upstream | Licence | Use |
 | --- | --- | --- | --- |
 | Unicode Character Database, version 16.0.0 | <https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt> | Unicode Licence | Source of every general category range the pre-tokenization patterns test. Downloaded and verified against a recorded SHA-256 digest by `scripts/ucd.py`, not read through Python `unicodedata`. That distinction is not cosmetic: the interpreter answers from Unicode 15.0.0, the reference implementation behaves as 16.0.0, and building the tables from the former produced a real divergence. See [docs/UNICODE.md](docs/UNICODE.md). |
-| `cl100k_base` and `o200k_base` vocabularies | Distributed by OpenAI, fetched by `scripts/fetch_vocabs.py` | See upstream | Vocabulary and merge ranks. Fetched at build time and never committed, so no licence question attaches to this repository and the exact source is recorded rather than assumed. |
+| The four `.tiktoken` vocabulary files | Distributed by OpenAI, fetched by `scripts/fetch_vocabs.py` | See upstream | Vocabulary and merge ranks. `cl100k_base`, `o200k_base`, `r50k_base` and `p50k_base` are fetched; the seven supported encodings are served from those four files. Fetched at build time and never committed, so no licence question attaches to this repository and the exact source is recorded rather than assumed. |
 | Benchmark corpus | Fetched by `scripts/fetch_corpus.py` | Recorded per source in that script | Parity and throughput measurement. Never committed. |
 
 ## The licence text itself

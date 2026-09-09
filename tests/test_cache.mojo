@@ -44,6 +44,7 @@ from knap.cache import PieceCache
 from knap.tokenizer import (
     Tokenizer,
     load_cl100k_base_tokenizer,
+    load_gpt2_tokenizer,
     load_o200k_base_tokenizer,
 )
 
@@ -61,6 +62,12 @@ comptime CL100K_GOLDEN = "tests/golden/cl100k_base/encode_expected.jsonl"
 
 comptime O200K_GOLDEN = "tests/golden/o200k_base/encode_expected.jsonl"
 """Reference token ids for o200k_base over the fixtures."""
+
+comptime R50K_VOCAB = "tests/fixtures/vocabs/r50k_base.tiktoken"
+"""Path to the fetched r50k_base merge vocabulary, shared with gpt2."""
+
+comptime GPT2_GOLDEN = "tests/golden/gpt2/encode_expected.jsonl"
+"""Reference token ids for the gpt2 pattern over the fixtures."""
 
 comptime END_OF_TEXT = "<|endoftext|>"
 """The special token both target encodings define."""
@@ -256,13 +263,29 @@ def test_cl100k_cached_encode_matches_the_reference() raises:
 
 
 def test_o200k_cached_encode_matches_the_reference() raises:
-    """The same claim for the second encoding.
+    """The same claim for the second pattern.
 
     Raises:
         Error: on any divergence from the reference.
     """
     var tokenizer = load_o200k_base_tokenizer(O200K_VOCAB)
     var compared = check_cached_against_reference(tokenizer, O200K_GOLDEN)
+    assert_true(compared > 0, String("no fixtures were compared"))
+
+
+def test_gpt2_cached_encode_matches_the_reference() raises:
+    """The same claim for the third pattern, which produces longer pieces.
+
+    Raises:
+        Error: on any divergence from the reference.
+
+    Worth its own test rather than assumed from the other two. The cache is
+    keyed on the bytes of a piece, and the gpt2 pattern makes longer pieces
+    than either of the others: its digit runs are unbounded, so a number
+    that becomes four pieces under cl100k_base is a single cache key here.
+    """
+    var tokenizer = load_gpt2_tokenizer(R50K_VOCAB)
+    var compared = check_cached_against_reference(tokenizer, GPT2_GOLDEN)
     assert_true(compared > 0, String("no fixtures were compared"))
 
 

@@ -41,7 +41,9 @@ from std.testing import assert_equal, assert_true, TestSuite
 from knap.tokenizer import (
     Tokenizer,
     load_cl100k_base_tokenizer,
+    load_gpt2_tokenizer,
     load_o200k_base_tokenizer,
+    load_p50k_base_tokenizer,
 )
 
 comptime CORPUS = "bench/corpus/mixed.txt"
@@ -58,6 +60,18 @@ comptime CL100K_TOKENS = "bench/corpus/cl100k_base_tokens.bin"
 
 comptime O200K_TOKENS = "bench/corpus/o200k_base_tokens.bin"
 """Packed reference token ids for o200k_base."""
+
+comptime R50K_VOCAB = "tests/fixtures/vocabs/r50k_base.tiktoken"
+"""Path to the fetched r50k_base merge vocabulary, shared with gpt2."""
+
+comptime P50K_VOCAB = "tests/fixtures/vocabs/p50k_base.tiktoken"
+"""Path to the fetched p50k_base vocabulary, shared with p50k_edit."""
+
+comptime GPT2_TOKENS = "bench/corpus/gpt2_tokens.bin"
+"""Reference token ids for the gpt2 pattern over the whole corpus."""
+
+comptime P50K_TOKENS = "bench/corpus/p50k_base_tokens.bin"
+"""Reference token ids for p50k_base over the whole corpus."""
 
 comptime MINIMUM_CORPUS_BYTES = 100 * 1024 * 1024
 """The corpus size the milestone gates require."""
@@ -214,6 +228,45 @@ def test_o200k_encode_matches_over_the_corpus() raises:
     )
     assert_true(
         compared > 30000000,
+        String(t"only {compared} tokens compared, the corpus looks short"),
+    )
+
+
+def test_gpt2_encode_matches_over_the_corpus() raises:
+    """Check gpt2 encode parity across the whole corpus.
+
+    Raises:
+        Error: if any token differs from the reference.
+
+    The third pre-tokenization pattern, and the one whose contraction group
+    is case sensitive. Over 115 MB of mixed text there are tens of thousands
+    of uppercase apostrophe forms, so a matcher that quietly folded case
+    would fail here even though it passes on a page of prose.
+    """
+    var tokenizer = load_gpt2_tokenizer(String(R50K_VOCAB))
+    var compared = run_gate(tokenizer, String(GPT2_TOKENS), String("gpt2"))
+    assert_true(
+        compared > 50000000,
+        String(t"only {compared} tokens compared, the corpus looks short"),
+    )
+
+
+def test_p50k_base_encode_matches_over_the_corpus() raises:
+    """Check p50k_base encode parity across the whole corpus.
+
+    Raises:
+        Error: if any token differs from the reference.
+
+    Same pattern as gpt2, different merge table: p50k_base adds exactly
+    twenty four tokens on top of r50k_base's, and every one of them is a run
+    of between two and twenty five spaces. They exist for indented source
+    code, so the difference between this gate and the one above lives almost
+    entirely in the corpus's code sections.
+    """
+    var tokenizer = load_p50k_base_tokenizer(String(P50K_VOCAB))
+    var compared = run_gate(tokenizer, String(P50K_TOKENS), String("p50k_base"))
+    assert_true(
+        compared > 50000000,
         String(t"only {compared} tokens compared, the corpus looks short"),
     )
 

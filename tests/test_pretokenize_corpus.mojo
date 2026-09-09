@@ -37,7 +37,7 @@ Run the whole chain first:
 
 from std.testing import assert_equal, assert_true, TestSuite
 
-from knap.pretokenize.scanner import scan_cl100k, scan_o200k
+from knap.pretokenize.scanner import scan_cl100k, scan_gpt2, scan_o200k
 
 comptime CORPUS = "bench/corpus/mixed.txt"
 """Path to the fetched mixed text corpus."""
@@ -47,6 +47,9 @@ comptime CL100K_LENGTHS = "bench/corpus/cl100k_base_lengths.bin"
 
 comptime O200K_LENGTHS = "bench/corpus/o200k_base_lengths.bin"
 """Reference piece lengths for o200k_base."""
+
+comptime GPT2_LENGTHS = "bench/corpus/gpt2_lengths.bin"
+"""Reference piece lengths for the gpt2 pattern over the whole corpus."""
 
 comptime MINIMUM_CORPUS_BYTES = 100 * 1024 * 1024
 """The corpus size the milestone M2 gate requires."""
@@ -214,6 +217,28 @@ def test_o200k_boundaries_match_the_reference() raises:
     var ends = List[Int]()
     scan_o200k(corpus, ends)
     compare_against_reference(len(corpus), ends, expected, String("o200k_base"))
+
+
+def test_gpt2_boundaries_match_the_reference() raises:
+    """Check gpt2 piece boundaries over the whole corpus.
+
+    Raises:
+        Error: if any piece boundary differs from the reference.
+
+    The third and last pattern. It is the oldest of the three and the one
+    with the fewest guards: its number runs are unbounded, its letter runs
+    take at most one leading space, and its contraction group matches only
+    lowercase. Each of those differences shows up somewhere in 115 MB.
+    """
+    var corpus_data = read_file_bytes(String(CORPUS))
+    var corpus = Span(corpus_data)
+
+    var packed = read_file_bytes(String(GPT2_LENGTHS))
+    var expected = decode_reference_lengths(Span(packed))
+
+    var ends = List[Int]()
+    scan_gpt2(corpus, ends)
+    compare_against_reference(len(corpus), ends, expected, String("gpt2"))
 
 
 def main() raises:

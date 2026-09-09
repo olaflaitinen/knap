@@ -45,8 +45,8 @@
 
 ## Which properties are needed
 
-The two pre-tokenization patterns do not need the same properties, and the
-difference is larger than it first appears.
+The three pre-tokenization patterns do not need the same properties, and
+the difference is larger than it first appears.
 
 `cl100k_base` needs Letter and Number, which is what the project plan
 anticipated. `o200k_base` needs considerably more. Its first two
@@ -61,6 +61,12 @@ Letter:
 | `[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]` | Lu, Lt, Lm, Lo, and all Mark categories |
 | `[\p{Ll}\p{Lm}\p{Lo}\p{M}]` | Ll, Lm, Lo, and all Mark categories |
 
+The `gpt2` pattern adds nothing here. It needs Letter and Number and no
+more, exactly as `cl100k_base` does, so the third pattern arrived without a
+single new table. Its differences from the other two are in quantifiers,
+in what may precede a word, and in case sensitivity, rather than in
+character classes.
+
 So eight distinct memberships are needed in total, not two. Note also that
 the two `o200k_base` classes **overlap** in Lm, Lo, and M. That overlap is
 what forces the scanner to backtrack in one alternative, and it is why those
@@ -69,8 +75,8 @@ two classes cannot be collapsed.
 Whitespace is handled separately. The reference regex module matches exactly
 25 code points for `\s` against a text pattern, and that set is enumerated in
 the generator rather than derived, because a wrong whitespace set would
-change four of the eight alternatives in `cl100k_base` and three of the seven
-in `o200k_base`.
+change four of the eight alternatives in `cl100k_base`, three of the seven
+in `o200k_base`, and three of the seven in `gpt2`.
 
 | | Value |
 | --- | --- |

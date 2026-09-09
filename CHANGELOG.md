@@ -56,7 +56,7 @@ produce output yet.
 
 ## 1.0.0, not yet released
 
-Milestones M1 through M6. The version number is declared, the tag and the
+Milestones M1 through M7. The version number is declared, the tag and the
 GitHub release are not, and the heading says so rather than implying
 otherwise. It becomes a dated release heading on the day the tag is created.
 
@@ -75,6 +75,66 @@ published.
 One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
 untouched.
+
+### Added, milestone M7, the remaining five encodings
+
+- `o200k_harmony`, `gpt2`, `r50k_base`, `p50k_base` and `p50k_edit`, taking
+  Knap from two `tiktoken` encodings to all seven. Each is compared against
+  `tiktoken` itself rather than against a sibling that resembles it.
+- `scan_gpt2`, the third pre-tokenization pattern. Four of the seven
+  encodings share it, and it differs from the other two in five measured
+  ways: its contractions are case sensitive, its digit runs are unbounded
+  and take a leading space, a word may be preceded only by a literal space,
+  its punctuation runs take no trailing line breaks, and it has no
+  alternative for a whitespace run that ends at a line break.
+- Loaders, special token registries, and command line, Python binding and
+  fuzzer support for all seven names. Four vocabulary files serve them:
+  `o200k_harmony` shares `o200k_base`'s merge table, `p50k_edit` shares
+  `p50k_base`'s, and `gpt2` loads from `r50k_base.tiktoken` because their
+  merge ranks are byte identical, which was checked entry by entry.
+- `tests/test_encode.mojo` now asserts the grouping itself: the seven names
+  produce four distinct ordinary outputs, the ones that should agree do, and
+  the ones that should differ are shown to differ. Finding an input that
+  separates every group took measuring. `gpt2` and `p50k_base` agree on
+  ordinary English; p50k adds exactly twenty four tokens to r50k's table and
+  every one of them is a run of two to twenty five spaces, added so that
+  Codex could tokenise indentation.
+- Corpus gates over 110 MB for the four distinct encode behaviours,
+  191762320 tokens in total, and for the third pattern, 28699602 piece
+  boundaries. Decode is checked for all seven, 702463 ids.
+
+### Fixed, milestone M7
+
+- **A special token sitting on a reserved merge rank could not be decoded.**
+  `p50k_base` puts its end of text marker at 50256, which is a hole in its
+  merge table rather than an id above it. Every other shipped encoding
+  stacks its specials above the merges, so decode tested whether an id was
+  inside the merge range instead of asking whether that rank was assigned,
+  found the hole, and refused. Any caller decoding a `p50k_base` document
+  containing the marker would have hit it. Found by the decode gate on the
+  day the encoding was added, which is the argument for adding encodings
+  after the gates rather than before them.
+- **The decode gate held a loose assertion that checked nothing on four of
+  the seven encodings.** It required a golden fixture to contain at least
+  one undecodable id. That was true of both encodings shipped when it was
+  written and is false of `gpt2`, `r50k_base`, `p50k_base` and `p50k_edit`,
+  whose id spaces are completely full, and of `o200k_harmony`, whose 1091
+  special tokens fill every hole `o200k_base` leaves. The gate now asserts
+  the exact count for each encoding, read off the reference.
+- `tests/test_special.mojo` claimed that special ids sit above the merge
+  ranks. True of two encodings, false of seven. The test now asserts what
+  the `Vocabulary` constructor actually enforces, which is the weaker and
+  correct statement that no special takes an id an assigned merge rank
+  already holds.
+- `tests/test_flat_vocab.mojo` claimed that empty tokens occur in real
+  vocabularies. Measured across all seven: none do, and the shortest token
+  is one byte in every one of them. Zero length now means a reserved id,
+  which is what `p50k_base` needs.
+- The README's performance section said that no benchmarks had been
+  measured and its limitations said that no fuzzing had run. Both were true
+  when written and had been false since M4 and M5. The headline table, the
+  losing result, and the pointer to the winners are now in the README where
+  a reader meets them first.
 
 ### Added, allocation control
 
@@ -309,6 +369,31 @@ untouched.
 
 ### Verified
 
+- **Encode parity across seven encodings.** Every token Knap emits matches
+  `tiktoken` at the same position across a 110 MB corpus, for each of the
+  four distinct encode behaviours the seven names reduce to: 43529983
+  tokens for `cl100k_base`, 36927147 for `o200k_base`, 55723134 for `gpt2`
+  and 55582056 for `p50k_base`, 191762320 in total. Every one of the seven
+  is separately compared against its own `tiktoken` fixture, which is what
+  catches a loader reading the wrong file.
+- **Decode parity across seven encodings.** All 702463 ids, with the number
+  of undecodable ids asserted exactly for each rather than loosely for all.
+- **Pre-tokenization parity across three patterns.** 83025959 piece
+  boundaries over the same corpus, adding 28699602 for `gpt2`.
+- **Round tripping across seven encodings.** Every committed fixture and
+  every one of the 256 byte values, under each encoding in turn, because
+  round tripping exercises decode and decode is where the seven differ.
+- **The command line tool and the Python bindings agree with `tiktoken` on
+  all seven.** 112 inputs through the built binary, including through
+  pipes, and every case through the native extension.
+- **What M7 did not verify, stated rather than implied.** The differential
+  fuzzer, its driver and the sanitizer harness all take seven encodings and
+  the nightly job runs seven, but the committed report covers the two that
+  were fuzzed, and the figures quoted in this file are that report's.
+  Likewise the benchmark harness measures four encode behaviours and
+  `docs/BENCHMARKS.md` publishes the two measured on an idle machine.
+  Widening either claim ahead of the run would be the unearned figure that
+  `scripts/check_fuzz_claims.py` exists to refuse.
 - **Encode parity.** Every token Knap emits matches `tiktoken` at the same
   position across a 110 MB corpus: 43529983 tokens for `cl100k_base` and
   36927147 for `o200k_base`, 80.5 million in total. This is the first end to
@@ -323,7 +408,7 @@ untouched.
 - **Unicode tables.** All 1114112 code points match an independent
   reference, and the whitespace predicate is exact in both directions.
 - **Differential fuzzing.** 20000000 generated inputs across the two
-  encodings, of which 16661834 were compared against `tiktoken` token for
+  encodings shipped at the time, of which 16661834 were compared against `tiktoken` token for
   token and 3338166 were round trip checked because they are not valid
   UTF-8. Zero divergences. Every shard seed is recorded in
   `tests/fuzz/last_run.json`.

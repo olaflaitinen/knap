@@ -61,6 +61,20 @@ expected result before anything was measured.
 | **Knap** | **3.44 MB/s** | **3.21 MB/s** |
 | Hugging Face `tokenizers` | 0.70 MB/s, approximate | not run |
 
+**Two encodings, not seven.** Knap ships seven and they reduce to four
+distinct encode behaviours. The harness measures all four, and the table
+above reports the two that have been measured under the conditions this
+document describes: an otherwise idle machine, five repetitions, with the
+coefficient of variation recorded. `gpt2` and `p50k_base` numbers are not
+printed here because that run has not happened yet, and a throughput figure
+taken on a busy machine is worse than no figure. Their parity is separately
+established over the same corpus; see
+[docs/CORRECTNESS.md](CORRECTNESS.md).
+
+Note also that `rs-bpe` ships `cl100k_base` and `o200k_base` and nothing
+else, so even once those runs happen two of the four rows will have one
+fewer baseline to lose to.
+
 Three secondary results, each of which is a measurement rather than a claim:
 
 - Removing one allocation from the rank lookup nearly doubled encode

@@ -147,7 +147,10 @@ def main() -> int:
     print(f"# warmup iterations: {WARMUP_ITERATIONS}")
     print(f"# measured iterations: {MEASURED_ITERATIONS}")
 
-    for name in ("cl100k_base", "o200k_base"):
+    # The same four the Mojo side measures. Knap supports seven encodings
+    # and they reduce to four distinct ordinary behaviours, so a fifth row
+    # here would repeat one of these to three significant figures.
+    for name in ("cl100k_base", "o200k_base", "gpt2", "p50k_base"):
         encoding = tiktoken.get_encoding(name)
 
         for _ in range(WARMUP_ITERATIONS):

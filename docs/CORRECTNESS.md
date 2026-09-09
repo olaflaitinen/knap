@@ -57,8 +57,11 @@ Three points make that definition precise:
    replaced, because `tiktoken` does neither.
 2. Parity is **exact**. There is no tolerance, no normalisation step, and no
    notion of an acceptable near match. A single differing id is a divergence.
-3. Parity is claimed **per vocabulary**. A result verified for `cl100k_base`
-   says nothing about `o200k_base`, and both are tested independently.
+3. Parity is claimed **per encoding**. A result verified for `cl100k_base`
+   says nothing about `o200k_base`, and all seven are tested independently
+   against `tiktoken` rather than against each other. Where two encodings
+   are known to share a merge table, that sharing is a claim in its own
+   right and is checked, not assumed.
 
 Round tripping is a separate and weaker property: decoding the ids Knap
 produced must reproduce the input bytes. Round tripping can hold while parity
@@ -206,25 +209,27 @@ agreement with a reference.
 
 ## Current status
 
-Knap is at M6. **Encode and decode parity are both established**, over a
-110 MB corpus and over 20 million generated inputs, with zero divergences
-outstanding.
+Knap is at M7. **Encode and decode parity are both established** for all
+seven `tiktoken` encodings, over a 110 MB corpus and over tens of millions
+of generated inputs, with zero divergences outstanding.
 
 | Measure | Value | Milestone |
 | --- | --- | --- |
-| Decode parity, cl100k_base | Verified, all 100277 ids | M1 |
-| Decode parity, o200k_base | Verified, all 200019 ids | M1 |
+| Decode parity, all seven encodings | Verified, all 702463 ids | M1, M7 |
 | Pre-tokenization parity, cl100k_base | Verified, 28075654 pieces over 110 MB | M2 |
 | Pre-tokenization parity, o200k_base | Verified, 26250703 pieces over 110 MB | M2 |
+| Pre-tokenization parity, gpt2 | Verified, 28699602 pieces over 110 MB | M7 |
 | Unicode tables | Verified, all 1114112 code points | M2 |
 | Encode parity, cl100k_base | Verified, 43529983 tokens over 110 MB | M3 |
 | Encode parity, o200k_base | Verified, 36927147 tokens over 110 MB | M3 |
-| Strings fuzzed | 20000000, ten million per encoding | M4 |
+| Encode parity, gpt2 | Verified, 55723134 tokens over 110 MB | M7 |
+| Encode parity, p50k_base | Verified, 55582056 tokens over 110 MB | M7 |
+| Strings fuzzed | 20000000, ten million each on cl100k_base and o200k_base | M4 |
 | Of those, compared against the reference | 16661834 | M4 |
 | Of those, round trip checked only | 3338166 | M4 |
 | Divergences outstanding | 0 | M4 |
 | Divergences found and fixed | 1 class, see below | M4 |
-| Strings fuzzed under the address sanitizer | 200000, one hundred thousand per encoding | M4 |
+| Strings fuzzed under the address sanitizer | 200000, one hundred thousand each on the same two | M4 |
 | Strings driven under the address sanitizer with no interpreter present | 40000, no suppressions, no leaks | M4 |
 | `tiktoken` version used as reference | 0.14.0 | Current |
 
@@ -235,11 +240,20 @@ cannot be replayed is an anecdote:
 
 | Run | Base seed | Shards | Shard size | Elapsed |
 | --- | --- | --- | --- | --- |
-| Differential, both encodings | 20260908 | 10 per encoding | 1000000 | 1417 seconds |
+| Differential, cl100k_base and o200k_base | 20260908 | 10 per encoding | 1000000 | 1417 seconds |
 | Differential under the address sanitizer | 1 | 4 per encoding | 25000 | 92 seconds |
 
 The sanitizer run is roughly an order of magnitude slower per input, which
 is the reason the sanitized subset is a subset.
+
+**The fuzzing figures cover two encodings, not seven.** At M7 the fuzzer,
+its driver and the sanitizer harness were all extended to take every
+encoding, and the nightly job runs all seven, but the report committed to
+this repository is the one that covered two. The figures above are read out
+of that report by `scripts/check_fuzz_claims.py`, which fails the build if
+a document quotes a number the report does not contain. Widening the claim
+before widening the run would be exactly the kind of unearned figure that
+check exists to prevent.
 
 Read the elapsed column loosely. Unlike every figure in
 [docs/BENCHMARKS.md](BENCHMARKS.md), these were not taken on an idle machine:
@@ -254,30 +268,54 @@ elapsed times fell from 1961 and 246 seconds, which is the same speedup the
 benchmarks report from a different direction.
 
 What decode parity means here, stated precisely so it is not read as more
-than it is. Every token id in the full id space of both encodings was decoded
+than it is. Every token id in the full id space of every encoding was decoded
 and compared byte for byte against `tiktoken.decode_single_token_bytes`:
 
 | Encoding | Ids checked | Assigned | Unassigned | Result |
 | --- | --- | --- | --- | --- |
 | cl100k_base | 100277 | 100261 | 16 | Byte identical, and every unassigned id raises |
 | o200k_base | 200019 | 200000 | 19 | Byte identical, and every unassigned id raises |
+| o200k_harmony | 201088 | 201088 | 0 | Byte identical |
+| gpt2 | 50257 | 50257 | 0 | Byte identical |
+| r50k_base | 50257 | 50257 | 0 | Byte identical |
+| p50k_base | 50281 | 50281 | 0 | Byte identical |
+| p50k_edit | 50284 | 50284 | 0 | Byte identical |
 
-The unassigned columns are the part worth attention. Both encodings leave
-holes in their id space, because the special tokens do not sit flush against
-the merge ranks. `tiktoken` raises for those ids and so does Knap. An
-implementation that returned empty bytes instead would pass a naive
+The unassigned columns are the part worth attention, and the zeros in them
+are the reason this gate had to change shape at M7. Two encodings leave
+holes in their id space, because their special tokens do not sit flush
+against the merge ranks. `tiktoken` raises for those ids and so does Knap.
+An implementation that returned empty bytes instead would pass a naive
 comparison while diverging exactly where a caller needs to be told that
 something upstream is wrong.
+
+The other five have no holes at all. `o200k_harmony` is the striking case:
+its 1091 special tokens land on exactly the nineteen ids `o200k_base` leaves
+empty and then continue to 201087, so the same merge table produces a fully
+dense id space under one name and a sparse one under another.
+
+Until M7 the gate asserted only that a golden fixture contained at least one
+unassigned id. That was true of both encodings shipped at the time, and it
+is false of four of the seven, so the assertion would have passed while
+checking nothing on them. It now asserts the exact count, which was read off
+the reference rather than predicted.
 
 Pre-tokenization parity was measured over a 110 MB corpus of mixed text:
 1.79 million multilingual sentences, five books, and a generated section
 concentrating the hazards below. Every piece boundary matched the reference
 for both patterns.
 
-| Encoding | Pieces | Result |
+| Pattern | Pieces | Result |
 | --- | --- | --- |
 | cl100k_base | 28075654 | Every boundary identical |
 | o200k_base | 26250703 | Every boundary identical |
+| gpt2 | 28699602 | Every boundary identical |
+
+Three patterns, not seven. `gpt2`, `r50k_base`, `p50k_base` and `p50k_edit`
+share one pattern between them, and `o200k_base` and `o200k_harmony` share
+another. The pattern each encoding uses is extracted from `tiktoken` by
+`scripts/extract_patterns.py` and checked for drift, so the sharing is a
+verified fact rather than a convenience.
 
 That gate earned its cost immediately. It found a real defect, though not in
 the scanner: the reference generator read the corpus with Python's
@@ -293,10 +331,31 @@ emits equals the token the reference emits at the same position:
 | --- | --- | --- |
 | cl100k_base | 43529983 | Every token identical |
 | o200k_base | 36927147 | Every token identical |
+| gpt2 | 55723134 | Every token identical |
+| p50k_base | 55582056 | Every token identical |
 
-That is 80.5 million tokens across the two encodings. It covers the whole
-pipeline: special token splitting, pre-tokenization, byte mapping, and the
-merge loop.
+That is 191762320 tokens. It covers the whole pipeline: special token
+splitting, pre-tokenization, byte mapping, and the merge loop.
+
+Four encodings rather than seven, and the reason is a property rather than a
+shortcut. Ordinary encoding is decided by the pre-tokenization pattern and
+the merge ranks, and by nothing else; special tokens take no part in it. The
+seven names therefore produce four distinct outputs for the same text, and
+running the corpus through the other three would reproduce a file this gate
+already compares against.
+
+What that argument does not cover is whether each encoding actually loaded
+the table it should have. A loader that silently fell back would still be
+internally consistent. So every one of the seven is separately compared
+against its own `tiktoken` fixture, and `tests/test_encode.mojo` asserts the
+grouping directly: the encodings that should agree do, and the ones that
+should differ are shown to differ on an input chosen to discriminate them.
+
+That input took some finding. `gpt2` and `p50k_base` agree on ordinary
+English prose. p50k adds exactly twenty four tokens to r50k's table and
+every one of them is a run of between two and twenty five spaces, added for
+indented source code, so the two encodings are distinguishable only by
+indentation or by a very long number.
 
 What a corpus cannot cover is input it does not contain. The corpus is
 natural language, prose, and a generated hazard section, which is a very

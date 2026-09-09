@@ -50,7 +50,12 @@ from std.python.bindings import PythonModuleBuilder
 from knap.tokenizer import (
     Tokenizer,
     load_cl100k_base_tokenizer,
+    load_gpt2_tokenizer,
     load_o200k_base_tokenizer,
+    load_o200k_harmony_tokenizer,
+    load_p50k_base_tokenizer,
+    load_p50k_edit_tokenizer,
+    load_r50k_base_tokenizer,
 )
 
 
@@ -128,15 +133,30 @@ struct KnapTokenizer(Movable, Writable):
         var path = String(py=args[0])
         var name = String(py=args[1])
 
+        # The path is passed in rather than searched for, so the caller
+        # decides which file backs which encoding. Three of the seven load
+        # from a file named after another encoding, and knap_py.Tokenizer
+        # documents which.
         if name == "o200k_base":
             self = Self(load_o200k_base_tokenizer(path), name^)
         elif name == "cl100k_base":
             self = Self(load_cl100k_base_tokenizer(path), name^)
+        elif name == "o200k_harmony":
+            self = Self(load_o200k_harmony_tokenizer(path), name^)
+        elif name == "gpt2":
+            self = Self(load_gpt2_tokenizer(path), name^)
+        elif name == "r50k_base":
+            self = Self(load_r50k_base_tokenizer(path), name^)
+        elif name == "p50k_base":
+            self = Self(load_p50k_base_tokenizer(path), name^)
+        elif name == "p50k_edit":
+            self = Self(load_p50k_edit_tokenizer(path), name^)
         else:
             raise Error(
                 String(
-                    t"knap: unknown encoding '{name}'. Use cl100k_base or"
-                    t" o200k_base."
+                    t"knap: unknown encoding '{name}'. Use cl100k_base,"
+                    t" o200k_base, o200k_harmony, gpt2, r50k_base,"
+                    t" p50k_base or p50k_edit."
                 )
             )
 

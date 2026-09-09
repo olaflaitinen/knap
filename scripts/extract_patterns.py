@@ -53,7 +53,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = REPO_ROOT / "src" / "knap" / "pretokenize" / "pattern.mojo"
 
-WANTED = ("cl100k_base", "o200k_base")
+# gpt2 is here for its pattern rather than for itself. Four encodings share
+# it byte for byte: gpt2, r50k_base, p50k_base and p50k_edit. Extracting it
+# once under the name of the oldest is clearer than four identical constants.
+WANTED = ("cl100k_base", "o200k_base", "gpt2")
 
 # Characters that must be escaped inside a Mojo string literal. Both are
 # referenced by code point so that this file contains no stray backslash of

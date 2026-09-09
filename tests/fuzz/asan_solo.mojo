@@ -55,7 +55,12 @@ from knap.pretokenize.utf8 import decode_at
 from knap.tokenizer import (
     Tokenizer,
     load_cl100k_base_tokenizer,
+    load_gpt2_tokenizer,
     load_o200k_base_tokenizer,
+    load_o200k_harmony_tokenizer,
+    load_p50k_base_tokenizer,
+    load_p50k_edit_tokenizer,
+    load_r50k_base_tokenizer,
 )
 
 from generators import KIND_COUNT, Rng, generate, kind_name
@@ -107,7 +112,9 @@ def main() raises:
         raise Error(
             String(
                 "usage: asan_solo <seed> <count> <vocabulary path>"
-                " [cl100k_base|o200k_base]"
+                " <encoding>"
+                " where <encoding> is one of cl100k_base, o200k_base,"
+                " o200k_harmony, gpt2, r50k_base, p50k_base, p50k_edit."
             )
         )
 
@@ -118,11 +125,32 @@ def main() raises:
     if len(args) > 4:
         encoding_name = String(args[4])
 
+    # The driver passes the vocabulary path and the encoding name
+    # separately, because three of the seven load from a file named after
+    # another encoding and a name is not enough to find the file.
     var tokenizer: Tokenizer
     if encoding_name == "o200k_base":
         tokenizer = load_o200k_base_tokenizer(vocabulary_path)
-    else:
+    elif encoding_name == "o200k_harmony":
+        tokenizer = load_o200k_harmony_tokenizer(vocabulary_path)
+    elif encoding_name == "gpt2":
+        tokenizer = load_gpt2_tokenizer(vocabulary_path)
+    elif encoding_name == "r50k_base":
+        tokenizer = load_r50k_base_tokenizer(vocabulary_path)
+    elif encoding_name == "p50k_base":
+        tokenizer = load_p50k_base_tokenizer(vocabulary_path)
+    elif encoding_name == "p50k_edit":
+        tokenizer = load_p50k_edit_tokenizer(vocabulary_path)
+    elif encoding_name == "cl100k_base":
         tokenizer = load_cl100k_base_tokenizer(vocabulary_path)
+    else:
+        raise Error(
+            String(
+                t"unknown encoding '{encoding_name}'. A silent fall back to"
+                t" cl100k_base would report a clean run for an encoding that"
+                t" was never fuzzed."
+            )
+        )
 
     var rng = Rng(seed)
     var round_tripped = 0

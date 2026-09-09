@@ -57,11 +57,18 @@ SEED_DIR = FUZZ_DIR / "corpus_seeds"
 REPORT_TEMPLATE = "last_run{suffix}.json"
 
 SOURCE = FUZZ_DIR / "fuzz_main.mojo"
+VOCABS = REPO_ROOT / "tests" / "fixtures" / "vocabs"
+
+# Seven encodings backed by four files. The name is not enough to find the
+# file, so the path is passed to the fuzzer explicitly.
 VOCABULARIES = {
-    "cl100k_base": REPO_ROOT / "tests" / "fixtures" / "vocabs"
-    / "cl100k_base.tiktoken",
-    "o200k_base": REPO_ROOT / "tests" / "fixtures" / "vocabs"
-    / "o200k_base.tiktoken",
+    "cl100k_base": VOCABS / "cl100k_base.tiktoken",
+    "gpt2": VOCABS / "r50k_base.tiktoken",
+    "o200k_base": VOCABS / "o200k_base.tiktoken",
+    "o200k_harmony": VOCABS / "o200k_base.tiktoken",
+    "p50k_base": VOCABS / "p50k_base.tiktoken",
+    "p50k_edit": VOCABS / "p50k_base.tiktoken",
+    "r50k_base": VOCABS / "r50k_base.tiktoken",
 }
 
 # LeakSanitizer reports the embedded interpreter and the reference
@@ -257,7 +264,10 @@ def main() -> int:
         "--total",
         type=int,
         default=10_000_000,
-        help="Inputs per encoding. Default ten million.",
+        help=(
+            "Inputs per encoding. Default ten million, so the default run "
+            "is seventy million inputs in total."
+        ),
     )
     parser.add_argument(
         "--shard",
@@ -275,7 +285,7 @@ def main() -> int:
         "--encoding",
         action="append",
         choices=sorted(VOCABULARIES),
-        help="Encoding to fuzz. Repeatable. Defaults to both.",
+        help="Encoding to fuzz. Repeatable. Defaults to all seven.",
     )
     parser.add_argument(
         "--sanitize",

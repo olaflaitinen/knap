@@ -33,7 +33,8 @@ on a fetched vocabulary.
 
 from std.testing import assert_equal, assert_true, TestSuite
 
-from knap.vocab import load_tiktoken
+from knap.special import SpecialTokens
+from knap.vocab import Vocabulary, load_tiktoken
 
 
 def write_fixture(path: String, contents: String) raises:
@@ -218,23 +219,80 @@ def test_duplicate_rank_is_rejected() raises:
     )
 
 
-def test_gap_in_ranks_is_rejected() raises:
-    """Check that merge ranks must be dense from zero.
+def test_a_gap_loads_but_does_not_decode() raises:
+    """A reserved rank is readable as a file and refuses to decode.
 
     Raises:
-        Error: if a gap in the merge ranks is accepted.
+        Error: if the loader rejects the gap, or if the gap decodes.
 
-    A hole in the merge ranks would leave a token id that indexes into the
-    vocabulary and decodes to nothing. Note that the combined id space of a
-    full encoding does have holes, between the merges and the specials, but
-    the merge ranks themselves must be contiguous.
+    The loader used to refuse this outright, on the rule that merge ranks
+    must be dense. That rule was derived from two encodings and a third
+    breaks it: p50k_base leaves rank 50256 empty because its special token
+    sits there. So a gap is now loaded, marked, and refused at decode time,
+    and whether it is legitimate is decided by Vocabulary, which is the only
+    place that knows what the special tokens claim.
     """
+    var path = String("/tmp/knap_test_gap.tiktoken")
+    write_fixture(path, String("YQ== 0\nYg== 2\n"))
+    var merges = load_tiktoken(path)
+
+    assert_equal(merges.size(), 3)
+    assert_true(merges.is_assigned(0), String("rank 0 should be assigned"))
+    assert_true(not merges.is_assigned(1), String("rank 1 should be reserved"))
+    assert_true(merges.is_assigned(2), String("rank 2 should be assigned"))
+
+    var refused = False
+    try:
+        _ = merges.token_bytes(1)
+    except:
+        refused = True
+    assert_true(refused, String("a reserved rank should not decode"))
+
+
+def test_an_unclaimed_gap_is_rejected() raises:
+    """A hole that no special token claims is still an error.
+
+    Raises:
+        Error: if an unclaimed gap is accepted.
+
+    This is what the density rule was really for: catching a truncated or
+    corrupt vocabulary. Moving the check into Vocabulary keeps that while
+    allowing the one legitimate case.
+    """
+    var path = String("/tmp/knap_test_unclaimed.tiktoken")
+    write_fixture(path, String("YQ== 0\nYg== 2\n"))
+    var merges = load_tiktoken(path)
+    var specials = SpecialTokens()
+
+    var refused = False
+    try:
+        var vocabulary = Vocabulary(merges^, specials^, String("test"))
+        _ = vocabulary.merge_count()
+    except:
+        refused = True
+    assert_true(refused, String("an unclaimed gap should be rejected"))
+
+
+def test_a_gap_a_special_token_claims_is_accepted() raises:
+    """A hole reserved for a special token is legitimate.
+
+    Raises:
+        Error: if the combination is rejected.
+
+    This is the p50k_base shape in miniature: a rank left empty, with a
+    special token sitting on exactly that id.
+    """
+    var path = String("/tmp/knap_test_claimed.tiktoken")
+    write_fixture(path, String("YQ== 0\nYg== 2\n"))
+    var merges = load_tiktoken(path)
+    var specials = SpecialTokens()
+    specials.add(String("<|endoftext|>"), 1)
+
+    var vocabulary = Vocabulary(merges^, specials^, String("test"))
+    assert_equal(vocabulary.merge_count(), 3)
     assert_true(
-        loading_fails(
-            String("/tmp/knap_test_gap.tiktoken"),
-            String("YQ== 0\nYg== 2\n"),
-        ),
-        String("a gap in the merge ranks should be rejected"),
+        vocabulary.is_assigned(1),
+        String("the claimed id should be assigned to the special token"),
     )
 
 

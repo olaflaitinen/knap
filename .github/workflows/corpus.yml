@@ -54,13 +54,15 @@ jobs:
       - name: Generate encode references
         run: uv run python scripts/gen_encode_golden.py
 
-      # The milestone M2 gate. Every piece boundary the scanner produces must
-      # equal the one the reference regex produces, for both patterns.
+      # The milestone M2 gate, widened at M7. Every piece boundary the
+      # scanner produces must equal the one the reference regex produces,
+      # for all three patterns: 83.0 million boundaries.
       - name: Pre-tokenization parity
         run: uv run mojo run -I src tests/test_pretokenize_corpus.mojo
 
-      # The milestone M3 gate. Every token Knap emits must equal the token
-      # tiktoken emits at the same position, across the whole corpus. That is
-      # 43.5 million tokens for cl100k_base and 36.9 million for o200k_base.
+      # The milestone M3 gate, widened at M7. Every token Knap emits must
+      # equal the token tiktoken emits at the same position, across the
+      # whole corpus, for each of the four distinct encode behaviours the
+      # seven encodings reduce to. That is 191.8 million tokens.
       - name: Encode parity
         run: uv run mojo run -I src tests/test_encode_corpus.mojo

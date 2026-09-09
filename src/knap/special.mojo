@@ -77,24 +77,32 @@ struct SpecialTokens(Copyable, Movable):
             token_id: The id this token encodes to and decodes from.
 
         Raises:
-            Error: if the name or the id is already registered.
+            Error: if the name is already registered.
 
-        Both directions are checked because either kind of duplicate makes
-        the registry ambiguous, and an ambiguous registry produces a
-        tokenizer that is wrong only sometimes.
+        A repeated name is refused and a repeated id is not, and the
+        asymmetry is deliberate.
+
+        One name mapping to two ids is unresolvable. Encoding that name
+        would have to pick, and either choice is wrong half the time.
+
+        One id carrying two names is merely unusual, and it occurs in a
+        shipped encoding: o200k_harmony gives 200018 both `<|endofprompt|>`
+        and `<|reserved_200018|>`. Encoding either name yields 200018, which
+        is unambiguous. Decoding 200018 has to choose, and the choice is the
+        first registration, which is what the reference implementation does.
+        Registries must therefore add their named tokens before any
+        generated sweep, and o200k_harmony_specials does.
+
+        This rule was stricter until the seventh encoding was implemented.
+        It rejected a repeated id on the argument that either kind of
+        duplicate is ambiguous. Half of that argument was wrong, and the
+        half that was wrong is recorded here rather than quietly deleted.
         """
         for index in range(len(self.names)):
             if self.names[index] == name:
                 raise Error(
                     String(
                         t"knap: special token '{name}' is already registered."
-                    )
-                )
-            if self.ids[index] == token_id:
-                raise Error(
-                    String(
-                        t"knap: special token id {token_id} is already"
-                        t" registered as '{self.names[index]}'."
                     )
                 )
         self.names.append(name)
@@ -249,6 +257,125 @@ def o200k_base_specials() raises -> SpecialTokens:
     var specials = SpecialTokens()
     specials.add(String("<|endoftext|>"), 199999)
     specials.add(String("<|endofprompt|>"), 200018)
+    return specials^
+
+
+def gpt2_specials() raises -> SpecialTokens:
+    """Build the special token registry for gpt2 and r50k_base.
+
+    Returns:
+        A registry holding the one special token both encodings define.
+
+    Raises:
+        Error: never in practice. The registry validates regardless.
+
+    Two encodings share this because they share everything: gpt2 and
+    r50k_base have byte identical merge ranks, which was checked rather than
+    assumed. gpt2 is distributed as a pair of GPT-2 era files and r50k_base
+    as a .tiktoken file, and the two decode to the same table.
+
+    Merge ranks occupy 0 to 50255. The single special sits directly above
+    them with no gap, which is unlike every later encoding.
+    """
+    var specials = SpecialTokens()
+    specials.add(String("<|endoftext|>"), 50256)
+    return specials^
+
+
+def p50k_base_specials() raises -> SpecialTokens:
+    """Build the special token registry for p50k_base.
+
+    Returns:
+        A registry holding the one special token p50k_base defines.
+
+    Raises:
+        Error: never in practice. The registry validates regardless.
+
+    Merge ranks occupy 0 to 50279, and the special sits at 50256, which is
+    inside that range rather than above it. p50k_base extends r50k_base by
+    adding ranks after the point where r50k_base had stopped, and the
+    special token stayed where it was.
+    """
+    var specials = SpecialTokens()
+    specials.add(String("<|endoftext|>"), 50256)
+    return specials^
+
+
+def p50k_edit_specials() raises -> SpecialTokens:
+    """Build the special token registry for p50k_edit.
+
+    Returns:
+        A registry holding the four special tokens p50k_edit defines.
+
+    Raises:
+        Error: never in practice. The registry validates regardless.
+
+    The same vocabulary file as p50k_base with three fill in the middle
+    markers added above it.
+    """
+    var specials = SpecialTokens()
+    specials.add(String("<|endoftext|>"), 50256)
+    specials.add(String("<|fim_prefix|>"), 50281)
+    specials.add(String("<|fim_middle|>"), 50282)
+    specials.add(String("<|fim_suffix|>"), 50283)
+    return specials^
+
+
+def o200k_harmony_specials() raises -> SpecialTokens:
+    """Build the special token registry for o200k_harmony.
+
+    Returns:
+        A registry holding all 1091 names o200k_harmony defines.
+
+    Raises:
+        Error: never in practice. The registry validates regardless.
+
+    The largest registry by a wide margin: ten named tokens and 1081
+    reserved ones, over 1090 distinct ids.
+
+    The counts do not add up, and that is not an error. Id 200018 carries
+    two names, `<|endofprompt|>` and `<|reserved_200018|>`, so there are
+    1091 names over 1090 ids. It is the only such id in any shipped
+    encoding, and it is why SpecialTokens.add accepts a repeated id.
+
+    **The order below is load bearing.** The named tokens are registered
+    first and the reserved sweep second, so decoding 200018 yields
+    `<|endofprompt|>`, which is what the reference implementation returns.
+    Reversing the two would produce a tokenizer that encodes correctly and
+    decodes one id wrong, which no corpus of natural language would ever
+    surface.
+
+    The seven ids skipped by the sweep are the named tokens inside its
+    range that have no reserved name. 200018 is deliberately not among them.
+    """
+    var specials = SpecialTokens()
+
+    specials.add(String("<|startoftext|>"), 199998)
+    specials.add(String("<|endoftext|>"), 199999)
+    specials.add(String("<|return|>"), 200002)
+    specials.add(String("<|constrain|>"), 200003)
+    specials.add(String("<|channel|>"), 200005)
+    specials.add(String("<|start|>"), 200006)
+    specials.add(String("<|end|>"), 200007)
+    specials.add(String("<|message|>"), 200008)
+    specials.add(String("<|call|>"), 200012)
+    specials.add(String("<|endofprompt|>"), 200018)
+
+    for token_id in range(200000, 201088):
+        if (
+            token_id == 200002
+            or token_id == 200003
+            or token_id == 200005
+            or token_id == 200006
+            or token_id == 200007
+            or token_id == 200008
+            or token_id == 200012
+        ):
+            continue
+        specials.add(
+            String("<|reserved_") + String(token_id) + String("|>"), token_id
+        )
+
     return specials^
 
 

@@ -1,8 +1,8 @@
 # =============================================================================
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : scripts/fetch_vocabs.py
-# Purpose     : Downloads the cl100k_base and o200k_base vocabulary files and
-#               records where each came from and what it hashed to.
+# Purpose     : Downloads the four vocabulary files the seven encodings
+#               need, and records where each came from and its digest.
 # Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
 # Depends on  : tiktoken, for the canonical URLs and for verification.
 # Invariants  : The download is verified against the ranks tiktoken itself
@@ -60,7 +60,13 @@ DESTINATION = REPO_ROOT / "tests" / "fixtures" / "vocabs"
 
 # The vocabularies Knap targets. Anything else tiktoken registers is out of
 # scope for version 1, per docs/ROADMAP.md.
-WANTED = ("cl100k_base", "o200k_base")
+# Four files, seven encodings. gpt2 is absent on purpose: its upstream
+# distribution is a GPT-2 era merges list and a JSON encoder rather than a
+# .tiktoken file, and it decodes to the same table r50k_base does, entry for
+# entry. o200k_harmony is absent for the same kind of reason: it shares the
+# o200k_base table byte for byte and differs only in its special tokens.
+# p50k_edit shares the p50k_base file.
+WANTED = ("cl100k_base", "o200k_base", "r50k_base", "p50k_base")
 
 # Provenance for every fetched file is written here so that a later run, or a
 # reviewer, can tell exactly what was downloaded and from where.

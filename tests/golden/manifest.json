@@ -5,13 +5,38 @@
       "id_space": 100277,
       "unassigned": 16
     },
+    "gpt2": {
+      "assigned": 50257,
+      "id_space": 50257,
+      "unassigned": 0
+    },
     "o200k_base": {
       "assigned": 200000,
       "id_space": 200019,
       "unassigned": 19
+    },
+    "o200k_harmony": {
+      "assigned": 201088,
+      "id_space": 201088,
+      "unassigned": 0
+    },
+    "p50k_base": {
+      "assigned": 50281,
+      "id_space": 50281,
+      "unassigned": 0
+    },
+    "p50k_edit": {
+      "assigned": 50284,
+      "id_space": 50284,
+      "unassigned": 0
+    },
+    "r50k_base": {
+      "assigned": 50257,
+      "id_space": 50257,
+      "unassigned": 0
     }
   },
-  "generated": "2026-09-08T12:20:30Z",
+  "generated": "2026-09-09T10:15:04Z",
   "generator": "scripts/gen_encode_golden.py",
   "tiktoken_version": "0.14.0"
 }

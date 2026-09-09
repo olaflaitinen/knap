@@ -78,6 +78,13 @@ at encoding on the published machine, and about three times slower than
 [docs/BENCHMARKS.md](docs/BENCHMARKS.md), and the baselines that win are in
 the same table with the same prominence.
 
+**Which encodings are supported?** All seven that `tiktoken` ships:
+`cl100k_base`, `o200k_base`, `o200k_harmony`, `p50k_base`, `p50k_edit`,
+`r50k_base` and `gpt2`. Each was checked against `tiktoken` itself rather
+than against a sibling encoding that resembles it. They are served from four
+vocabulary files, because three of the seven share a merge table with
+another, and `scripts/fetch_vocabs.py` downloads all four.
+
 **Can I use it from Python?** Yes, through a native extension you build
 locally. See [bindings/python/README.md](bindings/python/README.md). There is
 no wheel on PyPI and there should not be one until the Mojo ABI is stable,

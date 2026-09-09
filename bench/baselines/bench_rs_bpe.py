@@ -106,6 +106,10 @@ def main() -> int:
     print(f"# warmup iterations: {WARMUP_ITERATIONS}")
     print(f"# measured iterations: {MEASURED_ITERATIONS}")
 
+    # rs-bpe ships two encodings and no loader for a .tiktoken file, so
+    # there is no honest way to give it a gpt2 or p50k_base row. Its module
+    # exposes cl100k_base and o200k_base and nothing else, which was read
+    # off the module rather than assumed.
     builders = {
         "cl100k_base": bpe.openai.cl100k_base,
         "o200k_base": bpe.openai.o200k_base,

@@ -24,10 +24,14 @@ whether the numbers are right, and a token counter whose numbers are wrong is
 worse than no token counter, because somebody will bill against it.
 
 So this builds the binary and runs it, and every count and every id it prints
-is compared against tiktoken. It also runs it through pipes, because the
-first version of this tool encoded correctly and could not be piped: opening
-/dev/stdout works when standard output is a file and fails when it is a pipe.
-A unit test would never have found that.
+is compared against tiktoken, for all seven encodings. It also runs it
+through pipes, because the first version of this tool encoded correctly and
+could not be piped: opening /dev/stdout works when standard output is a file
+and fails when it is a pipe. A unit test would never have found that.
+
+Three of the seven encodings load from a file named after another encoding,
+so this also proves the tool finds its vocabulary rather than reporting a
+missing file for a tree that has everything.
 
     python cli/tests/test_end_to_end.py
 """
@@ -57,6 +61,29 @@ CASES = [
 ]
 
 MARKER = "<|endoftext|>"
+
+ENCODINGS = (
+    "cl100k_base",
+    "o200k_base",
+    "o200k_harmony",
+    "gpt2",
+    "r50k_base",
+    "p50k_base",
+    "p50k_edit",
+)
+
+# Seven encodings, four files. Three of them are not stored under their own
+# name, so a test that looked for <encoding>.tiktoken would fail on a tree
+# where everything is present and correct.
+VOCABULARY_FILE = {
+    "cl100k_base": "cl100k_base.tiktoken",
+    "o200k_base": "o200k_base.tiktoken",
+    "o200k_harmony": "o200k_base.tiktoken",
+    "gpt2": "r50k_base.tiktoken",
+    "r50k_base": "r50k_base.tiktoken",
+    "p50k_base": "p50k_base.tiktoken",
+    "p50k_edit": "p50k_base.tiktoken",
+}
 
 failures: list[str] = []
 
@@ -152,10 +179,8 @@ def main() -> int:
             "test_end_to_end: tiktoken is required. Run 'uv sync --group dev'."
         )
 
-    for name in ("cl100k_base", "o200k_base"):
-        vocabulary = (
-            REPO_ROOT / "tests" / "fixtures" / "vocabs" / f"{name}.tiktoken"
-        )
+    for name in sorted(set(VOCABULARY_FILE.values())):
+        vocabulary = REPO_ROOT / "tests" / "fixtures" / "vocabs" / name
         if not vocabulary.exists():
             raise SystemExit(
                 f"test_end_to_end: {vocabulary} is missing. Run "
@@ -166,7 +191,7 @@ def main() -> int:
         binary = build(Path(scratch) / "knap")
         checked = 0
 
-        for name in ("cl100k_base", "o200k_base"):
+        for name in ENCODINGS:
             reference = tiktoken.get_encoding(name)
 
             for text in CASES:
@@ -250,21 +275,24 @@ def main() -> int:
         # Round trips, including bytes that are not valid UTF-8. This is the
         # property a byte level tokenizer exists to have, and the pipe is the
         # part that was broken once.
-        for payload in (
-            b"hello world",
-            b"caf\xc3\xa9",
-            b"A\x80B\xff",
-            b"\xf0\x9f\x98\x80 partial: \xf0\x9f",
-            bytes(range(256)),
-        ):
-            status, ids, err = run(binary, ["encode", "-f", "/dev/stdin"], payload)
-            check(status == 0, f"encode of {payload!r} failed: {err}")
-            status, back, err = run(binary, ["decode"], ids)
-            check(
-                status == 0 and back == payload,
-                f"round trip of {payload!r} returned {back!r} {err}",
-            )
-            checked += 1
+        for name in ENCODINGS:
+            for payload in (
+                b"hello world",
+                b"caf\xc3\xa9",
+                b"A\x80B\xff",
+                b"\xf0\x9f\x98\x80 partial: \xf0\x9f",
+                bytes(range(256)),
+            ):
+                status, ids, err = run(
+                    binary, ["encode", "-e", name, "-f", "/dev/stdin"], payload
+                )
+                check(status == 0, f"{name}: encode of {payload!r} failed: {err}")
+                status, back, err = run(binary, ["decode", "-e", name], ids)
+                check(
+                    status == 0 and back == payload,
+                    f"{name}: round trip of {payload!r} returned {back!r} {err}",
+                )
+                checked += 1
 
         # Usage errors are status 2, runtime failures are status 1. A caller
         # scripting this needs the two to be distinguishable.
@@ -287,7 +315,10 @@ def main() -> int:
                 f"{arguments} exited {status}, expected {wanted}",
             )
 
-        print(f"test_end_to_end: checked {checked} inputs and every exit path")
+        print(
+            f"test_end_to_end: checked {checked} inputs across "
+            f"{len(ENCODINGS)} encodings, and every exit path"
+        )
 
     if failures:
         print()

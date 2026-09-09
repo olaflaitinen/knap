@@ -54,14 +54,15 @@ correctness for speed, correctness wins.
 
 | Measure | Value |
 | --- | --- |
-| Tokens compared against `tiktoken` over 110 MB | 80457130, both encodings |
-| Piece boundaries compared over the same corpus | 54326357 |
-| Token ids decoded and compared | 300296, every id in both encodings |
+| Encodings supported, matching `tiktoken` exactly | 7 |
+| Tokens compared against `tiktoken` over 110 MB | 191762320 |
+| Piece boundaries compared over the same corpus | 83025959 |
+| Token ids decoded and compared | 702463, every id in every encoding |
 | Unicode code points verified against an independent reference | 1114112 |
-| Strings fuzzed against `tiktoken` | 20000000, ten million per encoding |
+| Strings fuzzed against `tiktoken` | 20000000, ten million each on two encodings |
 | Of those, compared token for token | 16661834 |
 | Of those, round trip checked because they are not valid UTF-8 | 3338166 |
-| Fuzzed again under the address sanitizer | 200000 |
+| Fuzzed again under the address sanitizer | 200000, on the same two |
 | Divergences outstanding | 0 |
 | Divergences found and fixed | 1 class, described below |
 | Known divergences | None recorded, see docs/CORRECTNESS.md |
@@ -69,6 +70,20 @@ correctness for speed, correctness wins.
 Read that table precisely. Encode and decode parity are both established,
 over 110 MB of mixed text covering hundreds of languages and over 20 million
 generated inputs including deliberately malformed UTF-8.
+
+The seven encodings reduce to four distinct ordinary behaviours, because
+ordinary encoding is decided by the pre-tokenization pattern and the merge
+ranks and by nothing else. The corpus gate is therefore run four times
+rather than seven, and the encodings that share a behaviour are held to
+separate `tiktoken` fixtures instead, which is what catches a loader that
+picked the wrong file. Decode is run for all seven, because their special
+token registries genuinely differ.
+
+The fuzzing rows are the exception, and they are labelled rather than
+rounded up. The differential fuzzer takes all seven encodings and the
+nightly job runs all seven, but the reported figures come from the run that
+covered two, because that is the run whose report is committed. A number
+this project has not observed does not go in this table.
 
 **The fuzzer found a real bug, and that is the most useful thing in this
 README.** After 19288 inputs it produced a string where Knap and `tiktoken`
@@ -95,18 +110,26 @@ methodology behind every number above is in
 
 ## Performance
 
-No benchmark numbers are published, because none have been measured. Knap has
-nothing to benchmark until M3 lands an encoder.
+**Knap is slower than both Rust baselines at encoding, on this machine and
+this corpus.** That is the headline because it is the result, and it was the
+expected result before anything was measured.
 
-When numbers do arrive they will follow the rules in
-[docs/ROADMAP.md](docs/ROADMAP.md): encode throughput as the headline in both
-MB/s and tokens/s, short string p50 and p99 latency, batch throughput, every
-baseline run on the same machine by the author, and any baseline that wins
-published in the same table with the same prominence.
+| Implementation | `cl100k_base` | `o200k_base` |
+| --- | --- | --- |
+| `rs-bpe` | 10.66 MB/s | 10.02 MB/s |
+| `tiktoken` | 5.81 MB/s | 8.74 MB/s |
+| **Knap** | **3.44 MB/s** | **3.21 MB/s** |
 
-Please treat the absence of a performance table as information. Beating the
-best Rust implementations on raw merge speed is unlikely, and this project
-does not depend on doing so.
+Every baseline was run on the same machine, from the same corpus slice, by
+the author, and the ones that win are printed in the same table at the same
+size. The full method, the machine, the versions, and the run to run spread
+are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+Two results there are worth more than the table. Removing a single
+allocation from the rank lookup nearly doubled encode throughput, and the
+vectorised classifier cannot be distinguished from the scalar one on this
+machine, which is why it is off by default. Both are measurements. Neither
+is a claim about Mojo.
 
 ## Installation
 
@@ -137,8 +160,17 @@ Both pin the compiler to Mojo 1.0.0 exactly. Mojo guarantees source level
 stability only, and its ABI is explicitly not stable, so a floating compiler
 version would silently invalidate both benchmarks and any built binding.
 
-There is no Python package to install yet. See M6 in
-[docs/ROADMAP.md](docs/ROADMAP.md) for the state of that work.
+A Python binding is built from source rather than installed from a wheel:
+
+```bash
+python bindings/python/build.py
+python bindings/python/tests/test_bindings.py
+```
+
+No wheel is published, and that is deliberate. A wheel is a promise that a
+binary keeps working, and the Mojo ABI is not stable, so the binding is
+locked to the exact toolchain it was built against. See
+[bindings/python/README.md](bindings/python/README.md).
 
 ## Command line
 
@@ -151,6 +183,7 @@ cat prompt.txt | knap count
 knap encode --format json "hello world" | jq
 knap encode "round trip" | knap decode
 knap vocab -e o200k_base
+knap count -e p50k_base "how many tokens does Codex see"
 ```
 
 | Command | Does |
@@ -245,11 +278,29 @@ claim the rest of this repository exists to avoid.
 
 ## Supported vocabularies
 
-| Vocabulary | State | Verified against |
+All seven `tiktoken` encodings are supported, and each was checked against
+`tiktoken` itself rather than against another encoding that looks like it.
+
+| Encoding | Used by | Verified against |
 | --- | --- | --- |
-| `cl100k_base` | Encodes and decodes | 43.5 M tokens over 110 MB, all 100277 ids |
-| `o200k_base` | Encodes and decodes | 36.9 M tokens over 110 MB, all 200019 ids |
-| Hugging Face `tokenizer.json` | Planned, experimental | Nothing yet |
+| `cl100k_base` | GPT-4, GPT-3.5-turbo, `text-embedding-ada-002` | 43529983 tokens over 110 MB, all 100277 ids |
+| `o200k_base` | GPT-4o, o1 | 36927147 tokens over 110 MB, all 200019 ids |
+| `o200k_harmony` | Open weight harmony format | All 201088 ids, including 1091 special tokens |
+| `p50k_base` | Codex, `text-davinci-002` and `003` | 55582056 tokens over 110 MB, all 50281 ids |
+| `p50k_edit` | The edit models | All 50284 ids |
+| `r50k_base` | GPT-3, `davinci` | 50257 ids |
+| `gpt2` | GPT-2 | 55723134 tokens over 110 MB, all 50257 ids |
+| Hugging Face `tokenizer.json` | Not supported | Nothing yet |
+
+Seven names, three pre-tokenization patterns, four vocabulary files, and
+four distinct ordinary encoding behaviours. `o200k_harmony` shares
+`o200k_base`'s merge table and differs only in its special tokens;
+`p50k_edit` shares `p50k_base`'s; and `gpt2` has merge ranks byte identical
+to `r50k_base`'s, which was checked entry by entry rather than assumed. That
+is why the corpus column above is filled in for four rows and not for seven:
+running the same 110 MB three more times would produce the same numbers and
+prove nothing new, while the per-encoding fixture and decode gates prove the
+part that could actually go wrong.
 
 Vocabulary files are downloaded by a script rather than committed, so that no
 licence question attaches to this repository and the exact source is recorded
@@ -261,8 +312,8 @@ rather than assumed.
 - No offset mapping, meaning no character spans per token. It is valuable and
   it doubles the correctness surface, so it is deferred.
 - No WordPiece, Unigram, or SentencePiece.
-- No normalization pipelines. `cl100k_base` and `o200k_base` do not normalize,
-  and adding a normalizer that is not needed would only create divergence.
+- No normalization pipelines. None of the seven encodings normalize, and
+  adding a normalizer that is not needed would only create divergence.
 - No chat templates and no GPU tokenization.
 - A single document is not parallelized across threads. Chunking a byte stream
   and pre-tokenizing chunks independently can change the result, because a
@@ -270,9 +321,13 @@ rather than assumed.
   which is where the throughput is and which is trivially correct.
 - The Mojo ABI is not stable, so any Python binding is version locked and must
   be rebuilt for each toolchain release.
-- No adversarial fuzzing has run yet, so parity is evidenced on realistic
-  text rather than in general.
-- No performance work has been done and no benchmarks are published.
+- Parity is evidenced, not proved. It rests on 110 MB of corpus, every token
+  id in every encoding, and tens of millions of generated inputs. That is
+  evidence about the inputs that were tried. It is not a proof about all
+  inputs, and this project will not describe it as one.
+- Encoding is slower than both Rust baselines. See
+  [docs/BENCHMARKS.md](docs/BENCHMARKS.md), where the winners are printed in
+  the same table.
 
 ## When not to use Knap
 

@@ -40,10 +40,12 @@ from std.testing import assert_equal, assert_true, TestSuite
 from knap.pretokenize.pattern import (
     CL100K_BASE_ALTERNATIVES,
     CL100K_BASE_PATTERN,
+    GPT2_ALTERNATIVES,
+    GPT2_PATTERN,
     O200K_BASE_ALTERNATIVES,
     O200K_BASE_PATTERN,
 )
-from knap.pretokenize.scanner import scan_cl100k, scan_o200k
+from knap.pretokenize.scanner import scan_cl100k, scan_gpt2, scan_o200k
 
 comptime FIXTURE_DIR = "tests/fixtures/corpus/"
 """Directory holding the committed edge case fixtures."""
@@ -53,6 +55,24 @@ comptime CL100K_GOLDEN = "tests/golden/cl100k_base/pretoken_boundaries.jsonl"
 
 comptime O200K_GOLDEN = "tests/golden/o200k_base/pretoken_boundaries.jsonl"
 """Reference piece boundaries for o200k_base over the fixtures."""
+
+comptime GPT2_GOLDEN = "tests/golden/gpt2/pretoken_boundaries.jsonl"
+"""Reference piece boundaries for the gpt2 pattern over the fixtures."""
+
+comptime PATTERN_CL100K: Int = 0
+"""Scan with the cl100k_base pattern."""
+
+comptime PATTERN_O200K: Int = 1
+"""Scan with the o200k_base pattern."""
+
+comptime PATTERN_GPT2: Int = 2
+"""Scan with the gpt2 pattern.
+
+Three patterns serve seven encodings. These constants repeat the ones in
+knap.tokenizer rather than importing them, because the pre-tokenizer sits
+below the tokenizer and a test for the lower layer should not need the
+higher one to compile.
+"""
 
 
 def read_bytes(path: String) raises -> List[UInt8]:
@@ -178,12 +198,12 @@ def file_name_in(line: String) raises -> String:
     return String(unsafe_from_utf8=Span(out))
 
 
-def check_fixtures(golden_path: String, use_cl100k: Bool) raises -> Int:
+def check_fixtures(golden_path: String, pattern: Int) raises -> Int:
     """Compare the scanner against the reference for every fixture.
 
     Args:
         golden_path: Path to that encoding's fixture golden.
-        use_cl100k: True to scan with cl100k_base, false for o200k_base.
+        pattern: Which pattern to scan with, one of the PATTERN constants.
 
     Returns:
         The number of pieces compared.
@@ -216,9 +236,7 @@ def check_fixtures(golden_path: String, use_cl100k: Bool) raises -> Int:
 
         if name != current_name:
             if current_name != "":
-                compared += compare_one_fixture(
-                    current_name, expected, use_cl100k
-                )
+                compared += compare_one_fixture(current_name, expected, pattern)
             expected = List[Int]()
             current_name = name
         if index < len(lines):
@@ -228,14 +246,14 @@ def check_fixtures(golden_path: String, use_cl100k: Bool) raises -> Int:
 
 
 def compare_one_fixture(
-    name: String, expected: List[Int], use_cl100k: Bool
+    name: String, expected: List[Int], pattern: Int
 ) raises -> Int:
     """Scan one fixture and compare it against its reference lengths.
 
     Args:
         name: Bare fixture file name.
         expected: Reference piece lengths, in order.
-        use_cl100k: Which pattern to scan with.
+        pattern: Which pattern to scan with, one of the PATTERN constants.
 
     Returns:
         The number of pieces compared.
@@ -247,8 +265,10 @@ def compare_one_fixture(
     var data = read_bytes(path)
 
     var ends = List[Int]()
-    if use_cl100k:
+    if pattern == PATTERN_CL100K:
         scan_cl100k(Span(data), ends)
+    elif pattern == PATTERN_GPT2:
+        scan_gpt2(Span(data), ends)
     else:
         scan_o200k(Span(data), ends)
 
@@ -289,7 +309,7 @@ def test_cl100k_fixtures_match_the_reference() raises:
     Raises:
         Error: if any piece boundary differs from the reference.
     """
-    var compared = check_fixtures(String(CL100K_GOLDEN), True)
+    var compared = check_fixtures(String(CL100K_GOLDEN), PATTERN_CL100K)
     assert_true(
         compared > 100,
         String(t"only {compared} pieces compared, the fixtures look empty"),
@@ -302,7 +322,25 @@ def test_o200k_fixtures_match_the_reference() raises:
     Raises:
         Error: if any piece boundary differs from the reference.
     """
-    var compared = check_fixtures(String(O200K_GOLDEN), False)
+    var compared = check_fixtures(String(O200K_GOLDEN), PATTERN_O200K)
+    assert_true(
+        compared > 100,
+        String(t"only {compared} pieces compared, the fixtures look empty"),
+    )
+
+
+def test_gpt2_fixtures_match_the_reference() raises:
+    """Check gpt2 boundaries on every committed fixture.
+
+    Raises:
+        Error: if any piece boundary differs from the reference.
+
+    The fixtures are the edge cases: malformed UTF-8, long whitespace runs,
+    contraction forms, and scripts with no spaces. The gpt2 pattern treats
+    several of those differently from the other two, so a fixture set built
+    for cl100k_base is more useful here than it looks.
+    """
+    var compared = check_fixtures(String(GPT2_GOLDEN), PATTERN_GPT2)
     assert_true(
         compared > 100,
         String(t"only {compared} pieces compared, the fixtures look empty"),
@@ -328,6 +366,8 @@ def test_pattern_constants_survived_formatting() raises:
     assert_equal(CL100K_BASE_ALTERNATIVES, 8)
     assert_equal(String(O200K_BASE_PATTERN).byte_length(), 274)
     assert_equal(O200K_BASE_ALTERNATIVES, 7)
+    assert_equal(String(GPT2_PATTERN).byte_length(), 79)
+    assert_equal(GPT2_ALTERNATIVES, 7)
 
 
 def test_empty_input_produces_no_pieces() raises:

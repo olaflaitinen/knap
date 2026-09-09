@@ -93,7 +93,42 @@ def is_known_encoding(name: String) -> Bool:
     Returns:
         True when the name is supported.
     """
-    return name == "cl100k_base" or name == "o200k_base"
+    return (
+        name == "cl100k_base"
+        or name == "o200k_base"
+        or name == "o200k_harmony"
+        or name == "gpt2"
+        or name == "r50k_base"
+        or name == "p50k_base"
+        or name == "p50k_edit"
+    )
+
+
+def vocabulary_stem(encoding: String) -> String:
+    """Return the vocabulary file an encoding is loaded from.
+
+    Args:
+        encoding: The encoding name.
+
+    Returns:
+        The file stem, without the .tiktoken suffix.
+
+    Three of the seven encodings are not stored under their own name, so a
+    search for `<encoding>.tiktoken` would fail for them even when the right
+    file is sitting there.
+
+    o200k_harmony shares o200k_base's table and differs only in its special
+    tokens. p50k_edit shares p50k_base's. gpt2 is distributed upstream in a
+    format this tool does not read, and its merge ranks are byte identical
+    to r50k_base's, so it loads from that file instead.
+    """
+    if encoding == "o200k_harmony":
+        return String("o200k_base")
+    if encoding == "p50k_edit":
+        return String("p50k_base")
+    if encoding == "gpt2":
+        return String("r50k_base")
+    return encoding
 
 
 struct Options(Movable):
@@ -278,7 +313,8 @@ def parse_arguments(arguments: List[String]) -> Options:
                 if not is_known_encoding(value):
                     options.error = String(
                         t"unknown encoding '{value}'. This tool ships"
-                        t" cl100k_base and o200k_base."
+                        t" cl100k_base, o200k_base, o200k_harmony, gpt2,"
+                        t" r50k_base, p50k_base and p50k_edit."
                     )
                     return options^
                 options.encoding = value
@@ -366,7 +402,7 @@ def vocabulary_candidates(encoding: String, explicit: String) -> List[String]:
     without saying where it looked wastes the reader's time.
     """
     var candidates = List[String]()
-    var name = encoding + String(".tiktoken")
+    var name = vocabulary_stem(encoding) + String(".tiktoken")
 
     if explicit != "":
         candidates.append(explicit)
@@ -496,7 +532,7 @@ def usage() -> String:
     out += "  Given as an argument, with --file, or on standard input.\n"
     out += "  A lone - means standard input, spelled out.\n"
     out += "\nOPTIONS\n"
-    out += "  -e, --encoding NAME   cl100k_base or o200k_base."
+    out += "  -e, --encoding NAME   One of the seven below."
     out += " Default cl100k_base.\n"
     out += "  -f, --file PATH       Read the input from a file.\n"
     out += "      --vocab PATH      Use this vocabulary file.\n"
@@ -514,14 +550,26 @@ def usage() -> String:
     out += " safe for text that\n  came from somewhere else. Naming a marker"
     out += " with --allowed-special makes\n  it encode as its own id."
     out += " --strict-special makes any marker an error.\n"
+    out += "\nENCODINGS\n"
+    out += "  cl100k_base     GPT-4, GPT-3.5-turbo, text-embedding-ada-002\n"
+    out += "  o200k_base      GPT-4o and o1\n"
+    out += "  o200k_harmony   As o200k_base, with 1091 special tokens\n"
+    out += "  p50k_base       Codex, text-davinci-002 and 003\n"
+    out += "  p50k_edit       As p50k_base, with fill in the middle markers\n"
+    out += "  r50k_base       GPT-3, davinci\n"
+    out += "  gpt2            The same table as r50k_base\n"
     out += "\nVOCABULARIES\n"
-    out += "  Not bundled. They are looked for, in order, at:\n"
+    out += "  Not bundled, and four files serve the seven encodings:\n"
+    out += "    cl100k_base.tiktoken   cl100k_base\n"
+    out += "    o200k_base.tiktoken    o200k_base, o200k_harmony\n"
+    out += "    p50k_base.tiktoken     p50k_base, p50k_edit\n"
+    out += "    r50k_base.tiktoken     r50k_base, gpt2\n"
+    out += "  They are looked for, in order, at:\n"
     out += "    the path given to --vocab\n"
-    out += "    $KNAP_VOCAB_DIR/<encoding>.tiktoken\n"
-    out += "    $XDG_CACHE_HOME/knap/<encoding>.tiktoken,"
-    out += " or ~/.cache/knap/\n"
-    out += "    tests/fixtures/vocabs/<encoding>.tiktoken\n"
-    out += "    <encoding>.tiktoken in the working directory\n"
+    out += "    $KNAP_VOCAB_DIR/<file>\n"
+    out += "    $XDG_CACHE_HOME/knap/<file>, or ~/.cache/knap/\n"
+    out += "    tests/fixtures/vocabs/<file>\n"
+    out += "    <file> in the working directory\n"
     out += "\nEXIT STATUS\n"
     out += "  0  success\n"
     out += "  1  the command ran and failed\n"

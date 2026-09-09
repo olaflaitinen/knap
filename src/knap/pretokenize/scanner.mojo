@@ -60,6 +60,7 @@ from .classifier import (
 from .classifier_simd import (
     CLASS_ASCII_LOWER,
     CLASS_ASCII_UPPER,
+    CLASS_DIGIT,
     CLASS_LETTER,
     CLASS_PUNCTUATION,
     CLASS_WHITESPACE,
@@ -225,16 +226,26 @@ def _match_digits(data: Span[UInt8, _], start: Int, limit: Int) -> Int:
     return position - start
 
 
-def _match_punctuation(
-    data: Span[UInt8, _], start: Int, slash_in_tail: Bool
-) -> Int:
-    """Match an optional space, a punctuation run, then trailing breaks.
+comptime TAIL_NONE: Int = 0
+"""The punctuation run takes nothing after it. Used by the gpt2 pattern."""
+
+comptime TAIL_NEWLINE: Int = 1
+"""The punctuation run absorbs trailing line breaks. Used by cl100k_base."""
+
+comptime TAIL_NEWLINE_OR_SLASH: Int = 2
+"""Trailing line breaks and forward slashes. Used by o200k_base."""
+
+
+def _match_punctuation(data: Span[UInt8, _], start: Int, tail: Int) -> Int:
+    """Match an optional space, a punctuation run, then an optional tail.
 
     Args:
         data: The bytes being scanned.
         start: Offset to begin at.
-        slash_in_tail: True for o200k_base, whose trailing class also
-            accepts a forward slash.
+        tail: What the run absorbs after itself, as one of the TAIL
+            constants. The three patterns differ only here: gpt2 takes
+            nothing, cl100k_base takes line breaks, and o200k_base takes
+            line breaks and forward slashes.
 
     Returns:
         Bytes matched, or -1 when no punctuation follows.
@@ -263,12 +274,15 @@ def _match_punctuation(
     if position == run_start:
         return -1
 
+    if tail == TAIL_NONE:
+        return position - start
+
     while True:
         var step = read(data, position)
         if step.width == 0:
             break
         var accepted = has(step.flags, FLAG_NEWLINE)
-        if slash_in_tail and step.code_point == 0x2F:
+        if tail == TAIL_NEWLINE_OR_SLASH and step.code_point == 0x2F:
             accepted = True
         if not accepted:
             break
@@ -516,7 +530,7 @@ def scan_cl100k(data: Span[UInt8, _], mut ends: List[Int]) raises:
         if taken < 0:
             taken = _match_digits(data, position, 3)
         if taken < 0:
-            taken = _match_punctuation(data, position, False)
+            taken = _match_punctuation(data, position, TAIL_NEWLINE)
         if taken < 0:
             taken = _match_whitespace_to_end(data, position)
         if taken < 0:
@@ -770,7 +784,7 @@ def scan_o200k(data: Span[UInt8, _], mut ends: List[Int]) raises:
         if taken < 0:
             taken = _match_digits(data, position, 3)
         if taken < 0:
-            taken = _match_punctuation(data, position, True)
+            taken = _match_punctuation(data, position, TAIL_NEWLINE_OR_SLASH)
         if taken < 0:
             taken = _match_whitespace_then_newline(data, position)
         if taken < 0:
@@ -782,6 +796,197 @@ def scan_o200k(data: Span[UInt8, _], mut ends: List[Int]) raises:
             raise Error(
                 String(
                     t"knap: o200k scanner made no progress at byte"
+                    t" {position} of {length}"
+                )
+            )
+
+        position += taken
+        ends.append(position)
+
+
+# -----------------------------------------------------------------------------
+# gpt2
+#
+# Seven alternatives, tried in this order:
+#   0. '(?:[sdmt]|ll|ve|re)
+#   1.  ?\p{L}++
+#   2.  ?\p{N}++
+#   3.  ?[^\s\p{L}\p{N}]++
+#   4. \s++$
+#   5. \s+(?!\S)
+#   6. \s
+#
+# Four encodings share this pattern byte for byte: gpt2, r50k_base,
+# p50k_base and p50k_edit. They differ in their vocabularies and in their
+# special tokens, not in how text is split.
+#
+# It is the oldest of the three patterns and the simplest. Two differences
+# from cl100k_base are worth naming because they are easy to carry over by
+# mistake.
+#
+# The contraction group is case sensitive. cl100k_base writes (?i:...) and
+# folds, so it matches 'S and 'LL; this one does not, and 'S is punctuation
+# followed by a letter. The long s at U+017F, which the folding version
+# accepts, is a plain letter here.
+#
+# The number run is unbounded. cl100k_base and o200k_base both cap it at
+# three digits, so 1234 becomes two pieces; here it is one, however long.
+#
+# The last three alternatives are shared with cl100k_base and use the same
+# matchers.
+# -----------------------------------------------------------------------------
+
+
+def _match_gpt2_contraction(data: Span[UInt8, _], start: Int) -> Int:
+    """Match an apostrophe followed by a lowercase contraction ending.
+
+    Args:
+        data: The bytes being scanned.
+        start: Offset of the apostrophe.
+
+    Returns:
+        Bytes matched, or -1.
+
+    Case sensitive, unlike the cl100k_base version. This is the single most
+    likely place to introduce a divergence by copying the wrong matcher, so
+    it is written out separately rather than sharing one with a flag.
+    """
+    var quote = read(data, start)
+    if quote.width == 0 or quote.code_point != 0x27:
+        return -1
+
+    var position = start + quote.width
+    var first = read(data, position)
+    if first.width == 0:
+        return -1
+
+    var one = first.code_point
+    # The single character endings: s, d, m, t. Lowercase only.
+    if one == 0x73 or one == 0x64 or one == 0x6D or one == 0x74:
+        return (position + first.width) - start
+
+    var second = read(data, position + first.width)
+    if second.width == 0:
+        return -1
+    var two = second.code_point
+
+    var is_ll = one == 0x6C and two == 0x6C
+    var is_ve = one == 0x76 and two == 0x65
+    var is_re = one == 0x72 and two == 0x65
+    if is_ll or is_ve or is_re:
+        return (position + first.width + second.width) - start
+
+    return -1
+
+
+def _match_gpt2_letters(data: Span[UInt8, _], start: Int) -> Int:
+    """Match an optional space then a run of letters.
+
+    Args:
+        data: The bytes being scanned.
+        start: Offset to begin at.
+
+    Returns:
+        Bytes matched, or -1 when no letter follows.
+
+    The optional leading character is a literal space, not the wider class
+    cl100k_base uses. A punctuation mark before a letter therefore does not
+    join it here.
+    """
+    var position = start
+
+    var first = read(data, position)
+    if first.width == 0:
+        return -1
+    if first.code_point == SPACE:
+        position += first.width
+
+    var letters_start = position
+    position += _fast_forward[CLASS_LETTER](data, position)
+    while True:
+        var step = read(data, position)
+        if step.width == 0 or not has(step.flags, FLAG_LETTER):
+            break
+        position += step.width
+
+    if position == letters_start:
+        return -1
+    return position - start
+
+
+def _match_gpt2_numbers(data: Span[UInt8, _], start: Int) -> Int:
+    """Match an optional space then an unbounded run of numbers.
+
+    Args:
+        data: The bytes being scanned.
+        start: Offset to begin at.
+
+    Returns:
+        Bytes matched, or -1 when no number follows.
+
+    Unbounded, which is the difference from the other two patterns. A
+    fourteen digit number is one piece under this pattern and five under
+    cl100k_base, and that is not a rounding difference, it changes the token
+    count of anything numeric.
+    """
+    var position = start
+
+    var first = read(data, position)
+    if first.width == 0:
+        return -1
+    if first.code_point == SPACE:
+        position += first.width
+
+    var digits_start = position
+    position += _fast_forward[CLASS_DIGIT](data, position)
+    while True:
+        var step = read(data, position)
+        if step.width == 0 or not has(step.flags, FLAG_NUMBER):
+            break
+        position += step.width
+
+    if position == digits_start:
+        return -1
+    return position - start
+
+
+def scan_gpt2(data: Span[UInt8, _], mut ends: List[Int]) raises:
+    """Scan a byte sequence with the gpt2 pattern.
+
+    Args:
+        data: The bytes to scan.
+        ends: Receives the end offset of each piece, in order.
+
+    Raises:
+        Error: if the scanner fails to advance, which would mean a defect in
+            one of the alternative matchers rather than a property of the
+            input.
+
+    Shared by gpt2, r50k_base, p50k_base and p50k_edit. Empty input produces
+    no pieces, which matches the reference.
+    """
+    var position = 0
+    var length = len(data)
+
+    while position < length:
+        var taken = _match_gpt2_contraction(data, position)
+        if taken < 0:
+            taken = _match_gpt2_letters(data, position)
+        if taken < 0:
+            taken = _match_gpt2_numbers(data, position)
+        if taken < 0:
+            taken = _match_punctuation(data, position, TAIL_NONE)
+        if taken < 0:
+            taken = _match_whitespace_to_end(data, position)
+        if taken < 0:
+            taken = _match_whitespace_not_before_visible(data, position)
+        if taken < 0:
+            taken = _match_single_whitespace(data, position)
+
+        if taken <= 0:
+            raise Error(
+                String(
+                    t"knap: gpt2 scanner made no progress at byte"
                     t" {position} of {length}"
                 )
             )

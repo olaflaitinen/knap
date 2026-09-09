@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import gc
 import json
 import sys
 from datetime import datetime, timezone
@@ -52,7 +53,40 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GOLDEN_ROOT = REPO_ROOT / "tests" / "golden"
 
-WANTED = ("cl100k_base", "o200k_base")
+# All seven. Unlike the pattern work, there is no sharing to exploit here:
+# every encoding has its own merge ranks or its own special tokens, so every
+# one of them can produce a different token sequence for the same text.
+# Ordinary encoding is decided by the pattern and the merge ranks, and by
+# nothing else: special tokens take no part in it. Seven encodings therefore
+# produce four distinct outputs for the same text, and the corpus reference
+# is generated once per distinct output rather than once per name.
+#
+# The fixture references below are still written for all seven. They are a
+# few kilobytes each, and what they check is different: that each loader
+# picked the right vocabulary file and the right special tokens, which is
+# the failure a shared corpus file would hide.
+CORPUS_REPRESENTATIVES = (
+    "cl100k_base",
+    "o200k_base",
+    "gpt2",
+    "p50k_base",
+)
+
+CORPUS_ALIASES = {
+    "o200k_harmony": "o200k_base",
+    "r50k_base": "gpt2",
+    "p50k_edit": "p50k_base",
+}
+
+WANTED = (
+    "cl100k_base",
+    "o200k_base",
+    "o200k_harmony",
+    "gpt2",
+    "r50k_base",
+    "p50k_base",
+    "p50k_edit",
+)
 
 # The reader on the Mojo side is deliberately not a JSON parser. It relies on
 # these exact key names, on the absence of whitespace, and on base64 never
@@ -230,7 +264,7 @@ def write_corpus_encode_goldens() -> bool:
     text = CORPUS.read_bytes().decode("utf-8")
     print(f"  corpus: {len(text.encode()) / (1 << 20):.1f} MB of text")
 
-    for name in WANTED:
+    for name in CORPUS_REPRESENTATIVES:
         encoding = tiktoken.get_encoding(name)
         ids = encoding.encode_ordinary(text)
         packed = encode_varints(ids)
@@ -241,6 +275,19 @@ def write_corpus_encode_goldens() -> bool:
             f"{len(packed) / (1 << 20):.1f} MB packed -> "
             f"{destination.relative_to(REPO_ROOT)}"
         )
+        # Released before the next encoding starts. Holding two of these at
+        # once is over a gigabyte, and the first attempt at seven of them
+        # was killed by the kernel rather than finishing.
+        del ids
+        del packed
+        gc.collect()
+
+    for name, representative in CORPUS_ALIASES.items():
+        stale = CORPUS.parent / f"{name}_tokens.bin"
+        if stale.exists():
+            stale.unlink()
+        print(f"  {name}: same ordinary output as {representative}")
+
     return True
 
 

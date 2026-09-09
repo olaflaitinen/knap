@@ -1,12 +1,13 @@
 # =============================================================================
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : tests/test_decode.mojo
-# Purpose     : Milestone M1 gate. Decodes every token id in both target
-#               vocabularies and compares against a tiktoken golden fixture.
+# Purpose     : Milestone M1 gate. Decodes every token id in all seven
+#               shipped encodings and compares against a tiktoken fixture.
 # Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
 # Depends on  : knap.vocab, knap.flat_vocab, std.base64
 # Invariants  : Every id in the space is checked, including the ones tiktoken
 #               refuses. An id the reference rejects must raise here too.
+#               The number of refused ids is asserted exactly, not loosely.
 # -----------------------------------------------------------------------------
 # Author      : Olaf Yunus Laitinen Imanov <yunus.imanov@metropolia.fi>
 # ORCID       : 0009-0006-5184-0810
@@ -19,16 +20,28 @@
 """Decode parity tests for Knap.
 
 This file is the milestone M1 acceptance gate. It decodes every single token
-id in cl100k_base and o200k_base and compares the bytes against a fixture
-generated from tiktoken by scripts/gen_encode_golden.py.
+id in all seven shipped encodings, 702463 ids in total, and compares the
+bytes against a fixture generated from tiktoken by
+scripts/gen_encode_golden.py.
 
 Two properties are checked, and the second matters as much as the first:
 
   1. Every assigned id decodes to byte identical output.
-  2. Every unassigned id raises. Both encodings leave holes in their id
-     space, and an implementation that helpfully returned empty bytes for a
-     hole would diverge from the reference exactly where a caller most needs
-     to be told something is wrong.
+  2. Every unassigned id raises. An implementation that helpfully returned
+     empty bytes for a hole would diverge from the reference exactly where a
+     caller most needs to be told something is wrong.
+
+The count of holes is asserted exactly rather than as "at least one", which
+is what this file used to do. That was written when only two encodings were
+shipped and both had holes. Four of the seven have none: gpt2, r50k_base,
+p50k_base and p50k_edit fill their id space completely, and o200k_harmony
+fills every one of the nineteen holes o200k_base leaves, because its 1091
+special tokens land on exactly those ids and then continue past them.
+
+A loose assertion would have passed on all seven while checking nothing on
+four of them. The exact counts are 16 for cl100k_base, 19 for o200k_base,
+and zero for the rest, and each was read off the reference rather than
+predicted.
 
 Run it after fetching the vocabularies and generating the goldens:
 
@@ -40,7 +53,16 @@ Run it after fetching the vocabularies and generating the goldens:
 from std.base64 import b64decode
 from std.testing import assert_equal, assert_true, TestSuite
 
-from knap.vocab import Vocabulary, load_cl100k_base, load_o200k_base
+from knap.vocab import (
+    Vocabulary,
+    load_cl100k_base,
+    load_gpt2,
+    load_o200k_base,
+    load_o200k_harmony,
+    load_p50k_base,
+    load_p50k_edit,
+    load_r50k_base,
+)
 
 # Paths are relative to the repository root, which is where the test runner
 # is expected to be invoked from.
@@ -55,6 +77,29 @@ comptime CL100K_GOLDEN = "tests/golden/cl100k_base/decode_single_tokens.jsonl"
 
 comptime O200K_GOLDEN = "tests/golden/o200k_base/decode_single_tokens.jsonl"
 """Path to the generated o200k_base decode golden fixture."""
+
+comptime R50K_VOCAB = "tests/fixtures/vocabs/r50k_base.tiktoken"
+"""Path to the fetched r50k_base merge vocabulary, shared with gpt2."""
+
+comptime P50K_VOCAB = "tests/fixtures/vocabs/p50k_base.tiktoken"
+"""Path to the fetched p50k_base vocabulary, shared with p50k_edit."""
+
+comptime HARMONY_GOLDEN = (
+    "tests/golden/o200k_harmony/decode_single_tokens.jsonl"
+)
+"""Path to the generated o200k_harmony decode golden fixture."""
+
+comptime GPT2_GOLDEN = "tests/golden/gpt2/decode_single_tokens.jsonl"
+"""Path to the generated gpt2 decode golden fixture."""
+
+comptime R50K_GOLDEN = "tests/golden/r50k_base/decode_single_tokens.jsonl"
+"""Path to the generated r50k_base decode golden fixture."""
+
+comptime P50K_GOLDEN = "tests/golden/p50k_base/decode_single_tokens.jsonl"
+"""Path to the generated p50k_base decode golden fixture."""
+
+comptime P50K_EDIT_GOLDEN = "tests/golden/p50k_edit/decode_single_tokens.jsonl"
+"""Path to the generated p50k_edit decode golden fixture."""
 
 
 @fieldwise_init
@@ -134,13 +179,16 @@ def parse_golden_line(line: String) raises -> GoldenEntry:
 
 
 def check_vocabulary_against_golden(
-    vocabulary: Vocabulary, golden_path: String
+    vocabulary: Vocabulary, golden_path: String, expected_holes: Int
 ) raises -> Int:
     """Compare every id in one vocabulary against its golden fixture.
 
     Args:
         vocabulary: The loaded vocabulary under test.
         golden_path: Path to that encoding's decode golden.
+        expected_holes: How many ids the reference refuses to decode. It is
+            asserted exactly, so a fixture that lost its holes fails here
+            instead of quietly weakening the gate.
 
     Returns:
         The number of ids checked.
@@ -220,13 +268,18 @@ def check_vocabulary_against_golden(
             )
         checked += 1
 
-    # A fixture that somehow contained no holes would silently weaken the
-    # second half of this gate, so the absence of holes is itself an error.
-    assert_true(
-        unassigned_seen > 0,
+    # The number of holes is part of the fixture, not an incidental detail.
+    # An earlier version of this asserted only that there was at least one,
+    # which was true of the two encodings shipped at the time and is false
+    # of four of the seven shipped now. The exact count keeps the second
+    # half of the gate meaningful for every encoding, including the ones
+    # whose id space is completely full.
+    assert_equal(
+        unassigned_seen,
+        expected_holes,
         String(
-            t"golden '{golden_path}' recorded no unassigned ids, but both"
-            t" target encodings have gaps in their id space"
+            t"golden '{golden_path}' recorded {unassigned_seen} unassigned"
+            t" ids, expected {expected_holes}"
         ),
     )
     return checked
@@ -249,7 +302,7 @@ def test_cl100k_base_decodes_byte_identically() raises:
     assert_equal(vocabulary.id_space_size(), 100277)
 
     var checked = check_vocabulary_against_golden(
-        vocabulary, String(CL100K_GOLDEN)
+        vocabulary, String(CL100K_GOLDEN), 16
     )
     assert_equal(checked, 100277)
 
@@ -266,9 +319,115 @@ def test_o200k_base_decodes_byte_identically() raises:
     assert_equal(vocabulary.id_space_size(), 200019)
 
     var checked = check_vocabulary_against_golden(
-        vocabulary, String(O200K_GOLDEN)
+        vocabulary, String(O200K_GOLDEN), 19
     )
     assert_equal(checked, 200019)
+
+
+def test_o200k_harmony_decodes_byte_identically() raises:
+    """Check every o200k_harmony token id against the tiktoken reference.
+
+    Raises:
+        Error: if any id decodes differently, or if the vocabulary or the
+            golden fixture is missing.
+
+    The largest id space of the seven, and the only one where the special
+    tokens do most of the work: 1091 of them, against o200k_base's two. They
+    land on every one of the nineteen ids o200k_base leaves empty and then
+    continue to 201087, so this encoding has no holes at all.
+    """
+    var vocabulary = load_o200k_harmony(String(O200K_VOCAB))
+    assert_equal(vocabulary.merge_count(), 199998)
+    assert_equal(vocabulary.id_space_size(), 201088)
+
+    var checked = check_vocabulary_against_golden(
+        vocabulary, String(HARMONY_GOLDEN), 0
+    )
+    assert_equal(checked, 201088)
+
+
+def test_gpt2_decodes_byte_identically() raises:
+    """Check every gpt2 token id against the tiktoken reference.
+
+    Raises:
+        Error: if any id decodes differently, or if the vocabulary or the
+            golden fixture is missing.
+
+    Loaded from r50k_base.tiktoken, because the merge ranks are byte
+    identical and Knap does not read the GPT-2 era pair of files. This gate
+    is what makes that claim testable rather than asserted: if the two
+    tables differed anywhere, some id here would decode to the wrong bytes.
+    """
+    var vocabulary = load_gpt2(String(R50K_VOCAB))
+    assert_equal(vocabulary.merge_count(), 50256)
+    assert_equal(vocabulary.id_space_size(), 50257)
+
+    var checked = check_vocabulary_against_golden(
+        vocabulary, String(GPT2_GOLDEN), 0
+    )
+    assert_equal(checked, 50257)
+
+
+def test_r50k_base_decodes_byte_identically() raises:
+    """Check every r50k_base token id against the tiktoken reference.
+
+    Raises:
+        Error: if any id decodes differently, or if the vocabulary or the
+            golden fixture is missing.
+    """
+    var vocabulary = load_r50k_base(String(R50K_VOCAB))
+    assert_equal(vocabulary.merge_count(), 50256)
+    assert_equal(vocabulary.id_space_size(), 50257)
+
+    var checked = check_vocabulary_against_golden(
+        vocabulary, String(R50K_GOLDEN), 0
+    )
+    assert_equal(checked, 50257)
+
+
+def test_p50k_base_decodes_byte_identically() raises:
+    """Check every p50k_base token id against the tiktoken reference.
+
+    Raises:
+        Error: if any id decodes differently, or if the vocabulary or the
+            golden fixture is missing.
+
+    The encoding that motivated the reserved id path. Its merge ranks are
+    not dense: rank 50256 holds no merge token because the special token
+    sits there, and the merges resume at 50257 and run to 50280. Every other
+    shipped encoding puts its specials above the merges instead.
+
+    So the id space has no holes even though the merge table does, and this
+    gate checks both halves of that at once.
+    """
+    var vocabulary = load_p50k_base(String(P50K_VOCAB))
+    assert_equal(vocabulary.merge_count(), 50281)
+    assert_equal(vocabulary.id_space_size(), 50281)
+
+    var checked = check_vocabulary_against_golden(
+        vocabulary, String(P50K_GOLDEN), 0
+    )
+    assert_equal(checked, 50281)
+
+
+def test_p50k_edit_decodes_byte_identically() raises:
+    """Check every p50k_edit token id against the tiktoken reference.
+
+    Raises:
+        Error: if any id decodes differently, or if the vocabulary or the
+            golden fixture is missing.
+
+    The same vocabulary file as p50k_base with three fill in the middle
+    markers stacked above it, so the id space runs three further.
+    """
+    var vocabulary = load_p50k_edit(String(P50K_VOCAB))
+    assert_equal(vocabulary.merge_count(), 50281)
+    assert_equal(vocabulary.id_space_size(), 50284)
+
+    var checked = check_vocabulary_against_golden(
+        vocabulary, String(P50K_EDIT_GOLDEN), 0
+    )
+    assert_equal(checked, 50284)
 
 
 def test_multi_token_sequences_concatenate() raises:

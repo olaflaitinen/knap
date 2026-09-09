@@ -79,7 +79,12 @@ from args import (
 from knap.tokenizer import (
     Tokenizer,
     load_cl100k_base_tokenizer,
+    load_gpt2_tokenizer,
     load_o200k_base_tokenizer,
+    load_o200k_harmony_tokenizer,
+    load_p50k_base_tokenizer,
+    load_p50k_edit_tokenizer,
+    load_r50k_base_tokenizer,
 )
 
 
@@ -198,6 +203,16 @@ def load(options: Options) raises -> Tokenizer:
     var path = resolve_vocabulary(options)
     if options.encoding == "o200k_base":
         return load_o200k_base_tokenizer(path)
+    if options.encoding == "o200k_harmony":
+        return load_o200k_harmony_tokenizer(path)
+    if options.encoding == "gpt2":
+        return load_gpt2_tokenizer(path)
+    if options.encoding == "r50k_base":
+        return load_r50k_base_tokenizer(path)
+    if options.encoding == "p50k_base":
+        return load_p50k_base_tokenizer(path)
+    if options.encoding == "p50k_edit":
+        return load_p50k_edit_tokenizer(path)
     return load_cl100k_base_tokenizer(path)
 
 
@@ -284,9 +299,10 @@ def show_vocabulary(tokenizer: Tokenizer, options: Options) raises:
         n_vocab = past_specials
 
     print("encoding:", options.encoding)
-    # One past the highest assigned id, which is not the count of decodable
-    # ids. Both encodings leave holes, because the special tokens do not sit
-    # flush against the merge ranks.
+    # One past the highest assigned id, which is not always the count of
+    # decodable ids. cl100k_base and o200k_base leave holes, because their
+    # special tokens do not sit flush against the merge ranks. The other
+    # five have none.
     print("n_vocab:", n_vocab)
     print("merge tokens:", merges)
     print("merge ranks:", tokenizer.ranks.size())

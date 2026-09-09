@@ -185,6 +185,7 @@ Error construction for Knap.
 | `def token_id_out_of_range(token_id: Int, vocabulary_size: Int) -> Error` | Build the error for a token id with no entry in the vocabulary. |
 | `def special_token_disallowed(name: String) -> Error` | Build the error for a disallowed special token found in input. |
 | `def special_token_unknown(name: String) -> Error` | Build the error for a special token the vocabulary does not define. |
+| `def token_id_unassigned(token_id: Int) -> Error` | Build the error for an id that is reserved rather than assigned. |
 
 ### `flat_vocab`
 
@@ -203,6 +204,7 @@ Contiguous storage for every token byte string in a vocabulary.
 | Method | Description |
 | --- | --- |
 | `def size(self) -> Int` | Return the number of token ids this vocabulary defines. |
+| `def is_assigned(self, token_id: Int) -> Bool` | Report whether an id has bytes behind it. |
 | `def token_length(self, token_id: Int) -> Int` | Return the byte length of one token. |
 | `def token_bytes(self, token_id: Int) -> List[UInt8]` | Return a copy of one token's bytes. |
 | `def append_token(self, token_id: Int, mut out: List[UInt8])` | Append one token's bytes to a caller supplied buffer. |
@@ -260,6 +262,10 @@ The special tokens an encoding defines.
 | --- | --- |
 | `def cl100k_base_specials() -> SpecialTokens` | Build the special token registry for cl100k_base. |
 | `def o200k_base_specials() -> SpecialTokens` | Build the special token registry for o200k_base. |
+| `def gpt2_specials() -> SpecialTokens` | Build the special token registry for gpt2 and r50k_base. |
+| `def p50k_base_specials() -> SpecialTokens` | Build the special token registry for p50k_base. |
+| `def p50k_edit_specials() -> SpecialTokens` | Build the special token registry for p50k_edit. |
+| `def o200k_harmony_specials() -> SpecialTokens` | Build the special token registry for o200k_harmony. |
 
 ### `tokenizer`
 
@@ -270,6 +276,7 @@ The Knap tokenizer.
 | `BYTES_PER_TOKEN` | A low estimate of how many input bytes one token consumes. |
 | `PATTERN_CL100K` | Selects the cl100k_base pre-tokenization pattern. |
 | `PATTERN_O200K` | Selects the o200k_base pre-tokenization pattern. |
+| `PATTERN_GPT2` | Selects the gpt2 pre-tokenization pattern. |
 
 #### `Tokenizer`
 
@@ -303,6 +310,11 @@ A loaded encoding, ready to encode and decode.
 | `def estimated_tokens(byte_count: Int) -> Int` | Estimate how many tokens a byte count will produce. |
 | `def load_cl100k_base_tokenizer(path: String) -> Tokenizer` | Load a cl100k_base tokenizer from its vocabulary file. |
 | `def load_o200k_base_tokenizer(path: String) -> Tokenizer` | Load an o200k_base tokenizer from its vocabulary file. |
+| `def load_o200k_harmony_tokenizer(path: String) -> Tokenizer` | Load an o200k_harmony tokenizer from the o200k_base vocabulary file. |
+| `def load_gpt2_tokenizer(path: String) -> Tokenizer` | Load a gpt2 tokenizer from the r50k_base vocabulary file. |
+| `def load_r50k_base_tokenizer(path: String) -> Tokenizer` | Load an r50k_base tokenizer from its vocabulary file. |
+| `def load_p50k_base_tokenizer(path: String) -> Tokenizer` | Load a p50k_base tokenizer from its vocabulary file. |
+| `def load_p50k_edit_tokenizer(path: String) -> Tokenizer` | Load a p50k_edit tokenizer from the p50k_base vocabulary file. |
 
 ### `vocab`
 
@@ -333,6 +345,11 @@ A complete encoding: merge tokens, special tokens, and its name.
 | `def load_tiktoken(path: String) -> FlatVocab` | Load a .tiktoken vocabulary file into a FlatVocab. |
 | `def load_cl100k_base(path: String) -> Vocabulary` | Load the cl100k_base encoding from its .tiktoken file. |
 | `def load_o200k_base(path: String) -> Vocabulary` | Load the o200k_base encoding from its .tiktoken file. |
+| `def load_o200k_harmony(path: String) -> Vocabulary` | Load the o200k_harmony encoding from the o200k_base .tiktoken file. |
+| `def load_gpt2(path: String) -> Vocabulary` | Load the gpt2 encoding from the r50k_base .tiktoken file. |
+| `def load_r50k_base(path: String) -> Vocabulary` | Load the r50k_base encoding from its .tiktoken file. |
+| `def load_p50k_base(path: String) -> Vocabulary` | Load the p50k_base encoding from its .tiktoken file. |
+| `def load_p50k_edit(path: String) -> Vocabulary` | Load the p50k_edit encoding from the p50k_base .tiktoken file. |
 
 ### `classifier`
 
@@ -387,10 +404,19 @@ Pre-tokenization patterns, extracted from tiktoken.
 | `O200K_BASE_PATTERN` | The o200k_base pre-tokenization pattern, verbatim. |
 | `O200K_BASE_PATTERN_SHA256` | SHA-256 of the o200k_base pattern, for drift detection. |
 | `O200K_BASE_ALTERNATIVES` | Number of top level alternatives in the o200k_base pattern. |
+| `GPT2_PATTERN` | The gpt2 pre-tokenization pattern, verbatim. |
+| `GPT2_PATTERN_SHA256` | SHA-256 of the gpt2 pattern, for drift detection. |
+| `GPT2_ALTERNATIVES` | Number of top level alternatives in the gpt2 pattern. |
 
 ### `scanner`
 
 Pre-tokenization scanners for Knap.
+
+| Constant | Description |
+| --- | --- |
+| `TAIL_NONE` | The punctuation run takes nothing after it. Used by the gpt2 pattern. |
+| `TAIL_NEWLINE` | The punctuation run absorbs trailing line breaks. Used by cl100k_base. |
+| `TAIL_NEWLINE_OR_SLASH` | Trailing line breaks and forward slashes. Used by o200k_base. |
 
 #### `Step`
 
@@ -407,6 +433,7 @@ One decoded position: its code point, its width, and its classes.
 | `def read(data: Span[UInt8], index: Int) -> Step` | Decode and classify the position at one byte offset. |
 | `def scan_cl100k(data: Span[UInt8], mut ends: List[Int])` | Scan a byte sequence with the cl100k_base pattern. |
 | `def scan_o200k(data: Span[UInt8], mut ends: List[Int])` | Scan a byte sequence with the o200k_base pattern. |
+| `def scan_gpt2(data: Span[UInt8], mut ends: List[Int])` | Scan a byte sequence with the gpt2 pattern. |
 
 ### `unicode_tables`
 

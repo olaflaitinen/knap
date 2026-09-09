@@ -188,6 +188,35 @@ def special_token_unknown(name: String) -> Error:
     )
 
 
+def token_id_unassigned(token_id: Int) -> Error:
+    """Build the error for an id that is reserved rather than assigned.
+
+    Args:
+        token_id: The id that was asked for.
+
+    Returns:
+        An error naming the id.
+
+    Distinct from an out of range id, because the two mean different things
+    to a caller. Out of range says the id cannot exist in this encoding.
+    This says it exists in the space and nothing was put there.
+
+    Two different things reach this. The merge table raises it for a
+    reserved rank, which happens once, at p50k_base's 50256. A vocabulary
+    raises it for an id that is neither an assigned merge nor a special,
+    which is the sixteen holes in cl100k_base and the nineteen in
+    o200k_base. p50k_base's 50256 is not one of those: its special token
+    fills the hole, so the merge table refuses the rank and the vocabulary
+    answers with the marker.
+    """
+    return Error(
+        String(
+            t"knap: token id {token_id} is reserved and has no bytes. It is"
+            t" inside the id space but nothing is assigned to it."
+        )
+    )
+
+
 # =============================================================================
 # End of file: src/knap/errors.mojo
 # =============================================================================

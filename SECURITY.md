@@ -78,7 +78,7 @@ What to include, in rough order of usefulness:
 
 - The exact input bytes, as lowercase hexadecimal. A report about a byte
   sequence that cannot be reproduced byte for byte cannot be fixed.
-- Which encoding, `cl100k_base` or `o200k_base`, and which entry point.
+- Which of the seven encodings, and which entry point.
 - What happened and what should have happened.
 - The Knap version or commit, and the Mojo toolchain version.
 - Whether it reproduces under `--sanitize address`, and what the sanitizer

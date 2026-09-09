@@ -128,3 +128,14 @@ jobs:
       - name: Drive Knap over generated input, o200k_base
         run: |
           "${RUNNER_TEMP}/asan_solo" 11 50000 tests/fixtures/vocabs/o200k_base.tiktoken o200k_base
+
+      # The third pattern and the encoding with a reserved merge rank. The
+      # two above exercise neither, and a sanitizer run that never reaches
+      # a code path says nothing about it.
+      - name: Drive Knap over generated input, gpt2
+        run: |
+          "${RUNNER_TEMP}/asan_solo" 13 50000 tests/fixtures/vocabs/r50k_base.tiktoken gpt2
+
+      - name: Drive Knap over generated input, p50k_base
+        run: |
+          "${RUNNER_TEMP}/asan_solo" 17 50000 tests/fixtures/vocabs/p50k_base.tiktoken p50k_base

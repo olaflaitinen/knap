@@ -46,8 +46,13 @@ body:
       options:
         - cl100k_base
         - o200k_base
-        - Both, with the same input
-        - Both, with different inputs
+        - o200k_harmony
+        - p50k_base
+        - p50k_edit
+        - r50k_base
+        - gpt2
+        - More than one, with the same input
+        - More than one, with different inputs
         - An encoding Knap does not ship, loaded from my own vocabulary file
         - I do not know
     validations:

@@ -26,7 +26,7 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-07 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -221,19 +221,23 @@ in both vocabularies byte identically against `tiktoken`, passes for all
 | Decode | Byte exact over both encodings, including the gaps, which raise. Extended to all seven at M7. |
 | Special token registry | `src/knap/special.mojo`, ids cross checked by decoding each to its own literal text. |
 | EmberJson evaluated | Passed both acceptance criteria. Decision recorded in `docs/ARCHITECTURE.md`. |
-| Suite under ASan | All 26 tests pass with `--sanitize address`. |
+| Suite under ASan | The whole suite as it stood at M1, 26 tests, passed with `--sanitize address`. The suite is now 19 files and 138 tests and `sanitize.yml` still runs all of it. |
 
 The M0 conditions, for the record:
+
+Every figure in this table is what was true at M0 and is kept at that value
+deliberately, because the table records a gate being passed on a date. Where
+the number has since moved, the current value is given beside it.
 
 | M0 condition | Evidence |
 | --- | --- |
 | Agent skills installed | Four Mojo skills installed from the Modular repository. |
 | Mojo VS Code extension installed | Version 26.6.1. |
-| Toolchain pinned and working | Mojo 1.0.0 build `ed45d567`, installed by uv and independently by pixi. |
-| A Mojo file compiles and runs | `tests/test_toolchain.mojo`, four tests, all passing. |
+| Toolchain pinned and working | Mojo 1.0.0 build `ed45d567`, installed by uv and independently by pixi. Unchanged since. |
+| A Mojo file compiles and runs | `tests/test_toolchain.mojo`, four tests, all passing. It now carries seven, the three additions pinning findings that were nearly recorded as toolchain limitations. |
 | Test runner wired up | Standard library `TestSuite`, since `mojo test` does not exist in 1.0.0. |
-| Standards scripts written and passing | Four scripts, each demonstrated to fail on a planted violation. |
-| Unstable API inventory captured | 108 uses across 22 APIs, recorded in `docs/ARCHITECTURE.md`. |
+| Standards scripts written and passing | Four scripts, each demonstrated to fail on a planted violation once, by hand. There are now nine, and the demonstration is automated: `scripts/selftest_gates.py` plants a violation for the five prose and citation gates on every push, and `scripts/check_recipe.py --selftest` plants seven for the recipe gate. |
+| Unstable API inventory captured | 108 uses across 22 APIs, recorded in `docs/ARCHITECTURE.md`. At M9 it reads 35957 uses across 86 APIs over 19 compiled targets, which measures code written rather than risk added. |
 | Sanitizer job proven | `--sanitize address` builds and runs the suite clean. |
 
 ## Files not yet written
@@ -383,7 +387,7 @@ them just as thoroughly as a signature change would.
 | Next | [README.md](../README.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-07 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

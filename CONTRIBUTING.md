@@ -26,8 +26,9 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-07 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 
@@ -142,15 +143,38 @@ Mojo 1.0.0 removed the `mojo test` subcommand. A test file is an ordinary
 program whose `main` drives a `TestSuite`, so tests are run directly:
 
 ```bash
-uv run mojo run tests/test_toolchain.mojo
+uv run mojo run -I src -I cli tests/test_toolchain.mojo
 ```
 
-The pointer heavy paths must also pass under the address sanitizer, and the
-parallel batch encode paths under the thread sanitizer:
+The suite is 19 files and 138 tests. Two of them, `tests/test_encode_corpus.mojo`
+and `tests/test_pretokenize_corpus.mojo`, need the 110 MB corpus and run on a
+schedule in `corpus.yml` rather than on every push. The rest run in a loop:
 
 ```bash
-uv run mojo build --sanitize address -o /tmp/t tests/test_toolchain.mojo && /tmp/t
+uv run python scripts/fetch_vocabs.py
+for f in tests/*.mojo; do
+  case "$f" in *_corpus.mojo) continue ;; esac
+  uv run mojo run -I src -I cli "$f"
+done
 ```
+
+The examples are executed too, because nothing else in the repository runs
+them and an example that is never run rots at the first signature change:
+
+```bash
+uv run mojo run -I src examples/budget.mojo 2048 LICENSE CODE_OF_CONDUCT.md
+uv run mojo run -I src examples/chunker.mojo LICENSE 128 16
+```
+
+The pointer heavy paths must also pass under the address sanitizer:
+
+```bash
+uv run mojo build --sanitize address -I src -o /tmp/t tests/test_toolchain.mojo && /tmp/t
+```
+
+There is no thread sanitizer job, and the reason is worth knowing rather
+than rediscovering: Mojo 1.0.0 has no working task parallelism, so there is
+no multi threaded path to sanitize. See [docs/TOOLCHAIN.md](docs/TOOLCHAIN.md).
 
 A failure found under a sanitizer is a different and more urgent class of bug
 than a plain failure, because a memory error can produce correct output on one
@@ -158,9 +182,22 @@ run and corruption on the next. Say which mode found it.
 
 ## Running the fuzzer
 
-The differential fuzzer arrives at M4 and is not yet present. When it lands it
-will drive Knap and `tiktoken` in one process, which is possible because Mojo
-installs as an ordinary Python package and both live in the same environment.
+The differential fuzzer drives Knap and `tiktoken` in one process, which is
+possible because Mojo installs as an ordinary Python package and both live in
+the same environment. No subprocess boundary means no ambiguity about which
+reference version produced a token list.
+
+```bash
+uv run python tests/fuzz/run_fuzz.py --total 1000000
+uv run python tests/fuzz/run_fuzz.py --total 100000 --sanitize address
+```
+
+It takes every encoding, and the nightly job in `fuzz.yml` runs all seven at
+ten million inputs each. The reports committed to this repository are the
+narrower pair that the documents quote, and
+`scripts/check_fuzz_claims.py` fails the build if prose quotes a figure the
+committed reports do not contain. That is why widening a fuzzing claim means
+committing the run that supports it, not editing the sentence.
 
 Report every fuzz run with its seed and the exact `tiktoken` version. A run
 without a seed cannot be reproduced and is not evidence. Any input that once
@@ -176,10 +213,11 @@ catch you out:
 | --- | --- |
 | No em-dash | Anywhere, including commit messages and error strings. |
 | No emoji | Anywhere. |
-| ASCII only | Except `LICENSE`, `tests/fixtures/`, and LaTeX math spans. |
+| ASCII only | Except `LICENSE`, `tests/fixtures/`, LaTeX math spans, and raster artwork under `docs/assets/`. |
 | No exclamation marks | In documentation prose. |
 | Banner and closing marker | On every `.mojo` and `.py` file. The `File` field must match the real path. |
-| Markdown header and footer | On every `.md` file except `README.md`. |
+| Markdown header and footer | On every `.md` file except `README.md` and `.github/PULL_REQUEST_TEMPLATE.md`. |
+| Metadata table | Twelve fields in a fixed order, ending `Licence` then `Website`. |
 | No placeholders | Every committed file is complete and working, or it does not exist. |
 
 If you need to write a banned character in code that must detect it, use a
@@ -266,7 +304,7 @@ no exception at all where it is neither.
 | Next | [AUTHORS.md](AUTHORS.md) |
 | Index | [README.md](README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-07 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

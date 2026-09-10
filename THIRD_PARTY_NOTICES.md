@@ -26,8 +26,9 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-07 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 
@@ -60,6 +61,14 @@ repository. Behaviour is reimplemented from specification and from observed
 output, and the one artefact taken programmatically, the pre-tokenization
 pattern, is extracted as a functional specification with its provenance
 recorded in the generated file.
+
+This document is written for a person. `sbom.cdx.json` is the same
+information for a tool: a CycloneDX 1.6 bill of materials generated from
+`uv.lock` by `scripts/gen_sbom.py` and gated for drift, in which the second
+category above carries the CycloneDX scope `excluded` and the distributed
+artefact's runtime dependency set is recorded as empty. The bill is derived
+mechanically; this document is where the reasoning behind the categories
+lives. See [docs/PACKAGING.md](docs/PACKAGING.md).
 
 ## Runtime dependencies
 
@@ -150,7 +159,7 @@ exemption and mangle a legal instrument.
 | Next | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Index | [README.md](README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-07 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

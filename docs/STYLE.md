@@ -26,8 +26,9 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-07 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 
@@ -211,6 +212,13 @@ Both exemptions are from the table and the footer only. Both still carry the
 licence header, as an HTML comment that is invisible when rendered, and both
 remain subject to every heading and link rule.
 
+The table has twelve fields and the order is checked as well as the presence,
+because a table read out of order is harder to scan across documents. The
+`Website` row was added late, once nine documents carried it and sixteen did
+not, and it is enforced rather than encouraged for the reason every rule here
+is enforced: a field most documents have and some do not is worse than one
+nobody has, since a reader cannot tell an absence from an oversight.
+
 ### The wordmark
 
 Every document listed in `scripts/check_md_headers.py` carries the wordmark
@@ -271,6 +279,7 @@ The header, in this order:
 | Created | YYYY-MM-DD |
 | Updated | YYYY-MM-DD |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 ```
 
 The footer, in this order, at the end of every non-README document:
@@ -316,20 +325,40 @@ equation. Define every symbol in the surrounding prose.
 
 ## Enforcement scripts
 
+Nine scripts refuse something. The first five are the prose and structure
+gates this document is about; the other four are listed because a reader
+asking what can refuse a commit should find the whole answer in one place.
+
 | Script | Enforces |
 | --- | --- |
-| `scripts/lint_style.py` | Em-dash, emoji, ASCII, exclamation marks, with the three exemptions. |
+| `scripts/lint_style.py` | Em-dash, emoji, ASCII, exclamation marks, with the four exemptions. |
 | `scripts/check_file_banners.py` | Source banner fields, field order, path match, and closing marker. |
 | `scripts/check_md_headers.py` | Markdown header, metadata table, headings, fences, links, footer. |
 | `scripts/check_spdx.py` | SPDX identifier in every tracked source, script, and document. |
+| `scripts/check_toolchain_doc.py` | Every file `docs/TOOLCHAIN.md` cites exists, and the compiler version it was verified against is the one still pinned. |
+| `scripts/check_generated.py` | The four committed generated files match what their generators produce now. |
+| `scripts/check_fuzz_claims.py` | Every fuzzing figure quoted in prose appears in a committed run report. |
+| `scripts/check_reference.py` | Each fetched vocabulary matches the digest recorded when it was fetched, and the reference version matches what the documents quote. |
+| `scripts/check_recipe.py` | The conda recipe agrees with `CITATION.cff`, `pixi.toml` and `pyproject.toml`, and its source revision is a commit this repository has. |
 
-All four run in CI on every push and are wired in from the first commit.
-Standards that arrive after the code never get applied retroactively.
+All nine run in CI on every push, and the first four were wired in from the
+first commit. Standards that arrive after the code never get applied
+retroactively.
 
-Each script accepts explicit paths for a fast local check of one file, and
-defaults to every file git considers in scope. That set is deliberately
+The first five accept explicit paths for a fast local check of one file, and
+default to every file git considers in scope. That set is deliberately
 `--cached --others --exclude-standard`, so a file that is written but not yet
 added is checked, while build outputs and fetched vocabularies never are.
+
+**A gate that has never been observed failing is not known to work.**
+`scripts/selftest_gates.py` plants one specific violation per gate, asserts
+it is rejected, then feeds the same gate a clean control and asserts that is
+accepted. Both halves are needed, because a gate that rejects everything is
+exactly as useless as one that rejects nothing and only the second half
+catches it. It currently runs seven planted violations across those five
+gates, and `scripts/check_recipe.py --selftest` plants seven more for the
+recipe gate. Adding a gate without adding its planted violation is how a
+gate quietly stops working.
 
 ## When a rule and its script disagree
 
@@ -350,7 +379,7 @@ and add the case that was mishandled to whatever tests the script has.
 | Next | [docs/ROADMAP.md](ROADMAP.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-07 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

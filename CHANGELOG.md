@@ -26,8 +26,9 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-08 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 
@@ -75,6 +76,68 @@ published.
 One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
 untouched.
+
+### Fixed, a documentation audit that found stale figures in eight documents
+
+Every Markdown file in the repository was read against the code it describes.
+What follows is what disagreed, because a list of corrections is more useful
+than a claim that everything is current.
+
+- **The unstable API inventory was three milestones out of date.**
+  `docs/ARCHITECTURE.md` reported M6: 14 targets, 17220 uses, 78 distinct
+  APIs. It now reports M9: 19 targets, 35957 uses, 86 APIs, with the top of
+  the per API table regenerated and the closing analysis rewritten around the
+  real numbers. The reading has not changed and is worth repeating: the rise
+  measures how much code was written, not how much risk was added, since the
+  newcomers since M6 are `UInt64` for the packed hash slots and the assertion
+  helpers of three new test files.
+- **`docs/ARCHITECTURE.md` said two files are generated and committed.**
+  There are four. The table and the diagram now name all four with their
+  generators, and the section states why each must be deterministic and why
+  the drift check runs before the generators rather than after.
+- **`docs/CORRECTNESS.md` said Knap is at M8.** It is at M9, and the status
+  table was missing counting, windowing, padding and the size of the test
+  suite. All four are now rows, and padding has a section explaining why the
+  mask is where correctness lives.
+- **`docs/ROADMAP.md` said the suite is 26 tests.** It is 138 across 19
+  files, 131 of them on every push. The M0 record keeps its original figures,
+  which is the point of a record, but each row that has since moved now says
+  what it moved to.
+- **`docs/STYLE.md` listed four enforcement scripts.** There are nine. All
+  nine are now in the table with what each refuses, and the exemption count
+  in one row said three where the document itself says four.
+- **`CONTRIBUTING.md` said the differential fuzzer is not yet present.** It
+  has been present since M4. That section now says how to run it, what the
+  nightly job does, and why widening a fuzzing claim means committing the run
+  rather than editing the sentence. The test section had also acquired a
+  thread sanitizer instruction for a parallel path that does not exist,
+  because Mojo 1.0.0 has no working task parallelism.
+- **`tests/fixtures/corpus/README.md` called six committed fixtures
+  planned.** They arrived at M2.
+- **`tests/fixtures/hf/README.md` described a loader as experimental in
+  Knap.** No such loader exists, and not writing one is a decision rather
+  than a delay. That file now says so first and explains why the directory is
+  kept anyway.
+- **The `Website` row was in nine documents and missing from sixteen.** It is
+  now in all twenty-three that carry a metadata table, and
+  `scripts/check_md_headers.py` requires it, because a field most documents
+  have and some do not is worse than one nobody has.
+- **Every document was redated.** `Updated` and `Last reviewed` now say
+  2026-09-10 in each one, which is when each was actually read.
+
+### Added, two gates for the two ways a document rots quietly
+
+- **`scripts/check_md_headers.py` now checks that a Contents list matches the
+  document.** Every top level section must be listed, and every entry must
+  name a real heading. This is the failure that cannot be seen by reading the
+  document, because a reader trusts the list and stops scrolling. Three
+  documents were wrong and are fixed, and `docs/API.md` now nests its module
+  index under the two sections it had been omitting.
+- **`scripts/check_toolchain_doc.py` accepts an explicit path**, which is
+  what lets `scripts/selftest_gates.py` plant a violation and watch the gate
+  reject it. The self test now runs seven planted violations across five
+  gates rather than five across four, and both new cases are for gates added
+  this week.
 
 ### Added, milestone M9, counting and memory
 
@@ -802,7 +865,7 @@ machinery that enforces it. No tokenizer functionality.
 | Next | [README.md](README.md) |
 | Index | [README.md](README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-07 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

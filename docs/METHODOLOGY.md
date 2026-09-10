@@ -44,7 +44,6 @@
 8. [Four times this process caught something](#four-times-this-process-caught-something)
 9. [What it costs](#what-it-costs)
 10. [Applying this elsewhere](#applying-this-elsewhere)
-11. [Document control](#document-control)
 
 ---
 

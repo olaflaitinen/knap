@@ -26,8 +26,9 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-08 |
-| Updated | 2026-09-08 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 
@@ -151,7 +152,7 @@ and there is a form for it.
 | Next | [README.md](README.md) |
 | Index | [README.md](README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-08 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

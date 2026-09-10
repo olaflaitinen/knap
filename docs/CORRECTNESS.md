@@ -26,7 +26,7 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-07 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -39,9 +39,10 @@
 3. [Differential fuzzing](#differential-fuzzing)
 4. [Correctness hazards](#correctness-hazards)
 5. [Windows, and why they are cut where they are](#windows-and-why-they-are-cut-where-they-are)
-6. [Current status](#current-status)
-7. [Divergences found and fixed](#divergences-found-and-fixed)
-8. [Known divergences](#known-divergences)
+6. [Padding, and what the mask is for](#padding-and-what-the-mask-is-for)
+7. [Current status](#current-status)
+8. [Divergences found and fixed](#divergences-found-and-fixed)
+9. [Known divergences](#known-divergences)
 
 ---
 
@@ -241,11 +242,51 @@ pre-token is a word or a run of whitespace, so this arises for pathological
 input rather than for prose, and `tests/test_windows.mojo` covers it
 explicitly at a window size of one.
 
+## Padding, and what the mask is for
+
+`pad_ordinary_batch` is the other half of the batching story, and it obeys
+the opposite rule to windowing. That is worth stating next to it rather than
+in a separate document.
+
+A window must not be cut inside a pre-token, because a window has to
+re-encode to itself. A padded row is cut at exactly `max_tokens` ids and may
+end inside a word, because a fixed width model input needs exactly that many
+columns and nothing else will do. The two rules look contradictory and are
+not: they answer different questions.
+
+The attention mask is where correctness actually lives here. No encoding this
+library ships defines a padding token, so callers reuse the end of text
+marker, and at that point the ids alone cannot say which columns are content.
+Testing that with a padding id that never appears in the text would pass
+whether or not the mask worked, so `tests/test_padding.mojo` pads one case
+with the id of `" the"` and builds a row whose single real token is that same
+id. Every column of that row then holds the same value and only the mask
+separates them.
+
+The other five tests compare every position in the rectangle against
+`encode_ordinary` of the same document rather than against a shape. A masked
+in id must equal what the encoder produced at that position, and a masked out
+id must be the padding id. Padding is arithmetic, and arithmetic is the kind
+of code that looks obviously right and is off by one.
+
+Two shapes that could have been errors are defined instead. A batch of no
+documents has no rows and no width. A batch whose documents are all empty has
+rows and no width, which is a rectangle with no columns rather than a
+failure. A padding id outside the encoding's id space and a negative width
+are both refused, and so is a read outside the rectangle, because a clamped
+read returns a real looking id from the wrong place.
+
 ## Current status
 
-Knap is at M8. **Encode and decode parity are both established** for all
+Knap is at M9. **Encode and decode parity are both established** for all
 seven `tiktoken` encodings, over a 110 MB corpus and over tens of millions
 of generated inputs, with zero divergences outstanding.
+
+M9 added entry points rather than changing the encoder: counting without
+building the list of ids, windowing, truncation, batch encoding, and the
+padded batch described above. None of them can change a token, and each is
+held to the encoder rather than to a written down expectation, which is what
+the last four rows of the table below record.
 
 M8 rewrote the merge path for speed and changed no output. Each of its four
 changes was held to the whole gate below before it was kept, which is the
@@ -270,6 +311,10 @@ rather than a section.
 | Divergences found and fixed | 1 class, see below | M4 |
 | Strings fuzzed under the address sanitizer | 200000, one hundred thousand each on the same two | M4 |
 | Strings driven under the address sanitizer with no interpreter present | 40000, no suppressions, no leaks | M4 |
+| Counting agrees with encoding | Verified, over the whole 110 MB corpus for each of the four distinct encode behaviours, and in six tests that compare a count against the length of the encode of the same input | M9 |
+| Windows re-encode to a slice of the whole | Verified at six window sizes from one token to a million, in nine tests | M9 |
+| Padded batches agree with the encoder at every position | Verified in six tests, including one where the padding id is also a real token so the mask is the only record | M9 |
+| Tests in the suite | 138 across 19 files, 131 of them on every push and 7 on the corpus schedule | M9 |
 | `tiktoken` version used as reference | 0.14.0 | Current |
 
 Every one of those runs is reproducible. The seeds are not summarised here,
@@ -457,7 +502,7 @@ rather than hidden, and the fuzzer is not narrowed to avoid it.
 | Next | [docs/STYLE.md](STYLE.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-07 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

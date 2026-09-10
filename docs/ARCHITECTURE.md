@@ -26,7 +26,7 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-07 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -480,25 +480,52 @@ limitation and should not.
 
 ## Generated files
 
-Two files are generated and committed. Both carry a banner naming the
-generator, the upstream source and its version, and the generation date, plus
-a statement that manual edits will be overwritten.
+Four files are generated and committed. Each carries a banner naming the
+generator, the upstream source and its version, and, where the format allows
+a comment, a statement that manual edits will be overwritten.
+
+| Generated file | Generator | Derived from |
+| --- | --- | --- |
+| `src/knap/pretokenize/pattern.mojo` | `scripts/extract_patterns.py` | The installed `tiktoken` |
+| `src/knap/pretokenize/unicode_tables.mojo` | `scripts/gen_unicode_tables.py` | The Unicode Character Database |
+| `docs/API.md` | `scripts/gen_api_reference.py` | `mojo doc` over the public surface |
+| `sbom.cdx.json` | `scripts/gen_sbom.py` | `uv.lock` and `pyproject.toml` |
 
 ```mermaid
 flowchart TD
     TT[tiktoken package<br/>version recorded in banner] --> EP[scripts/extract_patterns.py]
-    UD[Python unicodedata<br/>Unicode version recorded] --> GU[scripts/gen_unicode_tables.py]
+    UD[Unicode Character Database<br/>version recorded] --> GU[scripts/gen_unicode_tables.py]
+    SRC[src/knap public surface] --> GA[scripts/gen_api_reference.py]
+    LOCK[uv.lock and pyproject.toml] --> GS[scripts/gen_sbom.py]
     EP --> PAT[src/knap/pretokenize/pattern.mojo]
     GU --> UNI[src/knap/pretokenize/unicode_tables.mojo]
+    GA --> API[docs/API.md]
+    GS --> SBOM[sbom.cdx.json]
     PAT --> SC[src/knap/pretokenize/scanner.mojo]
     UNI --> SC
     CG[scripts/check_generated.py] -.re-runs and diffs.-> PAT
     CG -.re-runs and diffs.-> UNI
+    CG -.re-runs and diffs.-> API
+    CG -.re-runs and diffs.-> SBOM
 ```
 
 `scripts/check_generated.py` runs in CI and fails if a committed generated
 file no longer matches what its generator produces, so pattern drift is
 caught rather than discovered through a divergence months later.
+
+Every one of the four is deterministic on an unchanged tree, which is a
+requirement rather than a nicety. A generated file with a clock in it drifts
+on every run, the check goes permanently red, and a red check that everybody
+ignores is worth less than no check. The generation date lives in the banner
+and is excluded from the comparison; `sbom.cdx.json` has no timestamp at all
+and derives its serial number from the project name and version, because
+CycloneDX offers no place to exclude a field from.
+
+That ordering matters in CI too. The check runs **before** the generators,
+not after. It used to run after, and since two of the generators write the
+files it compares, it was comparing each one against a copy made seconds
+earlier and could not fail. A hand edit to `docs/API.md` passed through it
+three times.
 
 ## Toolchain ground truth
 
@@ -551,35 +578,48 @@ figure grows with the code:
 | M0 | 1 | 108 | 22 |
 | M1 | 5 | 2484 | 50 |
 | M6 | 14 | 17220 | 78 |
+| M9 | 19 | 35957 | 86 |
 
-The top of that inventory, as measured on 2026-09-08:
+The top of that inventory, as measured on 2026-09-10:
 
 | Unstable API | Uses | What breaks if it changes |
 | --- | --- | --- |
-| `__init__` | 8147 | Construction of every value type. Effectively the whole project. |
-| `__mlir_bool__` | 1327 | Every conditional. |
-| `Int` | 1055 | Everything. Token ids, offsets, lengths, every loop counter. |
-| `__eq__` | 560 | Every comparison, including every parity assertion. |
-| `UInt8` | 498 | Byte typing, the substrate of a byte level tokenizer. |
-| `__iter__`, `__next__` | 663 | Every for loop over a list or a range. |
-| `len` | 429 | Every collection traversal. |
-| `__add__`, `__iadd__`, `__sub__`, `__lt__`, `__ge__` | 1223 | Arithmetic and comparison in offset and rank handling. |
-| `__make_tstring` | 330 | Template strings, so every diagnostic message. |
-| `range` | 221 | Every loop. |
-| `append` | 199 | Buffer construction in FlatVocab and the loader. |
-| `Error` | 184 | The error path, which is how Knap reports malformed input instead of panicking. |
-| `SIMD`, `DType`, `uint8`, `simd_width_of`, `lt`, `reduce_and` | 516 | The vectorised classifier and the toolchain assertions. |
-| `is_defined` | 7 | Compile time selection between the scalar and vectorised classifiers. |
-| Remaining APIs | the balance of 17220 | String, base64, dictionary, and file access helpers. |
+| `__init__` | 16452 | Construction of every value type. Effectively the whole project. |
+| `__mlir_bool__` | 2921 | Every conditional. |
+| `Int` | 2637 | Everything. Token ids, offsets, lengths, every loop counter. |
+| `__eq__`, `__ne__` | 1483 | Every comparison, including every parity assertion. |
+| `__iter__`, `__next__` | 1420 | Every for loop over a list or a range. |
+| `UInt8` | 952 | Byte typing, the substrate of a byte level tokenizer. |
+| `len` | 875 | Every collection traversal. |
+| `__add__`, `__iadd__`, `__sub__`, `__lt__`, `__ge__`, `__gt__`, `__le__` | 3092 | Arithmetic and comparison in offset and rank handling. |
+| `__make_tstring` | 565 | Template strings, so every diagnostic message. |
+| `append` | 501 | Buffer construction in `FlatVocab`, the loader, and the padded batch. |
+| `range` | 472 | Every loop. |
+| `Error` | 325 | The error path, which is how Knap reports malformed input instead of panicking. |
+| `SIMD`, `DType`, `uint8`, `ge`, `le` | 956 | The vectorised classifier and the toolchain assertions. |
+| `UInt64` | 228 | The packed slot word in `ByteMap`, where a hash tag and an entry index share one integer. |
+| `assert_equal`, `assert_true` | 381 | Every test in the suite. |
+| Remaining APIs | the balance of 35957 | String, base64, dictionary, and file access helpers. |
 
 The shape of this table is the finding, not any individual row. When `Int`,
 `len`, `range`, and the conditional operator are all unstable, an unstable
-API inventory cannot function as an action list. The count rising from 108 to
-17220 across the project measures how much code was written, not how much
-risk was added: the distinct API count went from 22 to 78, and the newcomers
-are the SIMD and file access helpers, not a new class of exposure. It is a record of what a
-toolchain upgrade might cost, and the proportionate response is to pin the
-compiler exactly, which this project does.
+API inventory cannot function as an action list.
+
+The count rising from 108 to 35957 across the project measures how much code
+was written, not how much risk was added. Compare the two columns: targets
+compiled went from 1 to 19 and uses went up by a factor of 333, while the
+distinct API count went from 22 to 86, and the newcomers between M6 and M9
+are `UInt64` for the packed hash slots and the assertion helpers of three new
+test files. No new class of exposure appeared; the same small set of
+operators is simply used in more places. It is a record of what a toolchain
+upgrade might cost, and the proportionate response is to pin the compiler
+exactly, which this project does.
+
+Regenerate the figures with `python scripts/unstable_api_inventory.py`. The
+counts are per compiled target, so a use inside `src/knap` is counted once
+for every test binary that links it, which is why the totals are large. The
+milestone table is the number to read; the per API rows are for finding
+where an upgrade would land.
 
 ## Dependency decisions
 
@@ -623,7 +663,7 @@ dependency is the pinned compiler itself.
 | Next | [docs/UNICODE.md](UNICODE.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-07 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

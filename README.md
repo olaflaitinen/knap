@@ -539,12 +539,12 @@ methodology itself.
 
 ## Project status
 
-All nine milestones, M0 through M8, are complete. Every claim was observed
+All ten milestones, M0 through M9, are complete. Every claim was observed
 rather than inferred.
 
 | Component | State | Milestone |
 | --- | --- | --- |
-| Toolchain, standards gates, CI | Working | M0 |
+| Toolchain, standards gates, CI | Working, nine gates, five of them self tested on every push | M0 |
 | Vocabulary loading and decode | Working, decode parity verified | M1 |
 | Pre-tokenizer, scalar | Working, boundary parity verified | M2 |
 | BPE merge and encode | Working, encode parity verified | M3 |
@@ -554,8 +554,13 @@ rather than inferred.
 | Benchmarks against three baselines | Published, including where they win | M5 |
 | Conda packaging | Builds and imports without the source tree | M6 Track A |
 | Python bindings | Native extension, parity verified through them | M6 Track B |
+| Command line tool | `knap` with completions for bash, zsh and fish | After M6 |
 | All seven `tiktoken` encodings | Working, parity verified per encoding | M7 |
 | Merge path performance | 1.39 to 1.85 times faster, output unchanged | M8 |
+| Counting without building the list of ids | Working, agrees with encoding over the whole corpus | M9 |
+| Memory measured on both sides, every encoding | 4.4 to 11.7 times lighter than the reference | M9 |
+| Windowing, truncation, batching, padding and masks | Working, every position held to the encoder | M9 |
+| Test suite | 138 tests across 19 files | M9 |
 
 Two things are deliberately absent. There is no Hugging Face
 `tokenizer.json` loader: that format specifies its own pre-tokenizer, so a

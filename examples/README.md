@@ -39,7 +39,6 @@
 3. [budget.mojo, and the question everyone asks first](#budgetmojo-and-the-question-everyone-asks-first)
 4. [chunker.mojo, and the bug that does not raise](#chunkermojo-and-the-bug-that-does-not-raise)
 5. [Why these two](#why-these-two)
-6. [Document control](#document-control)
 
 ---
 

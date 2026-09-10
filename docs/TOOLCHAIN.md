@@ -46,7 +46,6 @@
 10. [Which of these upstream already acknowledges](#which-of-these-upstream-already-acknowledges)
 11. [The three that cost the most](#the-three-that-cost-the-most)
 12. [Adding a finding](#adding-a-finding)
-13. [Document control](#document-control)
 
 ---
 

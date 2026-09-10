@@ -93,6 +93,55 @@ untouched.
   measurement with one child process per stage and the empty runtime
   reported as a control every time.
 
+### Added, milestone M9, the helpers a caller would otherwise write
+
+Each of these is something people write against a tokenizer, and write
+slightly wrong.
+
+- **`windows_ordinary`**, which splits a document into windows of at most N
+  tokens with an optional overlap. The obvious implementation encodes the
+  document, cuts the id list every N ids, and decodes each piece back to
+  text; its windows begin and end inside tokens, so they decode to mangled
+  text and re-encode to different ids, and nothing notices. These cut on
+  pre-token boundaries, which is the coarsest boundary the merge loop cannot
+  cross, so a window's encoding is exactly the slice of the whole document's
+  encoding that covers it. `tests/test_windows.mojo` asserts that at six
+  window sizes rather than arguing for it.
+- **`truncate_ordinary`** and **`fits_ordinary`**, for a token budget.
+  `fits_ordinary` stops as soon as the budget is exceeded, which is the
+  difference between checking a hundred megabyte document against a context
+  window and tokenizing it.
+- **`encode_ordinary_batch`** and **`encode_ordinary_batch_into`**. The
+  second writes every document into one buffer and records where each one
+  ends, so a batch of ten thousand short documents pays for one growth
+  sequence rather than ten thousand allocations.
+- **`token_id_of`** and **`token_bytes`** on the tokenizer, and
+  `piece_token_counts`, the primitive the windowing is built on, exposed
+  because a caller doing something this library did not anticipate should
+  not have to reimplement it.
+- **`TokenWindow`**, a byte range and a token count, `Writable` so that it
+  prints.
+
+- **`scripts/diff_vocabs.py`**, which compares two encodings and
+  characterises the difference from the tokens rather than from an
+  expectation. This repository claims that `gpt2` and `r50k_base` share a
+  table byte for byte and that `p50k_base` adds exactly twenty four tokens,
+  all runs of two to twenty five spaces. Both were observations. They are
+  now repeatable, and running the tool reproduces them exactly.
+- **`scripts/check_reference.py`**, which gates on the thing every number
+  here is measured against: each fetched vocabulary against the digest
+  recorded when it was fetched, the token counts alongside it, and the
+  reference version against what the documents quote. A vocabulary that
+  changed under the fixtures would not fail a test, because the fixtures
+  would be regenerated from it and agree with themselves.
+
+### Fixed, milestone M9, a silently ignored argument
+
+- `knap vocab " the"` took the argument and printed the summary, which is
+  the worst of both: the caller believes a question was answered. It now
+  answers it, saying whether the text is a single token and what it becomes
+  if it is not.
+
 ### Changed, milestone M9, what the measurements said
 
 - **Counting is not faster than encoding.** It was written expecting to be,

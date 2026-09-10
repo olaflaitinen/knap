@@ -81,6 +81,14 @@ jobs:
       # The recipe is the one file nothing else exercises until somebody
       # tries to publish, and by then the mistakes are public. This needs
       # no network and no build, so it runs with the other prose gates.
+      # Every parity figure in this repository is measured against a
+      # reference implementation and a set of vocabulary files, and both
+      # can move without anybody deciding they should. If they did, the
+      # fixtures would be regenerated from the new reference and everything
+      # would agree with itself while meaning something else.
+      - name: The reference has not moved under the documents
+        run: python scripts/check_reference.py
+
       - name: Conda recipe is consistent
         run: python scripts/check_recipe.py
 

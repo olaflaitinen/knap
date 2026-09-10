@@ -42,7 +42,7 @@ from .bpe import MergeScratch, merge_piece_into
 from .cache import PieceCache
 from .errors import special_token_disallowed
 from .pretokenize.scanner import scan_cl100k, scan_gpt2, scan_o200k
-from .ranks import RankTable
+from .ranks import RankTable, UNRANKED
 from .vocab import (
     Vocabulary,
     load_cl100k_base,
@@ -101,6 +101,29 @@ Shared by gpt2, r50k_base, p50k_base and p50k_edit. Four encodings, one
 pattern: they differ in their vocabularies and their special tokens, not in
 how text is split.
 """
+
+
+@fieldwise_init
+struct TokenWindow(Copyable, ImplicitlyCopyable, Movable, Writable):
+    """One window of a document, as a byte range and a token count."""
+
+    var start: Int
+    """First byte of the window, inclusive."""
+
+    var end: Int
+    """One past the last byte of the window."""
+
+    var tokens: Int
+    """How many tokens this window encodes to."""
+
+    def write_to(self, mut writer: Some[Writer]):
+        """Write a short description of the window.
+
+        Args:
+            writer: Receives the description.
+        """
+        writer.write("[", self.start, ", ", self.end, ") ")
+        writer.write(self.tokens, " tokens")
 
 
 struct Tokenizer(Movable):
@@ -649,6 +672,386 @@ struct Tokenizer(Movable):
             Error: if a disallowed special token appears in the input.
         """
         return self.encode_bytes(text.as_bytes(), allowed_special)
+
+    # -------------------------------------------------------------------------
+    # Windows, budgets and batches
+    #
+    # Every one of these is something a caller would otherwise write against
+    # the encoder, and would write slightly wrong. Splitting a document into
+    # windows of at most N tokens is the usual one: the obvious
+    # implementation encodes the whole document, cuts the id list every N
+    # ids, and decodes each piece back to text. That produces windows whose
+    # boundaries fall inside a token, so decoding them gives back mangled
+    # text and re-encoding them gives different ids.
+    #
+    # These cut on pre-token boundaries instead, which is the coarsest
+    # boundary the merge loop cannot cross. That makes a window's encoding
+    # exactly the corresponding slice of the whole document's encoding, and
+    # tests/test_windows.mojo asserts it rather than assuming it.
+    # -------------------------------------------------------------------------
+
+    def piece_token_counts(
+        self,
+        data: Span[UInt8, _],
+        mut ends: List[Int],
+        mut counts: List[Int],
+    ) raises -> Int:
+        """Count the tokens each pre-token becomes.
+
+        Args:
+            data: The bytes to walk.
+            ends: Receives the exclusive end offset of each pre-token,
+                cleared on entry.
+            counts: Receives the token count of each pre-token, cleared on
+                entry. Always the same length as ends.
+
+        Returns:
+            The total number of tokens, which equals count_ordinary_bytes.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+
+        The primitive the windowing and budget entry points are built on,
+        exposed because a caller doing something this file does not
+        anticipate should not have to reimplement it. Nothing is emitted, so
+        the list of ids is never built.
+        """
+        ends.clear()
+        counts.clear()
+        self._scan(data, ends)
+
+        var scratch = MergeScratch()
+        var discarded = List[Int]()
+        var total = 0
+        var start = 0
+        for index in range(len(ends)):
+            var end = ends[index]
+            var produced = merge_piece_into[False](
+                self.ranks, data, start, end, discarded, scratch
+            )
+            counts.append(produced)
+            total += produced
+            start = end
+        return total
+
+    def windows_ordinary_bytes(
+        self,
+        data: Span[UInt8, _],
+        max_tokens: Int,
+        overlap_tokens: Int = 0,
+    ) raises -> List[TokenWindow]:
+        """Split bytes into windows of at most max_tokens tokens each.
+
+        Args:
+            data: The bytes to split.
+            max_tokens: The largest window, in tokens.
+            overlap_tokens: How many tokens of the previous window to repeat
+                at the start of the next. Zero for no overlap.
+
+        Returns:
+            The windows, in order, covering the input with no gaps. Empty
+            input gives no windows.
+
+        Raises:
+            Error: if max_tokens is not positive, if overlap_tokens is
+                negative or not smaller than max_tokens, or if the scanner
+                or the merge loop fails.
+
+        Windows are cut on pre-token boundaries, so the encoding of a window
+        is exactly the slice of the whole document's encoding that covers
+        it. Cutting anywhere else would not be.
+
+        One consequence is stated rather than hidden: a single pre-token
+        that is longer than max_tokens on its own becomes a window that
+        exceeds the budget. The alternative would be to cut inside it, which
+        would change the tokens. A pre-token is a word or a run of
+        whitespace, so this arises for pathological input rather than for
+        prose.
+        """
+        if max_tokens <= 0:
+            raise Error(
+                String(
+                    t"knap: a window of {max_tokens} tokens is not a window."
+                    t" max_tokens must be positive."
+                )
+            )
+        if overlap_tokens < 0 or overlap_tokens >= max_tokens:
+            raise Error(
+                String(
+                    t"knap: an overlap of {overlap_tokens} tokens does not"
+                    t" fit inside a window of {max_tokens}. The overlap must"
+                    t" be zero or more and smaller than the window."
+                )
+            )
+
+        var windows = List[TokenWindow]()
+        var ends = List[Int]()
+        var counts = List[Int]()
+        _ = self.piece_token_counts(data, ends, counts)
+        if len(ends) == 0:
+            return windows^
+
+        var first = 0
+        while first < len(ends):
+            var start_byte = 0
+            if first > 0:
+                start_byte = ends[first - 1]
+
+            var tokens = 0
+            var last = first
+            while last < len(ends):
+                if last > first and tokens + counts[last] > max_tokens:
+                    break
+                tokens += counts[last]
+                last += 1
+
+            windows.append(TokenWindow(start_byte, ends[last - 1], tokens))
+            if last >= len(ends):
+                break
+
+            # Step back over whole pre-tokens until the overlap budget is
+            # spent. Never back past first + 1, so every window begins later
+            # than the one before it and the loop terminates.
+            var back = last
+            var repeated = 0
+            while back > first + 1:
+                if repeated + counts[back - 1] > overlap_tokens:
+                    break
+                back -= 1
+                repeated += counts[back]
+            first = back
+
+        return windows^
+
+    def windows_ordinary(
+        self, text: String, max_tokens: Int, overlap_tokens: Int = 0
+    ) raises -> List[TokenWindow]:
+        """Split text into windows of at most max_tokens tokens each.
+
+        Args:
+            text: The text to split.
+            max_tokens: The largest window, in tokens.
+            overlap_tokens: How many tokens of the previous window to repeat.
+
+        Returns:
+            The windows, in order, as byte ranges into the text.
+
+        Raises:
+            Error: if the arguments are out of range, or if the scanner or
+                the merge loop fails.
+        """
+        return self.windows_ordinary_bytes(
+            text.as_bytes(), max_tokens, overlap_tokens
+        )
+
+    def truncate_ordinary_bytes(
+        self, data: Span[UInt8, _], max_tokens: Int
+    ) raises -> Int:
+        """Find where to cut so that at most max_tokens tokens remain.
+
+        Args:
+            data: The bytes to measure.
+            max_tokens: The token budget.
+
+        Returns:
+            A byte offset. Encoding data up to that offset gives at most
+            max_tokens tokens, and it is the largest such offset that falls
+            on a pre-token boundary.
+
+        Raises:
+            Error: if max_tokens is negative, or if the scanner or the merge
+                loop fails.
+
+        Zero is a legitimate answer: it means the first pre-token alone
+        exceeds the budget.
+        """
+        if max_tokens < 0:
+            raise Error(
+                String(t"knap: a budget of {max_tokens} tokens is negative.")
+            )
+
+        var ends = List[Int]()
+        var counts = List[Int]()
+        _ = self.piece_token_counts(data, ends, counts)
+
+        var tokens = 0
+        var cut = 0
+        for index in range(len(ends)):
+            if tokens + counts[index] > max_tokens:
+                break
+            tokens += counts[index]
+            cut = ends[index]
+        return cut
+
+    def truncate_ordinary(self, text: String, max_tokens: Int) raises -> Int:
+        """Find where to cut text so that at most max_tokens tokens remain.
+
+        Args:
+            text: The text to measure.
+            max_tokens: The token budget.
+
+        Returns:
+            A byte offset into the text.
+
+        Raises:
+            Error: if max_tokens is negative, or if encoding fails.
+        """
+        return self.truncate_ordinary_bytes(text.as_bytes(), max_tokens)
+
+    def fits_ordinary_bytes(
+        self, data: Span[UInt8, _], max_tokens: Int
+    ) raises -> Bool:
+        """Report whether bytes encode to at most max_tokens tokens.
+
+        Args:
+            data: The bytes to check.
+            max_tokens: The token budget.
+
+        Returns:
+            True when the input is within the budget.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+
+        Stops as soon as the budget is exceeded rather than counting the
+        whole input, which is the difference between checking a hundred
+        megabyte document against a context window and tokenizing it.
+        """
+        var ends = List[Int]()
+        self._scan(data, ends)
+
+        var scratch = MergeScratch()
+        var discarded = List[Int]()
+        var total = 0
+        var start = 0
+        for index in range(len(ends)):
+            var end = ends[index]
+            total += merge_piece_into[False](
+                self.ranks, data, start, end, discarded, scratch
+            )
+            if total > max_tokens:
+                return False
+            start = end
+        return True
+
+    def fits_ordinary(self, text: String, max_tokens: Int) raises -> Bool:
+        """Report whether text encodes to at most max_tokens tokens.
+
+        Args:
+            text: The text to check.
+            max_tokens: The token budget.
+
+        Returns:
+            True when the input is within the budget.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+        """
+        return self.fits_ordinary_bytes(text.as_bytes(), max_tokens)
+
+    def encode_ordinary_batch_into(
+        self,
+        documents: List[String],
+        mut out: List[Int],
+        mut ends: List[Int],
+    ) raises:
+        """Encode several documents into one buffer the caller owns.
+
+        Args:
+            documents: The documents, in order.
+            out: Buffer receiving every document's ids, appended in order.
+            ends: Receives one entry per document, the offset in out where
+                that document's ids end. Appended to, not cleared.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+
+        One buffer for the whole batch, and one entry per document saying
+        where it stopped, so a caller encoding ten thousand short documents
+        pays for one growth sequence rather than ten thousand allocations.
+
+        Nothing here is parallel. Mojo 1.0.0 has no working task
+        parallelism, which is a fact about the toolchain rather than a
+        design decision, and it is recorded as one in docs/ARCHITECTURE.md.
+        """
+        for index in range(len(documents)):
+            self.encode_ordinary_bytes_into(documents[index].as_bytes(), out)
+            ends.append(len(out))
+
+    def encode_ordinary_batch(
+        self, documents: List[String]
+    ) raises -> List[List[Int]]:
+        """Encode several documents, one list of ids each.
+
+        Args:
+            documents: The documents, in order.
+
+        Returns:
+            One list of token ids per document, in the same order.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+
+        The convenient form. Anything encoding a large batch should use
+        encode_ordinary_batch_into, which allocates once instead of once per
+        document.
+        """
+        var results = List[List[Int]]()
+        for index in range(len(documents)):
+            results.append(
+                self.encode_ordinary_bytes(documents[index].as_bytes())
+            )
+        return results^
+
+    def token_id_of_bytes(self, data: Span[UInt8, _]) raises -> Int:
+        """Look up the id of a byte sequence that may be a single token.
+
+        Args:
+            data: The bytes to look up.
+
+        Returns:
+            The token id, or minus one when the bytes are not a token of
+            this encoding.
+
+        Raises:
+            Error: never, in this implementation.
+
+        The inverse of decoding one id, and the question anyone inspecting a
+        vocabulary asks first. Not an encoder: it answers whether these
+        exact bytes are one token, not what they would encode to.
+        """
+        return self.ranks.rank_of(data, 0, len(data))
+
+    def token_id_of(self, text: String) raises -> Int:
+        """Look up the id of text that may be a single token.
+
+        Args:
+            text: The text to look up.
+
+        Returns:
+            The token id, or minus one when the text is not a token.
+
+        Raises:
+            Error: never, in this implementation.
+        """
+        return self.token_id_of_bytes(text.as_bytes())
+
+    def token_bytes(self, token_id: Int) raises -> List[UInt8]:
+        """Return the bytes one token id decodes to.
+
+        Args:
+            token_id: The id to look up.
+
+        Returns:
+            That token's bytes.
+
+        Raises:
+            Error: if the id is unassigned or out of range.
+
+        A convenience over the vocabulary, so that inspecting one token does
+        not require reaching through to the layer below.
+        """
+        return self.vocabulary.token_bytes(token_id)
 
     # -------------------------------------------------------------------------
     # Counting

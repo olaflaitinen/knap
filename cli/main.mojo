@@ -316,7 +316,7 @@ def count_input(
 
 
 def show_vocabulary(tokenizer: Tokenizer, options: Options) raises:
-    """Print what is known about the loaded encoding.
+    """Print what is known about the loaded encoding, or about one word.
 
     Args:
         tokenizer: The loaded tokenizer.
@@ -324,7 +324,34 @@ def show_vocabulary(tokenizer: Tokenizer, options: Options) raises:
 
     Raises:
         Error: if the special token registry cannot be read.
+
+    With no argument this prints the shape of the encoding. With one it
+    answers a narrower and more common question: is this text a single
+    token, and if not, what does it become. That is the question anyone
+    debugging a token count actually has.
     """
+    # Given a word, answer whether it is one token. `knap vocab " the"`
+    # used to print the summary and silently ignore the argument, which is
+    # the worst of both: the caller believes a question was answered.
+    if options.has_text:
+        var identifier = tokenizer.token_id_of(options.text)
+        print("encoding:", options.encoding)
+        print("text:", options.text)
+        if identifier >= 0:
+            print("token id:", identifier)
+            print("single token: yes")
+        else:
+            var ids = tokenizer.encode_ordinary(options.text)
+            print("single token: no")
+            print("encodes to:", len(ids), "tokens")
+            var rendered = String("")
+            for index in range(len(ids)):
+                if index > 0:
+                    rendered += " "
+                rendered += String(ids[index])
+            print("token ids:", rendered)
+        return
+
     var merges = tokenizer.vocabulary.merges.size()
     var past_specials = tokenizer.vocabulary.specials.highest_id() + 1
     var n_vocab = merges

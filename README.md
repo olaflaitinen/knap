@@ -190,6 +190,13 @@ def main() raises:
     # Counting never builds the list. On a large document that is the
     # difference between holding the ids and not: see docs/BENCHMARKS.md.
     print(knap.count_ordinary("How many tokens is this"), "tokens")
+
+    # Split a document into windows of at most 512 tokens, overlapping by
+    # 64. The windows are byte ranges, cut on pre-token boundaries, so the
+    # encoding of a window is exactly the slice of the whole document's
+    # encoding that covers it.
+    for window in knap.windows_ordinary(document, 512, 64):
+        print(window)
 ```
 
 Run it with `uv run mojo run -I src your_program.mojo`. The full surface is
@@ -205,6 +212,7 @@ knap encode --format json "hello world" | jq
 knap encode "round trip" | knap decode
 knap count -e p50k_base "how many tokens does Codex see"
 knap vocab -e o200k_harmony
+knap vocab " the"
 ```
 
 | Command | Does |
@@ -212,7 +220,7 @@ knap vocab -e o200k_harmony
 | `knap count` | Prints one number, so `$(knap count -f x.txt)` works in a shell. Never builds the list of ids. |
 | `knap encode` | Prints token ids, as `space`, `lines`, or `json` |
 | `knap decode` | Turns token ids back into the exact bytes they represent |
-| `knap vocab` | Prints the size and the special tokens of an encoding |
+| `knap vocab` | Prints the size and the special tokens of an encoding, or looks one word up |
 
 Input comes from an argument, from `--file`, or from standard input. Exit
 status is 0 for success, 1 when the command ran and failed, and 2 when the
@@ -455,8 +463,10 @@ claim the rest of this repository exists to avoid.
 ## Limitations
 
 - No BPE training. Encoding only.
-- No offset mapping, meaning no character spans per token. It is valuable and
-  it doubles the correctness surface, so it is deferred.
+- No offset mapping, meaning no byte range per individual token. Windows
+  are cut on pre-token boundaries and carry byte ranges, which covers
+  chunking, but not per token spans. Offsets are valuable and they double
+  the correctness surface, so they are deferred.
 - No WordPiece, Unigram, or SentencePiece.
 - No normalization pipelines. None of the seven encodings normalize, and
   adding a normalizer that is not needed would only create divergence.

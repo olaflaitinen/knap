@@ -37,9 +37,10 @@
 2. [Golden fixtures](#golden-fixtures)
 3. [Differential fuzzing](#differential-fuzzing)
 4. [Correctness hazards](#correctness-hazards)
-5. [Current status](#current-status)
-6. [Divergences found and fixed](#divergences-found-and-fixed)
-7. [Known divergences](#known-divergences)
+5. [Windows, and why they are cut where they are](#windows-and-why-they-are-cut-where-they-are)
+6. [Current status](#current-status)
+7. [Divergences found and fixed](#divergences-found-and-fixed)
+8. [Known divergences](#known-divergences)
 
 ---
 
@@ -212,6 +213,32 @@ extension rather than a parity claim:
 What is tested is that the pieces still tile such input exactly, with no
 byte lost and no error raised. What is not tested, because it cannot be, is
 agreement with a reference.
+
+## Windows, and why they are cut where they are
+
+Splitting a document into windows of at most N tokens has an obvious wrong
+implementation and it is the one people write: encode the document, cut the
+id list every N ids, decode each piece back to text. The windows that
+produces begin and end inside tokens. They decode to mangled text, they
+re-encode to different ids, and nothing in the caller's program notices,
+because every step of it succeeded.
+
+Knap cuts on pre-token boundaries instead. That is the coarsest boundary the
+merge loop cannot cross: merges happen inside a pre-token and never across
+one, so the encoding of a run of whole pre-tokens is exactly the
+corresponding run of the whole document's encoding.
+
+That property is asserted rather than argued for. `tests/test_windows.mojo`
+takes a fixture at six window sizes, from one token to a million, and checks
+that the windows tile the input with no gaps and that concatenating their
+encodings reproduces the whole document's encoding token for token.
+
+One consequence is documented rather than hidden. A single pre-token that is
+longer than the window budget becomes a window that exceeds it, because the
+alternative is cutting inside a pre-token and changing the tokens. A
+pre-token is a word or a run of whitespace, so this arises for pathological
+input rather than for prose, and `tests/test_windows.mojo` covers it
+explicitly at a window size of one.
 
 ## Current status
 

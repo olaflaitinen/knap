@@ -99,6 +99,9 @@ memory.
 | Counting agrees with encoding | `tests/test_count.mojo`, six tests, every one comparing a count against the length of the encode of the same input rather than against a number written by hand. Asserted again over the whole 110 MB corpus, for each of the four distinct encode behaviours. |
 | The expectation was recorded when it was refuted | Counting was written expecting to be faster. It is not, and [docs/BENCHMARKS.md](BENCHMARKS.md) says so next to the numbers. |
 | Memory is measured, with a control | `bench/memory.py` and `bench/mem_probe.mojo`, one child process per stage so that a high water mark belongs to one thing, and an empty runtime reported every time. |
+| The helpers a caller would otherwise write | Windowing with overlap, truncation, a budget check, batch encoding, and token lookup. `tests/test_windows.mojo`, nine tests, built on the property that a window cut on a pre-token boundary encodes to exactly the slice of the whole document's encoding that covers it. |
+| Two claims about the vocabularies became repeatable | `scripts/diff_vocabs.py` reproduces both: `gpt2` and `r50k_base` are identical token for token and rank for rank, and `p50k_base` adds exactly 24 tokens, every one a run of 2 to 25 spaces with no length missing. |
+| The reference itself is gated | `scripts/check_reference.py` checks every fetched vocabulary against the digest recorded when it was fetched, and the reference version against what the documents quote. |
 | The memory measurement was checked before it was published | The first version reported 290 MB and would have claimed Knap uses six times what the reference does. The 290 MB was the benchmark harness reading the corpus. The control and the per stage split are what caught it. |
 
 M8 made encode between 1.39 and 1.85 times faster with byte identical
@@ -292,6 +295,8 @@ Each of these is a decision, not an oversight.
 
 | Item | Why deferred |
 | --- | --- |
+| Offset mapping, a byte range per token | Windows already carry byte ranges, which covers chunking. Per token spans double the correctness surface: every parity test would need a second dimension. The information is not expensive to produce, because the merge loop already computes the boundaries and discards them, so this is deferred on the size of its test surface rather than on the cost of the code. |
+| Streaming encode | A pre-token boundary can only be known to be final by looking at what follows it, so a streaming encoder has to prove a boundary is settled before emitting it. That proof is the whole feature and it is not a small one. |
 | BPE training | Knap encodes. Training is a different program with a different correctness story and no shared hot path. |
 | Offset mapping, character spans per token | Genuinely valuable, and it doubles the correctness surface. Every parity test would need a second dimension. Revisit once encode parity is established and stable. |
 | WordPiece, Unigram, SentencePiece | Different algorithms, not variations on this one. Each would need its own parity corpus and its own reference implementation. |

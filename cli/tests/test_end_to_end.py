@@ -294,6 +294,33 @@ def main() -> int:
                 )
                 checked += 1
 
+        # `knap vocab <text>` answers whether the text is one token. The
+        # id it prints is checked against the reference, because a lookup
+        # that returned a plausible number would otherwise pass.
+        for name in ("cl100k_base", "o200k_base"):
+            reference = tiktoken.get_encoding(name)
+            single = " the"
+            status, out, err = run(binary, ["vocab", "-e", name, single])
+            expected = reference.encode_ordinary(single)
+            check(
+                status == 0
+                and f"token id: {expected[0]}" in out.decode()
+                and "single token: yes" in out.decode(),
+                f"{name}: vocab did not identify {single!r} as one token: "
+                f"{out!r} {err}",
+            )
+
+            many = "several separate words here"
+            status, out, _ = run(binary, ["vocab", "-e", name, many])
+            wanted = len(reference.encode_ordinary(many))
+            check(
+                status == 0
+                and "single token: no" in out.decode()
+                and f"encodes to: {wanted} tokens" in out.decode(),
+                f"{name}: vocab mis-reported a multi token string: {out!r}",
+            )
+            checked += 1
+
         # Usage errors are status 2, runtime failures are status 1. A caller
         # scripting this needs the two to be distinguishable.
         for arguments, wanted in (

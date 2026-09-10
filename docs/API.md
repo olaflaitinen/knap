@@ -296,6 +296,20 @@ The Knap tokenizer.
 | `PATTERN_O200K` | Selects the o200k_base pre-tokenization pattern. |
 | `PATTERN_GPT2` | Selects the gpt2 pre-tokenization pattern. |
 
+#### `TokenWindow`
+
+One window of a document, as a byte range and a token count.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `start` | `Int` | First byte of the window, inclusive. |
+| `end` | `Int` | One past the last byte of the window. |
+| `tokens` | `Int` | How many tokens this window encodes to. |
+
+| Method | Description |
+| --- | --- |
+| `def write_to(self, mut writer: T)` | Write a short description of the window. |
+
 #### `Tokenizer`
 
 A loaded encoding, ready to encode and decode.
@@ -320,6 +334,18 @@ A loaded encoding, ready to encode and decode.
 | `def encode_bytes_cached(self, data: Span[UInt8], allowed_special: List[String], mut cache: PieceCache) -> List[Int]` | Encode bytes, handling special tokens, with a piece cache. |
 | `def encode_cached(self, text: String, allowed_special: List[String], mut cache: PieceCache) -> List[Int]` | Encode text, handling special tokens, with a piece cache. |
 | `def encode(self, text: String, allowed_special: List[String]) -> List[Int]` | Encode text, handling special tokens. |
+| `def piece_token_counts(self, data: Span[UInt8], mut ends: List[Int], mut counts: List[Int]) -> Int` | Count the tokens each pre-token becomes. |
+| `def windows_ordinary_bytes(self, data: Span[UInt8], max_tokens: Int, overlap_tokens: Int = Int(0)) -> List[TokenWindow]` | Split bytes into windows of at most max_tokens tokens each. |
+| `def windows_ordinary(self, text: String, max_tokens: Int, overlap_tokens: Int = Int(0)) -> List[TokenWindow]` | Split text into windows of at most max_tokens tokens each. |
+| `def truncate_ordinary_bytes(self, data: Span[UInt8], max_tokens: Int) -> Int` | Find where to cut so that at most max_tokens tokens remain. |
+| `def truncate_ordinary(self, text: String, max_tokens: Int) -> Int` | Find where to cut text so that at most max_tokens tokens remain. |
+| `def fits_ordinary_bytes(self, data: Span[UInt8], max_tokens: Int) -> Bool` | Report whether bytes encode to at most max_tokens tokens. |
+| `def fits_ordinary(self, text: String, max_tokens: Int) -> Bool` | Report whether text encodes to at most max_tokens tokens. |
+| `def encode_ordinary_batch_into(self, documents: List[String], mut out: List[Int], mut ends: List[Int])` | Encode several documents into one buffer the caller owns. |
+| `def encode_ordinary_batch(self, documents: List[String]) -> List[List[Int]]` | Encode several documents, one list of ids each. |
+| `def token_id_of_bytes(self, data: Span[UInt8]) -> Int` | Look up the id of a byte sequence that may be a single token. |
+| `def token_id_of(self, text: String) -> Int` | Look up the id of text that may be a single token. |
+| `def token_bytes(self, token_id: Int) -> List[UInt8]` | Return the bytes one token id decodes to. |
 | `def count_ordinary_bytes(self, data: Span[UInt8]) -> Int` | Count the tokens bytes would become, without building them. |
 | `def count_ordinary(self, text: String) -> Int` | Count the tokens text would become, without building them. |
 | `def count_ordinary_bytes_cached(self, data: Span[UInt8], mut cache: PieceCache) -> Int` | Count the tokens bytes would become, consulting a piece cache. |

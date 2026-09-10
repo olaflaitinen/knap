@@ -251,6 +251,12 @@ not valid UTF-8. Decode writes raw bytes and adds no newline. That is the
 property a byte level tokenizer exists to have, and it is checked over all
 256 byte values for all seven encodings in `cli/tests/test_end_to_end.py`.
 
+Completions for bash, zsh and fish are in `cli/completions/`, and the conda
+package installs them where each shell looks. `cli/tests/test_completions.py`
+reads the command, option and encoding lists out of the parser and checks that
+all three files offer them, because a completion file is documentation that
+runs and nothing else here executes it.
+
 ### From Python
 
 ```bash

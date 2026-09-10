@@ -350,6 +350,11 @@ jobs:
       # whether the tool survives a pipe. The first version of it encoded
       # correctly and could not be piped, because opening /dev/stdout works
       # when standard output is a file and fails when it is a pipe.
+      # Completions are documentation that runs, and nothing else in this
+      # repository executes them, so they rot silently.
+      - name: Shell completions match the parser
+        run: uv run python cli/tests/test_completions.py
+
       - name: Build and check against tiktoken
         run: uv run python cli/tests/test_end_to_end.py
 

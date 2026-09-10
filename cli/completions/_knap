@@ -1,0 +1,66 @@
+#compdef knap
+# =============================================================================
+# Project     : Knap, a pure Mojo byte level BPE tokenizer
+# File        : cli/completions/_knap
+# Purpose     : Zsh completion for the knap command.
+# Stage       : Command line interface. See README.md
+# Depends on  : zsh compsys.
+# Invariants  : The command, option and encoding lists here must match
+#               cli/args.mojo. cli/tests/test_completions.py checks that.
+# -----------------------------------------------------------------------------
+# Author      : Olaf Yunus Laitinen Imanov <yunus.imanov@metropolia.fi>
+# ORCID       : 0009-0006-5184-0810
+# Affiliation : School of Information and Communication Technology,
+#               Metropolia University of Applied Sciences
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Olaf Yunus Laitinen Imanov
+# =============================================================================
+#
+# Install it by putting this file on your fpath under the name _knap, for
+# example in ~/.zsh/completions, and adding that directory to fpath before
+# compinit runs.
+
+_knap() {
+    local -a commands encodings formats
+    commands=(
+        'count:Print how many tokens the input becomes'
+        'encode:Print the token ids the input becomes'
+        'decode:Turn token ids back into the bytes they represent'
+        'vocab:Print what is known about an encoding, or about one word'
+        'help:Print the usage message'
+        'version:Print the version'
+    )
+    encodings=(
+        'cl100k_base:GPT-4, GPT-3.5-turbo, text-embedding-ada-002'
+        'o200k_base:GPT-4o and o1'
+        'o200k_harmony:As o200k_base, with 1091 special tokens'
+        'p50k_base:Codex, text-davinci-002 and 003'
+        'p50k_edit:As p50k_base, with fill in the middle markers'
+        'r50k_base:GPT-3, davinci'
+        'gpt2:The same table as r50k_base'
+    )
+    formats=(
+        'space:Ids separated by spaces'
+        'lines:One id per line'
+        'json:A JSON array'
+    )
+
+    _arguments -C \
+        '(-e --encoding)'{-e,--encoding}'[Which encoding to use]:encoding:((${encodings}))' \
+        '(-f --file)'{-f,--file}'[Read the input from a file]:file:_files' \
+        '--vocab[Use this vocabulary file]:file:_files' \
+        '--format[Shape of the printed ids]:format:((${formats}))' \
+        '--allowed-special[Permit this special token in the input]:marker:' \
+        '--strict-special[Refuse any special token in the input]' \
+        '(-h --help)'{-h,--help}'[Print the usage message]' \
+        '(-V --version)'{-V,--version}'[Print the version]' \
+        '1:command:((${commands}))' \
+        '*:text:'
+}
+
+_knap "$@"
+
+# =============================================================================
+# End of file: cli/completions/_knap
+# =============================================================================

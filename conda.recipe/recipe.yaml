@@ -71,6 +71,18 @@ build:
       mkdir -p "${PREFIX}/bin"
       mojo build -I src -I cli -o "${PREFIX}/bin/knap" cli/main.mojo
 
+      # Shell completions, in the directories each shell searches. A tool
+      # that installs a binary and no completions is a tool people type the
+      # long way for years.
+      mkdir -p "${PREFIX}/share/bash-completion/completions"
+      cp cli/completions/knap.bash \
+        "${PREFIX}/share/bash-completion/completions/knap"
+      mkdir -p "${PREFIX}/share/zsh/site-functions"
+      cp cli/completions/_knap "${PREFIX}/share/zsh/site-functions/_knap"
+      mkdir -p "${PREFIX}/share/fish/vendor_completions.d"
+      cp cli/completions/knap.fish \
+        "${PREFIX}/share/fish/vendor_completions.d/knap.fish"
+
 requirements:
   build:
     - mojo-compiler ==${{ mojo_version }}
@@ -92,6 +104,9 @@ tests:
         set -euo pipefail
         test -f "${PREFIX}/lib/mojo/knap.mojoc"
         test -x "${PREFIX}/bin/knap"
+        test -f "${PREFIX}/share/bash-completion/completions/knap"
+        test -f "${PREFIX}/share/zsh/site-functions/_knap"
+        test -f "${PREFIX}/share/fish/vendor_completions.d/knap.fish"
         "${PREFIX}/bin/knap" version
         mojo run -I "${PREFIX}/lib/mojo" smoke.mojo
     files:

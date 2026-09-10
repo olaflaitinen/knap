@@ -72,11 +72,12 @@
 **A byte level Byte Pair Encoding tokenizer, written from scratch in pure
 Mojo.**
 
-**Website:** <https://knap.lovable.app> — the same material as a browsable
-site, with a [runnable example](https://knap.lovable.app/try) you can start
-from a button, the [parity and performance
-figures](https://knap.lovable.app/verification) read from this README, and an
-[index of the documents in `docs/`](https://knap.lovable.app/docs).
+**Website:** <https://knap.lovable.app>. The same material as a
+browsable site: a [runnable example](https://knap.lovable.app/try) you
+can start from a button, the [parity and performance
+figures](https://knap.lovable.app/verification) read from this README,
+and an [index of the documents in
+`docs/`](https://knap.lovable.app/docs).
 
 Knap exists so that a Mojo or MAX program can tokenize inside its own
 runtime, without a Python interpreter in the process, without a foreign

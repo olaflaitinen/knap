@@ -25,10 +25,10 @@
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
+| Website | <https://knap.lovable.app> |
 | Created | 2026-09-09 |
 | Updated | 2026-09-09 |
 | Licence | EUPL-1.2 |
-| Website | <https://knap.lovable.app> |
 
 ---
 

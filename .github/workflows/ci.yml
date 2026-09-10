@@ -136,25 +136,33 @@ jobs:
       - name: Fetch vocabularies
         run: uv run python scripts/fetch_vocabs.py
 
-      # Only the fixtures the tests need, which are not committed. The
-      # generators that write committed files are deliberately absent, and
-      # that absence is the whole point of the next step.
-      - name: Generate golden fixtures
-        run: |
-          uv run python scripts/gen_encode_golden.py
-          uv run python scripts/gen_pretoken_golden.py
-
       # A committed generated file that no longer matches its generator
       # means Knap is matching a pattern the reference no longer uses, which
       # would surface as mysteriously wrong tokens rather than as a failure.
       #
-      # This step used to run after gen_unicode_tables.py and
-      # gen_api_reference.py, which write the very files it checks. It was
-      # therefore comparing each file against itself, and it could not fail.
-      # A hand edit to docs/API.md passed through it three times before
-      # anybody noticed, and what noticed was running the gate locally.
+      # **Before the generators run, and that ordering is the gate.** This
+      # step used to come after them, and two of the three generators write
+      # the very files it checks, so it was comparing each one against
+      # itself and could not fail. A hand edit to docs/API.md passed through
+      # it three times.
+      #
+      # The check re-derives each file into a scratch copy and never writes
+      # over the committed one, so running it first costs nothing and means
+      # what it says.
       - name: Generated files are current
         run: uv run python scripts/check_generated.py
+
+      # After the check, because gen_unicode_tables.py writes two things:
+      # the committed table, and tests/golden/unicode_classes.txt, which is
+      # not committed and which tests/test_unicode_tables.mojo needs. That
+      # second output is why this step cannot simply be dropped, which was
+      # the first attempt at fixing the ordering above.
+      - name: Generate golden fixtures
+        run: |
+          uv run python scripts/gen_encode_golden.py
+          uv run python scripts/gen_unicode_tables.py
+          uv run python scripts/gen_pretoken_golden.py
+          uv run python scripts/gen_api_reference.py
 
       # The docstring gate covers the library as well as the tests. Running
       # it on tests alone would leave the public API, which is the surface

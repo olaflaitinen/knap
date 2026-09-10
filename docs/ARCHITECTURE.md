@@ -518,42 +518,24 @@ Environment as measured:
 | uv environment | Python 3.12.3, tiktoken 0.14.0, tokenizers 0.23.2, regex 2026.9.3 |
 | pixi environment | Python 3.14.7, Mojo from the stable `max` channel |
 
-Corrections to widely held assumptions, each verified by compiling:
+The corrections this project accumulated to widely held assumptions about
+Mojo 1.0.0 are gathered in [docs/TOOLCHAIN.md](TOOLCHAIN.md), which is the
+single canonical list. It holds every finding, each one verified by
+compiling, together with what pins the correct spelling in this repository
+and a section for the assumptions that turned out to be the reader's error
+rather than the compiler's.
 
-| Assumption | Reality in Mojo 1.0.0 |
-| --- | --- |
-| `fn` declares a function | Removed. `def` is the only function keyword, and `fn` is a hard parse error. |
-| `alias X = ...` is obsolete | Still valid in 1.0.0. `comptime X = ...` also works and is preferred as forward compatible. |
-| `@value` generates a constructor | Removed. Use `@fieldwise_init` with explicit trait conformance. |
-| Standard library imports are bare | They are not. `from std.sys import ...` resolves; `from sys import ...` does not. |
-| `mojo test` runs test files | The subcommand does not exist. A test file is a program whose `main` drives `TestSuite.discover_tests`. |
-| SIMD `a > b` yields a lane mask | It yields a single `Bool` for the whole vector. The per lane mask comes from `a.gt(b)`, and likewise `a.eq(b)`. |
-| `--Werror` and `--warn-on-unstable-apis` compose | They do not. Together the build fails, because essentially the whole standard library is unstable. CI runs them as separate jobs. |
-| `mojo format` has a check mode | It does not. It rewrites in place, so CI runs it and then checks that the working tree is unchanged. |
-| Large collection literals are fine | They are not. A `List[UInt8]` literal of 34560 elements did not finish compiling in ten minutes. The same data as a `StaticString` compiled in 5.7 seconds, which is why the Unicode tables are strings. |
-| The formatter leaves generated files alone | It does not. It splits long string literals across lines, so a generator must format its own output or the drift check reports permanent failure. |
-| `open(path, "r").read()` can read any file | Only text. Binary references need `read_bytes()`, and there is no `"rb"` mode. |
-| `Path.read_text()` returns the file's bytes as text | It applies universal newline translation, silently turning every carriage return and line feed pair into a single line feed. This produced a false failure in the M2 reference generator, where the scanner was right and the reference was wrong. Anything compared byte for byte must use `read_bytes()`. |
-| Compiler defines are read through a `std.defines` module | There is no such module. The compiler's own `-D` help text points at one. The working spelling is `std.sys.is_defined["KEY"]()`, evaluated at compile time. |
-| Mojo 1.0.0 has working task parallelism | It does not, for this workload. There is no `parallelize`, and `TaskGroup` aborts at runtime with `LLVM ERROR: destroying a non-available AsyncValue is not implemented`. Batch encoding is single threaded because nothing else is available, which is a fact rather than a design choice. See [Why single documents are not parallelized](#why-single-documents-are-not-parallelized). |
-| `mojo doc` accepts any well formed docstring | It requires a `Raises:` section on every function that can raise, and a docstring on every struct field and every `comptime` constant. Omitting one is an error, not a warning. |
-| Exporting a type to Python needs only the type | `PythonModuleBuilder.add_type` requires `Writable`, and reflection cannot derive it when a field is not itself `Writable`, so both `write_to` and `write_repr_to` must be written by hand. The failure without them is a constraint error inside the bindings library that never names your type. |
-| Mojo has module level global variables | It does not. A registry of loaded tokenizers at module scope is impossible, so exported state lives inside an exported type. |
-| A method reached through the automatic downcast pointer can mutate | It cannot. Not a limitation for Knap, since every tokenizer method is read only after loading, but it constrains what a binding can expose. |
-| `mojo precompile` produces a `.mojopkg` | That extension is deprecated in 1.0.0 and warns. The current artefact is `.mojoc`. |
-| A conda recipe may reference files above its own directory | `license_file: ../LICENSE` fails. The path must resolve inside the recipe directory. |
-| `external_call` lives under `std.sys` | It does not. `std.sys.ffi` fails to resolve; the module is `std.ffi`. |
-| `len(s)` works on a `String` | Refused, and the error is right to refuse it: bytes, code points and grapheme clusters are three different answers. Use `s.byte_length()`, `len(s.codepoints())`, or `len(s.graphemes())` and say which you meant. |
-| A tuple literal can be iterated | `Tuple` does not implement `__iter__`, so `for x in (a, b, c)` is a compile error. Build a `List`. |
-| `/dev/stdout` can always be opened for writing | It cannot. Opening it works when standard output is a file or a terminal and fails when it is a pipe, because the path resolves through `/proc/self/fd` to a pipe node. `FileDescriptor(1).write_bytes` works everywhere. Reading `/dev/stdin` from a pipe does work, which is what makes the asymmetry easy to miss: the tool read piped input correctly and could not write piped output. |
-| Pointer arithmetic uses `+` | Deprecated. Use `unsafe_offset`. The same applies to `bitcast` and `load`, which are `unsafe_bitcast` and `unsafe_load` in 1.0.0. All three still compile and only `--Werror` refuses them, so a deprecated spelling can pass a run and fail a build. |
-| Building and running a module type checks all of it | It does not. Elaboration is lazy, so a name that resolves nowhere sits undetected in a function nothing calls. A missing import in `scanner.mojo` survived both a build and a full run of a test that imports the module, and only `mojo doc` reported it. That makes the docstring gate the only whole module type check in this project, and it is the reason the gate runs over every Mojo file rather than over the library alone. |
-| A file may be named after the package it imports | A module's name is its file stem, so `cli/knap.mojo` declares a module called `knap` and the compiler refuses it: a module cannot import itself. The entry point is `cli/main.mojo` and only the binary is called `knap`. |
+Three of those findings shaped this design directly and are named where they
+apply: the element-wise SIMD comparison in [SIMD classifier](#simd-classifier),
+the absence of task parallelism in
+[Why single documents are not parallelized](#why-single-documents-are-not-parallelized),
+and lazy elaboration, which is why the docstring gate runs over every Mojo
+file in the repository rather than over the library alone.
 
-The SIMD comparison correction is the most dangerous of these, because the
-wrong form still compiles in some expressions and silently computes something
-else. `tests/test_toolchain.mojo` pins the correct spelling with an executable
-assertion so a future toolchain change surfaces as a test failure.
+The SIMD comparison is the most dangerous of them, because the wrong form
+still compiles in some expressions and silently computes something else.
+`tests/test_toolchain.mojo` pins the correct spelling with an executable
+assertion so that a future toolchain change surfaces as a test failure.
 
 ## Unstable API inventory
 
@@ -622,7 +604,7 @@ dependency is the pinned compiler itself.
 | --- | --- | --- |
 | Can Knap beat `tiktoken` on encode throughput? | **Yes, on three of the four distinct encode behaviours, and level on the fourth.** Resolved 2026-09-09 by four changes to the merge path, none of them a language argument. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). `rs-bpe` still leads on the two encodings it ships. | Done |
 | Is the piece cache still worth having? | **Not on `cl100k_base`.** Measured 2026-09-09: 5.58 MB/s cached against 6.15 uncached, at a 92.7 percent hit rate. Making the uncached path faster moved the break even point. `o200k_base` still gains. The cache stays optional and off by default, which is what it always was. | Open, revisit if the uncached path changes again |
-| Can Mojo 1.0.0 build an importable Python extension module? | **Yes.** Resolved 2026-09-08. `PythonModuleBuilder` produces a real CPython extension, so the `ctypes` fallback was never built and the flat C surface it would have needed was never added. Three constraints were found while doing it, all recorded under [Toolchain ground truth](#toolchain-ground-truth): no globals, `add_type` requires `Writable`, and the auto downcast pointer cannot mutate. | Done |
+| Can Mojo 1.0.0 build an importable Python extension module? | **Yes.** Resolved 2026-09-08. `PythonModuleBuilder` produces a real CPython extension, so the `ctypes` fallback was never built and the flat C surface it would have needed was never added. Three constraints were found while doing it, all recorded in [docs/TOOLCHAIN.md](TOOLCHAIN.md): no globals, `add_type` requires `Writable`, and the auto downcast pointer cannot mutate. | Done |
 | Scanner design and transition table | Resolved at M2. Written up under [The scanner](#the-scanner). Ordered alternation rather than a merged state machine, because alternation priority is load bearing. | Done |
 | Two stage table against sorted range binary search | Resolved at M2, remeasured on Unicode 16.0.0. Sorted runs hold 2391 runs in 15542 bytes; the best two stage layout needs 38272. Sorted runs chosen, because the ASCII fast path means these tables are reached only on the documented slow path. See [docs/UNICODE.md](UNICODE.md). | Done |
 | Piece cache hit rate on real text | Measured at M5. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). | Done |

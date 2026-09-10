@@ -137,6 +137,103 @@ def test_simd_elementwise_comparison_returns_a_mask() raises:
     assert_equal(Int(mask.cast[DType.uint8]().reduce_add()), 2)
 
 
+# -----------------------------------------------------------------------------
+# Findings that were nearly recorded as limitations
+#
+# Each of the next two was written down as something Mojo 1.0.0 cannot do,
+# doubted, and then checked. Both were the reader's error. They are pinned
+# here so that the correction stays correct, and because a compilation of
+# toolchain limits that only ever grows is one nobody can trust.
+#
+# See docs/TOOLCHAIN.md.
+# -----------------------------------------------------------------------------
+
+
+def test_a_file_handle_can_seek_and_read_a_prefix() raises:
+    """Pin that seeking works, and that a prefix can be read without the rest.
+
+    The benchmark harness was written to read a whole corpus in order to
+    slice a few megabytes out of it, on the assumption that Mojo file
+    handles cannot seek. They can. Correcting it took the benchmark's peak
+    resident memory from 282.8 MB down to 95.6 MB.
+
+    Raises:
+        Error: if seeking to the end does not report the file size, or if a
+            bounded read returns something other than the file's prefix.
+    """
+    var path = String("LICENSE")
+
+    var whole_handle = open(path, "r")
+    var whole = whole_handle.read_bytes()
+    whole_handle.close()
+    assert_true(
+        len(whole) > 64, String("LICENSE is too short to test a prefix read")
+    )
+
+    var handle = open(path, "r")
+
+    # Whence 2 is the end of the file, so this reports the size.
+    var size = handle.seek(0, 2)
+    assert_equal(Int(size), len(whole), String("seek to end is not the size"))
+
+    _ = handle.seek(0)
+    var prefix = handle.read_bytes(64)
+    handle.close()
+
+    assert_equal(
+        len(prefix), 64, String("a bounded read returned the wrong count")
+    )
+    for index in range(64):
+        assert_equal(
+            prefix[index],
+            whole[index],
+            String("the prefix is not the start of the file"),
+        )
+
+
+def test_a_kernel_pseudo_file_can_be_read() raises:
+    """Pin that the ordinary file interface reads /proc.
+
+    A probe against /proc returned minus one and the conclusion drawn was
+    that the Mojo runtime refuses kernel pseudo files. The probe was wrong.
+    The distinction matters because these files report a size of zero, so an
+    implementation that trusted the size would hand back nothing, and this
+    test would catch that change.
+
+    Raises:
+        Error: if the file reads as empty or does not contain the field
+            every process status carries.
+    """
+    var handle = open(String("/proc/self/status"), "r")
+    var status = handle.read()
+    handle.close()
+
+    assert_true(
+        status.byte_length() > 0,
+        String("/proc/self/status read as empty, so the size was trusted"),
+    )
+    assert_true(
+        String("VmHWM") in status or String("Name:") in status,
+        String("/proc/self/status is missing the fields it always carries"),
+    )
+
+
+def test_t_strings_interpolate_into_a_string() raises:
+    """Pin the interpolation spelling, which is not the Python one.
+
+    Mojo 1.0.0 has no f-strings. The construct is a t-string, and a t-string
+    is not itself a String: it has to be converted. Every message in this
+    project that names a value is written this way.
+
+    Raises:
+        Error: if interpolation does not produce the expected text.
+    """
+    var row = 3
+    var column = 11
+    var message = String(t"row {row} column {column}")
+    assert_equal(message, String("row 3 column 11"))
+
+
 def main() raises:
     """Discover and run every test function in this module.
 

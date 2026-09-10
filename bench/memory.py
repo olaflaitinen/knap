@@ -51,7 +51,8 @@ PROBE = REPO_ROOT / "bench" / "mem_probe.mojo"
 CORPUS = REPO_ROOT / "bench" / "corpus" / "mixed.txt"
 VOCAB = REPO_ROOT / "tests" / "fixtures" / "vocabs" / "cl100k_base.tiktoken"
 
-# Stage name, and what it adds to the stage before it.
+# Stage name, and what it adds to the stage before it. All against
+# cl100k_base, which is the stage ladder rather than the encoding survey.
 STAGES = [
     ("empty", "the Mojo runtime and nothing else"),
     ("file", "the vocabulary file read into memory"),
@@ -61,15 +62,18 @@ STAGES = [
     ("encode", "80 MB of input encoded to a list of ids"),
 ]
 
-# The same stages on the Python side, as source to run with -c.
-PYTHON_STAGES = [
-    ("empty", "pass", "the Python interpreter and nothing else"),
-    (
-        "tokenizer",
-        "import tiktoken; e = tiktoken.get_encoding('cl100k_base');"
-        " e.encode_ordinary('x')",
-        "tiktoken with cl100k_base loaded",
-    ),
+# Every encoding, loaded and ready to encode. This is the survey, and it is
+# the part nobody publishes: how much a serving process pays to hold each
+# one. The order is by vocabulary size rather than alphabetical, because
+# what the table is for is seeing the relationship.
+ENCODINGS = [
+    "gpt2",
+    "r50k_base",
+    "p50k_base",
+    "p50k_edit",
+    "cl100k_base",
+    "o200k_base",
+    "o200k_harmony",
 ]
 
 
@@ -162,6 +166,7 @@ def main() -> int:
 
     print("# peak resident memory, one child process per stage")
     print(f"# probe: {PROBE.relative_to(REPO_ROOT)}")
+    print(f"# encodings surveyed: {len(ENCODINGS)}")
 
     with tempfile.TemporaryDirectory() as scratch:
         binary = build(Path(scratch) / "mem_probe")
@@ -177,20 +182,41 @@ def main() -> int:
                 f"above_control_kb={above} note={note or description}"
             )
 
+        # Every encoding, ready to encode. One child each, same control.
+        for encoding in ENCODINGS:
+            peak, note = peak_kilobytes([str(binary), "tokenizer", encoding])
+            print(
+                f"MEM name=knap_ready_{encoding} kind=peak_rss "
+                f"peak_kb={peak} above_control_kb={peak - baseline} "
+                f"note={note}"
+            )
+
     python = REPO_ROOT / ".venv" / "bin" / "python"
     if not python.exists():
         print("# tiktoken not measured: no .venv/bin/python")
         return 0
 
-    baseline = 0
-    for stage, source, description in PYTHON_STAGES:
+    peak, _ = peak_kilobytes([str(python), "-c", "pass"])
+    baseline = peak
+    print(
+        f"MEM name=tiktoken_empty kind=peak_rss peak_kb={peak} "
+        "above_control_kb=0 note=the Python interpreter and nothing else"
+    )
+
+    # The same survey against the reference implementation. Encoding one
+    # character forces the table to be built rather than merely fetched,
+    # which is what makes the two sides comparable.
+    for encoding in ENCODINGS:
+        source = (
+            "import tiktoken;"
+            f" e = tiktoken.get_encoding({encoding!r});"
+            " e.encode_ordinary('x')"
+        )
         peak, _ = peak_kilobytes([str(python), "-c", source])
-        if stage == "empty":
-            baseline = peak
-        above = peak - baseline
         print(
-            f"MEM name=tiktoken_{stage} kind=peak_rss peak_kb={peak} "
-            f"above_control_kb={above} note={description}"
+            f"MEM name=tiktoken_ready_{encoding} kind=peak_rss "
+            f"peak_kb={peak} above_control_kb={peak - baseline} "
+            f"note=tiktoken with {encoding} loaded"
         )
 
     return 0

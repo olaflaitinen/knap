@@ -310,6 +310,7 @@ correctness for speed, correctness wins.
 | Token ids decoded and compared | 702463, every id in every encoding |
 | Unicode code points verified against an independent reference | 1114112 |
 | Memory to hold `cl100k_base`, above an empty runtime | 7.9 MB |
+| Encodings whose memory is measured against the reference | 7 |
 | Strings fuzzed against `tiktoken` | 20000000, ten million each on two encodings |
 | Of those, compared token for token | 16661834 |
 | Of those, round trip checked because they are not valid UTF-8 | 3338166 |
@@ -376,11 +377,20 @@ argument:
 - The probe table carries a tag from the key's hash, so a lookup that is
   going to fail usually fails after one load instead of four.
 
-**Memory, which almost nobody measures.** Knap holds `cl100k_base` in
-7.9 MB above an empty Mojo runtime. `tiktoken` needs 44.7 MB above an empty
-Python interpreter for the same table, measured in the same run with both
-controls reported. That is 5.7 times less, and on a machine deciding how
-many encodings it can hold it is a harder limit than throughput.
+**Memory, which almost nobody measures.** Knap holds every encoding in
+between 4.4 and 11.7 times less memory than the reference implementation,
+measured in the same run with both empty runtimes reported as controls:
+
+| Encoding | Knap | `tiktoken` |
+| --- | --- | --- |
+| `gpt2` | **3.1 MB** | 36.4 MB |
+| `cl100k_base` | **8.0 MB** | 44.7 MB |
+| `o200k_base` | **18.3 MB** | 80.0 MB |
+| `o200k_harmony` | **18.4 MB** | 82.5 MB |
+
+All seven are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md). On a machine
+deciding how many encodings a process can hold, this is a harder limit than
+throughput.
 
 Two further results, each a measurement rather than a claim:
 

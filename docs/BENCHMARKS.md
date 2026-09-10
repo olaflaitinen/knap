@@ -683,38 +683,81 @@ vocabulary and then encodes reports one number for both. And **the control
 is always reported**, because without it a reader cannot separate the
 library from the language runtime.
 
+### Every encoding, ready to encode
+
+The survey, and the part nobody publishes. One child process per encoding,
+each loaded to the point where it can encode, with the empty runtime of its
+own language as the control.
+
+| Encoding | Knap | `tiktoken` | Ratio |
+| --- | --- | --- | --- |
+| `gpt2` | **3.1 MB** | 36.4 MB | 11.7 |
+| `r50k_base` | **3.3 MB** | 27.3 MB | 8.3 |
+| `p50k_base` | **3.3 MB** | 27.4 MB | 8.4 |
+| `p50k_edit` | **3.4 MB** | 27.4 MB | 8.1 |
+| `cl100k_base` | **8.0 MB** | 44.7 MB | 5.6 |
+| `o200k_base` | **18.3 MB** | 80.0 MB | 4.4 |
+| `o200k_harmony` | **18.4 MB** | 82.5 MB | 4.5 |
+
+Both controls are about 13 MB, an empty Mojo binary and an empty Python
+interpreter, and both are subtracted. Quoting the raw peaks would have
+flattered nobody: it would have made a 12 times difference look like 3.
+
+**Knap holds every encoding in between 4.4 and 11.7 times less memory than
+the reference implementation.** On a serving machine that is the number that
+decides how many encodings a process can hold, and it is a harder limit than
+throughput.
+
+One row is odd and it is not ours. `tiktoken`'s `gpt2` costs 9 MB more than
+its `r50k_base` although the two merge tables are identical, which
+`scripts/diff_vocabs.py` confirms token for token and rank for rank. Knap
+loads both from the same file and pays the same 3 MB either way. Something
+in how `gpt2` is distributed accounts for the difference; nothing visible
+from here says what, and it is reported rather than explained.
+
+### The stage ladder
+
+`cl100k_base`, one stage at a time, so that a peak belongs to one thing.
+
 | Stage | Peak | Above control |
 | --- | --- | --- |
-| An empty Mojo program | 12.9 MB | control |
-| The vocabulary file read into memory | 15.4 MB | 2.5 MB |
-| The parsed vocabulary | 20.6 MB | 7.8 MB |
-| **The vocabulary and the rank table, ready to encode** | **20.8 MB** | **7.9 MB** |
-| 80 MB of input counted | 282.8 MB | 270.0 MB |
-| 80 MB of input encoded to a list of ids | 596.9 MB | 584.1 MB |
+| An empty Mojo program | 13.0 MB | control |
+| The vocabulary file read into memory | 15.4 MB | 2.4 MB |
+| The parsed vocabulary | 20.6 MB | 7.6 MB |
+| **The vocabulary and the rank table, ready to encode** | **20.9 MB** | **7.9 MB** |
+| 80 MB of input counted | 217.7 MB | 204.7 MB |
+| 80 MB of input encoded to a list of ids | 426.5 MB | 413.5 MB |
 
-And the same measurement on the Python side, in the same run:
+The last two rows are the counting result seen from the memory side. The
+difference between them is 208.8 MB for 27372826 tokens, which is 7.99 bytes
+per token, and a token id is eight bytes. The list of ids is the whole
+difference and there is nothing else in it.
 
-| Stage | Peak | Above control |
-| --- | --- | --- |
-| An empty Python interpreter | 13.0 MB | control |
-| `tiktoken` with `cl100k_base` loaded | 57.7 MB | 44.7 MB |
+**That last sentence was not true when this table was first measured.** The
+difference was 343.7 MB, which is 13.2 bytes per token, because the output
+list was grown into rather than sized: a list that doubles holds both
+buffers while it copies, so its peak is about half again its final size.
+Sizing it once from the input length removed 137.7 MB of peak on this input
+and brought the arithmetic back to eight bytes a token. The 110 MB parity
+gate passed unchanged, because a capacity hint cannot change an answer.
 
-**Knap holds `cl100k_base` in 7.9 MB where `tiktoken` needs 44.7 MB, which
-is 5.7 times less.** The control matters: both runtimes start at about 13 MB,
-so quoting the raw peaks would have made the difference look far smaller
-than it is.
+### Two things this measurement caught
 
-The last two rows are the counting result seen from the memory side. Both
-include the whole 115 MB corpus, because the benchmark harness reads the
-file and then slices it, so the interesting figure is the difference between
-them: 314 MB, which is the list of ids for 27372826 tokens.
-
-This measurement was nearly published wrong. The first version of it ran the
+**A number that was nearly published wrong.** The first version ran the
 tokenizer inside the throughput harness and reported 290 MB, which would
 have been a claim that Knap uses six times the memory `tiktoken` does. The
-290 MB was the corpus. The control and the per stage split are what turned a
-wrong number into the right one, and that is the only reason they are in the
+290 MB was the corpus. The control and the per stage split are the only
+reason a wrong number did not go out, and that is why they are in the
 harness rather than in a notebook.
+
+**A benchmark harness reading 115 MB to hand back four.** It read the whole
+corpus and indexed into it. It now seeks, and reads the slice plus a bound
+on how far the first line boundary can be. The encode benchmark's peak fell
+from 282.8 MB to 95.6 MB, which matters on a machine with 2.8 GB where the
+thing being measured was competing with the measurement for page cache.
+Both the Mojo and the Python side changed together and produce byte
+identical slices at 1, 4 and 16 MB, which `bench/run_all.sh` checks before
+it will run at all.
 
 Run it with `python bench/memory.py`.
 

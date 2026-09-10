@@ -331,7 +331,14 @@ struct Tokenizer(Movable):
         which is exactly what the reference implementation's ordinary encode
         does.
         """
-        var out = List[Int]()
+        # Sized once rather than grown into. A list that doubles holds
+        # both the old and the new buffer while it copies, so its peak is
+        # about half again its final size, and on eighty megabytes of input
+        # that measured as 125 MB of avoidable resident memory. The
+        # estimate is deliberately generous, because being a little too
+        # large costs one allocation and being too small costs the growth
+        # sequence this exists to avoid.
+        var out = List[Int](capacity=estimated_tokens(len(data)))
         self.encode_segment(data, out)
         return out^
 
@@ -405,7 +412,7 @@ struct Tokenizer(Movable):
         Raises:
             Error: if the scanner or the merge loop fails.
         """
-        var out = List[Int]()
+        var out = List[Int](capacity=estimated_tokens(len(data)))
         self.encode_segment_cached(data, out, cache)
         return out^
 
@@ -581,7 +588,7 @@ struct Tokenizer(Movable):
             Error: if a disallowed special token appears in the input, or if
                 an allowed name is not a special token of this encoding.
         """
-        var out = List[Int]()
+        var out = List[Int](capacity=estimated_tokens(len(data)))
         _ = self._encode_bytes_into[use_cache](
             data, allowed_special, out, cache
         )

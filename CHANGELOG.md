@@ -93,6 +93,35 @@ untouched.
   measurement with one child process per stage and the empty runtime
   reported as a control every time.
 
+### Added, milestone M9, memory measured across every encoding
+
+- `bench/memory.py` now surveys all seven encodings on both sides in one
+  run, each in its own child process with its own language's empty runtime
+  as the control. **Knap holds every encoding in between 4.4 and 11.7 times
+  less memory than the reference implementation**, from 3.1 MB against
+  36.4 MB for `gpt2` to 18.4 MB against 82.5 MB for `o200k_harmony`.
+- One row in that table is not ours and is reported rather than explained.
+  The reference's `gpt2` costs 9 MB more than its `r50k_base` although the
+  two merge tables are identical, which `scripts/diff_vocabs.py` confirms
+  token for token and rank for rank.
+
+### Changed, milestone M9, two things the memory measurement found
+
+- **The output list was grown into rather than sized.** A list that doubles
+  holds both buffers while it copies, so its peak is about half again its
+  final size, and encoding 80 MB peaked at 13.2 bytes per token when a
+  token id is eight. Sizing it once from the input length removed 137.7 MB
+  of peak and brought the arithmetic back to 7.99 bytes per token. The
+  110 MB parity gate passed unchanged, because a capacity hint cannot
+  change an answer.
+- **The benchmark harness read 115 MB to hand back four.** It read the
+  whole corpus and indexed into it. It now seeks and reads the slice plus a
+  bound on how far the first line boundary can be. The encode benchmark's
+  peak fell from 282.8 MB to 95.6 MB, which matters on a machine where the
+  thing being measured was competing with the measurement for page cache.
+  The Mojo and Python sides changed together and produce byte identical
+  slices at 1, 4 and 16 MB.
+
 ### Added, milestone M9, the helpers a caller would otherwise write
 
 Each of these is something people write against a tokenizer, and write

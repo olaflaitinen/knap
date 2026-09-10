@@ -281,6 +281,20 @@ wrong input for a throughput claim.
 """
 
 
+comptime SLACK_BYTES: Int = 4 * 1024 * 1024
+"""How far past the offset to look for the first line boundary.
+
+The slice used to be taken by reading the whole corpus and indexing into
+it, which is 115 MB resident to hand back four. Seeking instead needs a
+bound on how far the first line boundary might be, and four megabytes is
+far more than any line in this corpus. Exceeding it raises rather than
+silently returning something else.
+
+This constant has to mean the same thing on the Python side, which is why
+bench/run_all.sh refuses to start when the two disagree on the bytes.
+"""
+
+
 def read_corpus_slice(
     path: String, offset: Int, limit: Int
 ) raises -> List[UInt8]:
@@ -305,18 +319,28 @@ def read_corpus_slice(
     pre-token an artefact of the cut rather than of the text.
     """
     try:
+        # Seek and read a window rather than reading the file. The corpus is
+        # 115 MB and a benchmark slice is four, so reading all of it cost
+        # about 280 MB resident on every run and put the machine under page
+        # pressure while it was being measured.
         var handle = open(path, "r")
-        var data = handle.read_bytes()
+        var size = handle.seek(0, 2)
+        var seek_to = offset
+        if UInt64(offset) >= size:
+            seek_to = 0
+        _ = handle.seek(seek_to)
+        var data = handle.read_bytes(limit + SLACK_BYTES)
         handle.close()
 
-        var start = offset
-        if start >= len(data):
-            start = 0
+        var start = 0
         while start < len(data) and data[start] != 10:
             start += 1
-        if start >= len(data):
+        if start >= len(data) or start >= SLACK_BYTES:
             raise Error(
-                String(t"knap bench: no line boundary after offset {offset}")
+                String(
+                    t"knap bench: no line boundary within {SLACK_BYTES}"
+                    t" bytes of offset {offset}"
+                )
             )
         start += 1
 

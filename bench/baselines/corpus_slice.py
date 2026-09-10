@@ -53,6 +53,20 @@ each other by bench/run_all.sh, which refuses to run if they differ.
 """
 
 
+SLACK_BYTES = 4 * 1024 * 1024
+"""How far past the offset to look for the first line boundary.
+
+The slice used to be taken by reading the whole corpus and indexing into
+it, which is 115 MB resident to hand back four. Seeking instead needs a
+bound on how far the first line boundary might be, and four megabytes is
+far more than any line in this corpus. Exceeding it raises rather than
+silently returning something else.
+
+This constant has to mean the same thing on the Mojo side, which is why
+bench/run_all.sh refuses to start when the two disagree on the bytes.
+"""
+
+
 def read_corpus_slice(path: Path, offset: int, limit: int) -> bytes:
     """Read a whole-line slice of the corpus.
 
@@ -74,22 +88,27 @@ def read_corpus_slice(path: Path, offset: int, limit: int) -> bytes:
             "'python scripts/fetch_corpus.py' first."
         )
 
-    data = path.read_bytes()
+    size = path.stat().st_size
+    seek_to = offset if offset < size else 0
 
-    start = offset if offset < len(data) else 0
-    newline = data.find(b"\n", start)
-    if newline < 0:
+    with path.open("rb") as handle:
+        handle.seek(seek_to)
+        window = handle.read(limit + SLACK_BYTES)
+
+    newline = window.find(b"\n")
+    if newline < 0 or newline >= SLACK_BYTES:
         raise SystemExit(
-            f"corpus_slice: no line boundary after offset {offset}"
+            f"corpus_slice: no line boundary within {SLACK_BYTES} bytes of "
+            f"offset {offset}"
         )
     start = newline + 1
 
-    end = min(start + limit, len(data))
-    last = data.rfind(b"\n", start, end)
+    end = min(start + limit, len(window))
+    last = window.rfind(b"\n", start, end)
     if last > start:
         end = last + 1
 
-    return data[start:end]
+    return window[start:end]
 
 
 # =============================================================================

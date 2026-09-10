@@ -59,7 +59,7 @@ question has an option for not knowing, so nothing forces a guess.
 
 ## Read these first
 
-Most questions are answered in one of five documents, and each of them is
+Most questions are answered in one of these documents, and each of them is
 written to be read rather than skimmed.
 
 | Document | Answers |
@@ -67,8 +67,11 @@ written to be read rather than skimmed.
 | [README.md](README.md) | What Knap is, what is verified, what is not, and when not to use it. |
 | [docs/CORRECTNESS.md](docs/CORRECTNESS.md) | What parity means here, exactly what has been checked, and the one divergence class the project has had. |
 | [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | Every published number, the machine it came from, and a section on what the numbers do not mean. |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the four stages work, and a list of toolchain findings that will save you a day each. |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the four stages work, and why each design decision went the way it did. |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What is deliberately not built, with the reason for each. |
+| [docs/TOOLCHAIN.md](docs/TOOLCHAIN.md) | Everything about Mojo 1.0.0 that is not what you would assume. Useful whether or not you use Knap. |
+| [docs/METHODOLOGY.md](docs/METHODOLOGY.md) | How the numbers above were measured, and how to measure your own without fooling yourself. |
+| [examples/README.md](examples/README.md) | Two working programs, and the two places callers of every tokenizer write the same wrong code. |
 
 ## Questions that already have answers
 

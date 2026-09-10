@@ -207,11 +207,19 @@ def main() raises:
     # encoding that covers it.
     for window in knap.windows_ordinary(document, 512, 64):
         print(window)
+
+    # And the rectangle a model takes: one row per document, padded to the
+    # longest, with a mask saying which columns are real. The padding id is
+    # required because no encoding here defines one.
+    var batch = knap.pad_ordinary_batch(documents, 100257)
+    print(batch.rows, "by", batch.width)
 ```
 
 Run it with `uv run mojo run -I src your_program.mojo`. The full surface is
 in [docs/API.md](docs/API.md), which is generated from the source rather
-than written alongside it.
+than written alongside it, and two complete programs are in
+[examples/](examples/README.md): a token budget checker and a chunker that
+windows a document and pads the pieces.
 
 ### From the command line
 
@@ -567,6 +575,10 @@ which is not a choice: Mojo 1.0.0 has no working task parallelism.
 | Understand what is expected of participants | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | See what changed and when | [CHANGELOG.md](CHANGELOG.md) |
 | Package or repackage Knap | [docs/PACKAGING.md](docs/PACKAGING.md) |
+| Start from working code | [examples/](examples/README.md) |
+| Write Mojo, whether or not you use Knap | [docs/TOOLCHAIN.md](docs/TOOLCHAIN.md), every assumption this project had to correct |
+| Measure something of your own | [docs/METHODOLOGY.md](docs/METHODOLOGY.md) |
+| Audit what Knap pulls in | [`sbom.cdx.json`](sbom.cdx.json), CycloneDX 1.6, generated from the lock file |
 | Read all of this as a website, or run the example without installing anything | <https://knap.lovable.app> |
 
 The issue forms ask for a great deal. That is deliberate. A parity report

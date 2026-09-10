@@ -89,6 +89,13 @@ jobs:
       - name: The reference has not moved under the documents
         run: python scripts/check_reference.py
 
+      # The toolchain findings document is mostly citations, and a citation
+      # is the part of a claim that rots when a file is renamed. This
+      # resolves every one of them and checks that the compiler version the
+      # document was verified against is the one still pinned.
+      - name: Toolchain findings still cite files that exist
+        run: python scripts/check_toolchain_doc.py
+
       - name: Conda recipe is consistent
         run: python scripts/check_recipe.py
 
@@ -177,9 +184,12 @@ jobs:
               -I src -I tests/fuzz -I bench -I cli -o /dev/null "$f"
           done
 
+      # Examples are included because a deprecated spelling compiles and
+      # runs, and only --Werror refuses it. An example that still works but
+      # is written the old way teaches the old way.
       - name: Build with warnings as errors
         run: |
-          for f in tests/*.mojo; do
+          for f in tests/*.mojo examples/*.mojo; do
             uv run mojo build --Werror -I src -I cli -o /dev/null "$f"
           done
 
@@ -196,6 +206,14 @@ jobs:
             echo "== $f"
             uv run mojo run -I src -I cli "$f"
           done
+
+      # Documentation that runs. Nothing else executes these, so without
+      # this step they rot at the first signature change and the first
+      # person to find out is a reader following the README.
+      - name: Examples still run
+        run: |
+          uv run mojo run -I src examples/budget.mojo 2048 LICENSE CODE_OF_CONDUCT.md
+          uv run mojo run -I src examples/chunker.mojo LICENSE 128 16
 
   scalar-and-simd:
     name: Both classifier builds agree

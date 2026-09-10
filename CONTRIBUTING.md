@@ -95,7 +95,7 @@ language server surfaces errors and API signatures while you work.
 
 ## Running the checks
 
-Four scripts enforce the repository standard. They run in CI on every push,
+These scripts enforce the repository standard. They run in CI on every push,
 and you should run them before opening a pull request:
 
 ```bash
@@ -103,7 +103,14 @@ uv run python scripts/lint_style.py
 uv run python scripts/check_file_banners.py
 uv run python scripts/check_md_headers.py
 uv run python scripts/check_spdx.py
+uv run python scripts/check_toolchain_doc.py
+uv run python scripts/check_generated.py
 ```
+
+The last one covers the four generated files that are committed: the
+pattern constants, the Unicode tables, `docs/API.md`, and `sbom.cdx.json`.
+If it reports drift, run the generator it names rather than editing the file
+it names.
 
 Under pixi, the same set runs as one task:
 

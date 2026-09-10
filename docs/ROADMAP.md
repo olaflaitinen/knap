@@ -101,6 +101,9 @@ memory.
 | The expectation was recorded when it was refuted | Counting was written expecting to be faster. It is not, and [docs/BENCHMARKS.md](BENCHMARKS.md) says so next to the numbers. |
 | Memory is measured, with a control | `bench/memory.py` and `bench/mem_probe.mojo`, one child process per stage so that a high water mark belongs to one thing, and an empty runtime reported every time. |
 | The helpers a caller would otherwise write | Windowing with overlap, truncation, a budget check, batch encoding, and token lookup. `tests/test_windows.mojo`, nine tests, built on the property that a window cut on a pre-token boundary encodes to exactly the slice of the whole document's encoding that covers it. |
+| Padding and attention masks, with the padding id required | `pad_ordinary_batch` produces a row major rectangle, a mask, and each row's real length. There is no default padding id and there cannot be one: no encoding here defines a padding token, so any value is the caller's decision about their own model. `tests/test_padding.mojo`, six tests, each comparing every position against the encoder. One of them pads with the id of a real token so that the ids alone cannot separate content from padding, which is the case the mask exists for and the only one that can tell a working mask from a decorative one. |
+| Truncation by token and truncation by pre-token are different operations, and both are needed | A window must re-encode to itself, so it cuts on a pre-token boundary. A fixed width model input needs exactly that many columns, so padding cuts by token and will cut inside a word. Both rules are implemented, and `examples/chunker.mojo` puts them next to each other so the difference is visible rather than surprising. |
+| Two examples that are executed, not illustrated | `examples/budget.mojo` and `examples/chunker.mojo`, run in CI against real repository files. Every figure quoted in `examples/README.md` is output that was observed. |
 | Two claims about the vocabularies became repeatable | `scripts/diff_vocabs.py` reproduces both: `gpt2` and `r50k_base` are identical token for token and rank for rank, and `p50k_base` adds exactly 24 tokens, every one a run of 2 to 25 spaces with no length missing. |
 | The reference itself is gated | `scripts/check_reference.py` checks every fetched vocabulary against the digest recorded when it was fetched, and the reference version against what the documents quote. |
 | The memory measurement was checked before it was published | The first version reported 290 MB and would have claimed Knap uses six times what the reference does. The 290 MB was the benchmark harness reading the corpus. The control and the per stage split are what caught it. |
@@ -272,8 +275,8 @@ inside a library whose entire claim is verification. It is a project of the
 same size as milestones M2 and M3 together, and it is listed below with the
 other work that is deferred by decision.
 
-Two files exist that the original layout did not list. Both are additions
-rather than substitutions, and neither creates a parallel directory:
+Some paths exist that the original layout did not list. Every one is an
+addition rather than a substitution, and none creates a parallel directory:
 
 | Path | Why it exists |
 | --- | --- |
@@ -281,6 +284,11 @@ rather than substitutions, and neither creates a parallel directory:
 | `docs/API.md` | A generated reference for the public surface. `mojo doc` emits JSON and not HTML, and its own help says the format is subject to change, so a documentation site would be a renderer built on a foundation the tool declares unstable. Markdown in the repository is the better artefact anyway: it renders on the forge with nothing to deploy, and a change to the public interface shows up in a pull request diff, which for a version claiming a settled interface is worth more than a browsable page. |
 | `cli/` | The command line tool, added after milestone M6. It is an application rather than part of the library, so it sits outside `src/knap` and the library has no dependency on it. `cli/args.mojo` holds everything pure, which is what lets `tests/test_cli.mojo` check the parser without a vocabulary; `cli/tests/test_end_to_end.py` runs the built binary against the reference, because a parser test cannot tell you whether the numbers are right. |
 | `scripts/selftest_gates.py` | M0 requires each standards gate to be observed failing on a planted violation. Doing that once by hand proves it once. This makes it repeatable and runs it in CI, so a gate that silently stops working is caught. |
+| `examples/` | Two complete programs, for the two problems callers of every tokenizer solve wrongly: a token budget check and a chunker. Both run in CI against real repository files, because an example nothing executes rots at the first signature change and the first person to find out is a reader. |
+| `docs/TOOLCHAIN.md` | The compilation of Mojo 1.0.0 findings, moved out of `docs/ARCHITECTURE.md` when it grew past what a design document should carry. It is useful to somebody who never uses Knap, which is the argument for it being its own document. `scripts/check_toolchain_doc.py` resolves every file it cites. |
+| `docs/METHODOLOGY.md` | How the numbers were measured and the correctness claims established, written to be reused on a project that is not this one. The benchmark and correctness documents state results; this one states the method, which is the part that is transferable. |
+| `sbom.cdx.json` | A CycloneDX 1.6 bill of materials generated from the lock file by `scripts/gen_sbom.py` and gated for drift alongside the other generated files. It exists to answer one question quickly: when an advisory lands, does it reach a consumer through Knap. |
+| `cli/completions/` | Completions for bash, zsh and fish, installed by the conda package. `cli/tests/test_completions.py` reads the command, option and encoding lists out of the parser and checks all three files offer them. |
 
 That last paragraph used to say that `docs/BENCHMARKS.md` was deliberately
 absent rather than present and empty, because a benchmarks document with no

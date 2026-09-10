@@ -133,12 +133,15 @@ Before and after, with the spread:
 
 - [ ] `docs/CORRECTNESS.md` updated if parity evidence changed.
 - [ ] `docs/BENCHMARKS.md` updated if any number changed.
-- [ ] `docs/ARCHITECTURE.md` updated if a design decision or a toolchain
-      finding changed.
+- [ ] `docs/ARCHITECTURE.md` updated if a design decision changed.
+- [ ] `docs/TOOLCHAIN.md` updated if the compiler refused, accepted, or
+      deprecated something you did not expect. State the working spelling and
+      name what pins it.
 - [ ] `docs/ROADMAP.md` updated if something was deferred or completed, with
       the reason.
 - [ ] `docs/UNICODE.md` updated if the tables or their source version moved.
-- [ ] `THIRD_PARTY_NOTICES.md` updated if a dependency or reference changed.
+- [ ] `THIRD_PARTY_NOTICES.md` updated if a dependency or reference changed,
+      and `sbom.cdx.json` regenerated if the lock file moved.
 - [ ] `CHANGELOG.md` entry added.
 - [ ] Every new file carries the banner and the closing marker required by
       `docs/STYLE.md`.

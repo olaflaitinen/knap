@@ -164,6 +164,86 @@ slightly wrong.
   changed under the fixtures would not fail a test, because the fixtures
   would be regenerated from it and agree with themselves.
 
+### Added, milestone M9, padding and attention masks
+
+- **`pad_ordinary_batch`** and **`PaddedBatch`**: one row per document,
+  padded to the longest row, row major so that the next thing that happens
+  to it is a copy into a tensor rather than a flattening. It carries the
+  ids, a mask, and each row's real length, with `id_at` and `mask_at` that
+  raise on an index outside the rectangle rather than clamping, because a
+  clamped read returns a real looking id from the wrong place.
+- **The padding id is required and there is no default.** Not one of the
+  seven encodings defines a padding token, so any value is the caller's
+  decision about their own model, and choosing one silently would put an id
+  into a tensor that the model was never trained to see in that position.
+- **Truncation here is by token, not by pre-token**, which is the opposite
+  of what `windows_ordinary` does and is deliberate. A window has to
+  re-encode to itself; a fixed width model input needs exactly that many
+  columns and will cut inside a word.
+- `tests/test_padding.mojo`, six tests, each comparing every position in the
+  batch against the encoder. One of them pads with the id of a real token so
+  that the ids alone cannot separate content from padding, which is the case
+  the mask exists for and the only one that distinguishes a working mask
+  from a decorative one.
+
+### Added, examples that are executed rather than illustrated
+
+- **`examples/budget.mojo`**, which answers the question every tokenizer
+  gets asked first and shows why the obvious answer is wasteful twice over:
+  it allocates a list of ids to read one number off it, and it counts all of
+  a document that the first tenth has already overflowed.
+- **`examples/chunker.mojo`**, which windows a document and pads the result,
+  so that the two truncation rules sit next to each other and the difference
+  is visible.
+- **`examples/README.md`**, which states what each one is for. Every figure
+  quoted in it is output that was observed on this repository.
+- Both run in CI against real repository files, and both are built under
+  `--Werror`. Nothing else in the repository executes an example, so without
+  that step they rot at the first signature change and the first person to
+  find out is a reader following the README.
+
+### Added, two documents that are useful without Knap
+
+- **`docs/TOOLCHAIN.md`**, the compilation of everything about Mojo 1.0.0
+  that is not what a careful reader would assume. Thirty-five findings, each
+  verified by compiling, each naming what pins the correct spelling in this
+  repository. It includes a section for the four assumptions that turned out
+  to be the reader's error rather than the compiler's, because a list of
+  limitations that only ever grows is one nobody can trust. Moved out of
+  `docs/ARCHITECTURE.md`, which now points at it rather than carrying it.
+- **`docs/METHODOLOGY.md`**, how the numbers in this repository were
+  measured and how the correctness claims were established, written so that
+  it can be applied to a project that is not this one. Paired benchmarking
+  and why anything under ten percent needs it, one process per stage for
+  memory with a control reported every time, and the practice of writing a
+  prediction down before testing it.
+- **`scripts/check_toolchain_doc.py`**, which resolves every file the
+  toolchain document cites and checks the compiler version it was verified
+  against is the one still pinned. A document that is mostly citations rots
+  at the first rename, silently. Observed rejecting both a planted bad
+  citation and a planted version disagreement.
+- `tests/test_toolchain.mojo` gained three pins: that a file handle can seek
+  and read a prefix, that the ordinary file interface reads `/proc`, and the
+  t-string interpolation spelling. The first two were each written down as
+  toolchain limitations before being checked, and neither was one.
+
+### Added, a bill of materials
+
+- **`sbom.cdx.json`**, CycloneDX 1.6, generated from `uv.lock` and
+  `pyproject.toml` by `scripts/gen_sbom.py` and gated for drift by
+  `scripts/check_generated.py` alongside the other generated files.
+- It answers one question: when the next advisory lands, does it reach a
+  consumer through Knap. Ten components are required to build, twenty-three
+  are development only and marked with CycloneDX scope `excluded`, and the
+  distributed artefact's runtime dependency set is empty. That last fact is
+  recorded as a property on the root component rather than left to be
+  inferred from an absence, because a bill of materials that lists a
+  compiler as though the compiled output still depended on it is the most
+  common way these documents mislead.
+- The document carries no timestamp and its serial number is derived from
+  the project name and version, so regenerating an unchanged tree reproduces
+  it byte for byte and the drift check means something.
+
 ### Fixed, milestone M9, a silently ignored argument
 
 - `knap vocab " the"` took the argument and printed the summary, which is

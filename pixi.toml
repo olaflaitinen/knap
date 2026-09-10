@@ -44,6 +44,7 @@ fetch = "python scripts/fetch_vocabs.py"
 goldens = "python scripts/gen_encode_golden.py"
 tables = "python scripts/gen_unicode_tables.py"
 boundaries = "python scripts/gen_pretoken_golden.py"
+sbom = "python scripts/gen_sbom.py"
 generated = "python scripts/check_generated.py"
 corpus = "python scripts/fetch_corpus.py"
 fuzz = "python tests/fuzz/run_fuzz.py --total 1000000"
@@ -53,12 +54,14 @@ lint = "python scripts/lint_style.py"
 banners = "python scripts/check_file_banners.py"
 spdx = "python scripts/check_spdx.py"
 mdcheck = "python scripts/check_md_headers.py"
+toolchain-doc = "python scripts/check_toolchain_doc.py"
 selftest = "python scripts/selftest_gates.py"
 standards = { depends-on = [
     "lint",
     "banners",
     "spdx",
     "mdcheck",
+    "toolchain-doc",
     "selftest",
     "generated",
 ] }

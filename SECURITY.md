@@ -99,6 +99,15 @@ discussion thread, before the report has been answered.
 | Parity divergence with a security consequence | A divergence that changes which token ids a prompt boundary falls on, rather than one that merely differs. |
 | A build or packaging path that executes attacker controlled input | Anything in `scripts/`, the conda recipe, or the Python bindings that runs downloaded content. |
 
+If you are checking whether an advisory reaches you through Knap, the answer
+is in [`sbom.cdx.json`](sbom.cdx.json), a CycloneDX 1.6 bill of materials
+generated from the lock file and gated for drift. The short version is that
+the distributed artefact has no runtime dependencies at all: it links no
+Python, embeds no vocabulary, and calls out to nothing. Everything the bill
+lists is either the compiler that built it or a test and benchmark
+dependency that reaches no consumer. See
+[docs/PACKAGING.md](docs/PACKAGING.md).
+
 ## What is not in scope
 
 Stated plainly so that a report is not written for nothing.

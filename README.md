@@ -64,10 +64,19 @@
   <a href="https://github.com/olaflaitinen/knap/commits/main"><img
     src="https://img.shields.io/github/last-commit/olaflaitinen/knap?color=informational"
     alt="Last commit"></a>
+  <a href="https://knap.lovable.app"><img
+    src="https://img.shields.io/badge/website-knap.lovable.app-ff5c1c"
+    alt="Website"></a>
 </p>
 
 **A byte level Byte Pair Encoding tokenizer, written from scratch in pure
 Mojo.**
+
+**Website:** <https://knap.lovable.app> — the same material as a browsable
+site, with a [runnable example](https://knap.lovable.app/try) you can start
+from a button, the [parity and performance
+figures](https://knap.lovable.app/verification) read from this README, and an
+[index of the documents in `docs/`](https://knap.lovable.app/docs).
 
 Knap exists so that a Mojo or MAX program can tokenize inside its own
 runtime, without a Python interpreter in the process, without a foreign
@@ -541,6 +550,7 @@ which is not a choice: Mojo 1.0.0 has no working task parallelism.
 | Understand what is expected of participants | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | See what changed and when | [CHANGELOG.md](CHANGELOG.md) |
 | Package or repackage Knap | [docs/PACKAGING.md](docs/PACKAGING.md) |
+| Read all of this as a website, or run the example without installing anything | <https://knap.lovable.app> |
 
 The issue forms ask for a great deal. That is deliberate. A parity report
 without the exact bytes, the reference version, and how the reference output

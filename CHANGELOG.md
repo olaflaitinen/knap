@@ -56,7 +56,7 @@ produce output yet.
 
 ## 1.0.0, not yet released
 
-Milestones M1 through M8. The version number is declared, the tag and the
+Milestones M1 through M9. The version number is declared, the tag and the
 GitHub release are not, and the heading says so rather than implying
 otherwise. It becomes a dated release heading on the day the tag is created.
 
@@ -75,6 +75,58 @@ published.
 One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
 untouched.
+
+### Added, milestone M9, counting and memory
+
+- **A counting entry point that never builds the list of ids.**
+  `count_ordinary`, `count_ordinary_bytes`, `count`, `count_bytes` and their
+  cached forms, on the tokenizer, and `knap count` now uses them. One
+  implementation serves counting and encoding, through a compile time
+  parameter on the merge loop and the segment encoder: two merge loops that
+  had to agree would be a correctness hazard rather than an optimisation.
+- `tests/test_count.mojo`, six tests. Every one compares a count against the
+  length of the encode of the same input rather than against a number
+  written by hand, because a hand written count would still pass if both
+  paths were wrong in the same way. The 110 MB corpus gate now asserts it
+  too, for each of the four distinct encode behaviours.
+- **`bench/memory.py` and `bench/mem_probe.mojo`**, a peak resident memory
+  measurement with one child process per stage and the empty runtime
+  reported as a control every time.
+
+### Changed, milestone M9, what the measurements said
+
+- **Counting is not faster than encoding.** It was written expecting to be,
+  and over 4 MB of prose the two are indistinguishable in throughput: the
+  appends are cheap against a merge loop doing hash lookups. The prediction
+  is recorded as refuted rather than removed.
+- **Counting uses less than half the memory on a large input.** 270 MB
+  against 584 MB above the control for 80 MB of text, because at that size
+  the list of ids is the largest thing in the process. At 4 MB the two are
+  identical. The entry point is documented as a memory entry point rather
+  than a fast path.
+- **Knap holds `cl100k_base` in 7.9 MB where the reference implementation
+  needs 44.7 MB**, both measured above their own empty runtime in the same
+  run. That is 5.7 times less and it had never been measured.
+
+### Fixed, milestone M9
+
+- The first version of the memory measurement reported 290 MB for a loaded
+  tokenizer and would have been published as Knap using six times the memory
+  the reference does. The 290 MB was the benchmark harness reading the whole
+  115 MB corpus to take a 4 MB slice. A control and a per stage split caught
+  it before it went anywhere.
+
+### Changed, how this library describes itself
+
+- The one line description, the citation abstract, and the opening of the
+  README, the architecture document and the correctness document all led
+  with parity against `tiktoken`, which reads as though the library were an
+  appendix to it. It is not. Knap is an independent implementation: the
+  pre-tokenizer is a hand written scanner, the Unicode tables are generated
+  from the Character Database, and the merge loop, the rank table and the
+  memory layout are its own. `tiktoken` is the reference implementation it
+  is differentially tested against, which is a measuring instrument. That
+  distinction is now made in each of those places.
 
 ### Added, packaging preparation
 

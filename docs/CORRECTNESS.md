@@ -45,10 +45,16 @@
 
 ## What parity means
 
-Knap claims parity with `tiktoken` when, for a given vocabulary and a given
-input byte sequence, `knap.encode` produces exactly the same list of token
-ids as `tiktoken.encode`, in the same order, with no exceptions for input
-that is unusual, malformed, or empty.
+`tiktoken` is used here as the **reference implementation**: a measuring
+instrument against which this library's output is checked. An encoder whose
+ids differ from the ones a model was trained on is useless however well
+written it is, and differential testing against something already trusted is
+the only practical way to know an independent implementation is right.
+
+Knap claims parity when, for a given vocabulary and a given input byte
+sequence, `knap.encode` produces exactly the same list of token ids as the
+reference does, in the same order, with no exceptions for input that is
+unusual, malformed, or empty.
 
 Three points make that definition precise:
 

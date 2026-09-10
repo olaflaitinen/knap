@@ -11,13 +11,16 @@ cff-version: 1.2.0
 message: "If you use Knap in academic work, please cite it as below."
 title: "Knap: a pure Mojo byte level BPE tokenizer"
 abstract: >-
-  Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo,
-  built to produce byte identical output to tiktoken on arbitrary input.
-  Its stated goals, in order, are exact parity with the reference
-  implementation, a SIMD pre-tokenizer usable as a standalone module, and a
-  Python free tokenization path for Mojo and MAX applications. Raw merge
-  speed is explicitly not a goal, because the BPE merge loop does not
-  vectorize and the established Rust implementations are already fast.
+  Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo.
+  It implements the seven encodings that OpenAI's models use and runs with
+  no Python interpreter in the process, so that a Mojo or MAX application
+  can tokenize inside its own runtime. Correctness is treated as the
+  product: every encoding is differentially tested against the reference
+  implementation over a 110 MB corpus, every token id in every encoding is
+  decoded and compared, and the benchmarks publish the cases where other
+  implementations win. Its contribution is as much the method as the
+  library, and the negative results are published alongside the positive
+  ones.
 type: software
 authors:
   - given-names: "Olaf Yunus"

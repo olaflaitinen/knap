@@ -59,7 +59,8 @@ flowchart TD
     M6A[M6 Track A<br/>Mojo packaging] --> M7
     M6B[M6 Track B<br/>Python bindings] --> M7
     M7[M7 The remaining five encodings] --> M8
-    M8[M8 The merge path]
+    M8[M8 The merge path] --> M9
+    M9[M9 Counting and memory]
 ```
 
 Two orderings are binding and cannot be traded away:
@@ -82,8 +83,23 @@ defects it found were found by those gates rather than by a user.
 
 ## Current position
 
-**M0 through M8 are complete.** Every condition below was observed, not
+**M0 through M9 are complete.** Every condition below was observed, not
 inferred.
+
+M9 added a counting entry point and a memory measurement. Both were expected
+to be small and neither turned out the way it was expected to: the counting
+path saves no time and a great deal of memory, and the memory measurement
+found that Knap holds a vocabulary in a fraction of what the reference
+implementation needs, which nobody had measured because nobody measures
+memory.
+
+| M9 condition | Evidence |
+| --- | --- |
+| Counting never builds the list of ids | A compile time parameter through the merge loop and the segment encoder, so one implementation serves both paths. Two merge loops that had to agree would be a correctness hazard, not an optimisation. |
+| Counting agrees with encoding | `tests/test_count.mojo`, six tests, every one comparing a count against the length of the encode of the same input rather than against a number written by hand. Asserted again over the whole 110 MB corpus, for each of the four distinct encode behaviours. |
+| The expectation was recorded when it was refuted | Counting was written expecting to be faster. It is not, and [docs/BENCHMARKS.md](BENCHMARKS.md) says so next to the numbers. |
+| Memory is measured, with a control | `bench/memory.py` and `bench/mem_probe.mojo`, one child process per stage so that a high water mark belongs to one thing, and an empty runtime reported every time. |
+| The memory measurement was checked before it was published | The first version reported 290 MB and would have claimed Knap uses six times what the reference does. The 290 MB was the benchmark harness reading the corpus. The control and the per stage split are what caught it. |
 
 M8 made encode between 1.39 and 1.85 times faster with byte identical
 output, which took Knap past `tiktoken` on three of the four distinct encode

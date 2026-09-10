@@ -282,6 +282,39 @@ def encode_input(
     return tokenizer.encode_ordinary_bytes(data)
 
 
+def count_input(
+    tokenizer: Tokenizer, options: Options, data: Span[UInt8, _]
+) raises -> Int:
+    """Count the input under the same policy encode_input would apply.
+
+    Args:
+        tokenizer: The loaded tokenizer.
+        options: The parsed command line.
+        data: The input bytes.
+
+    Returns:
+        How many tokens the input becomes.
+
+    Raises:
+        Error: exactly where encode_input would raise, and for the same
+            reasons. A count of a document that could not be encoded is a
+            number nobody can act on.
+
+    The same three policies, answered without building the list of ids. On a
+    four megabyte document that list is over a million appends into a buffer
+    that grows to about ten megabytes and is then dropped to print one
+    number.
+    """
+    if options.strict_special:
+        var none = List[String]()
+        return tokenizer.count_bytes(data, none)
+
+    if len(options.allowed_special) > 0:
+        return tokenizer.count_bytes(data, options.allowed_special)
+
+    return tokenizer.count_ordinary_bytes(data)
+
+
 def show_vocabulary(tokenizer: Tokenizer, options: Options) raises:
     """Print what is known about the loaded encoding.
 
@@ -354,11 +387,12 @@ def run(options: Options) raises -> Int:
         return EXIT_OK
 
     var tokenizer = load(options)
-    var ids = encode_input(tokenizer, options, Span(data))
 
     if options.command == COMMAND_COUNT:
-        print(len(ids))
+        print(count_input(tokenizer, options, Span(data)))
         return EXIT_OK
+
+    var ids = encode_input(tokenizer, options, Span(data))
 
     if options.command == COMMAND_ENCODE:
         print(format_ids(ids, options.format))

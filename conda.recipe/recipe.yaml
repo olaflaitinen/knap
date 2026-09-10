@@ -104,7 +104,7 @@ about:
   documentation: https://github.com/olaflaitinen/knap/blob/main/README.md
   license: EUPL-1.2
   license_file: LICENSE
-  summary: A pure Mojo byte level BPE tokenizer with exact tiktoken parity.
+  summary: A byte level BPE tokenizer written in pure Mojo, with no Python interpreter at run time.
   description: |
     Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo,
     verified to produce byte identical output to tiktoken. All seven

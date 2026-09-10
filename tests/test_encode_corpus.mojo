@@ -197,6 +197,21 @@ def run_gate(
     var produced = tokenizer.encode_ordinary_bytes(Span(corpus))
     var packed = read_file_bytes(reference_path)
     compare_against_packed_reference(produced, Span(packed), label)
+
+    # The counting path walks the same scanner and the same merge loop and
+    # simply does not append. Holding it to the encode it optimises, over
+    # the same 110 MB, is the strongest statement available that it is an
+    # optimisation rather than a second opinion.
+    var counted = tokenizer.count_ordinary_bytes(Span(corpus))
+    assert_equal(
+        counted,
+        len(produced),
+        String(
+            t"{label}: counting gave {counted} tokens over the corpus and"
+            t" encoding gave {len(produced)}"
+        ),
+    )
+
     return len(produced)
 
 

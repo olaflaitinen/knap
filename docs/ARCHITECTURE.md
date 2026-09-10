@@ -52,11 +52,21 @@
 
 ## Purpose
 
-Knap has three goals, in priority order. Exact parity with `tiktoken` on
-arbitrary input comes first, because correctness is the product. A SIMD
-pre-tokenizer usable as a standalone module comes second, because the regex
-pre-tokenization stage is where real CPU time goes and where vectorization
-genuinely pays. A Python free path for Mojo and MAX applications comes third.
+Knap has three goals, in priority order. Being exactly right on arbitrary
+input comes first, because correctness is the product, and the way that is
+established is differential testing against `tiktoken` as the reference
+implementation. A SIMD pre-tokenizer usable as a standalone module comes
+second, because the regex pre-tokenization stage is where real CPU time goes
+and where vectorization genuinely pays. A Python free path for Mojo and MAX
+applications comes third.
+
+Nothing in this library is a port. The pre-tokenizer is a hand written
+scanner, the Unicode tables are generated from the Character Database, and
+the merge loop, the rank table and the memory layout are all this project's
+own. No source code has been taken from any of the implementations it is
+measured against, and the one artefact taken programmatically is the
+pre-tokenization pattern, extracted as a specification with its provenance
+recorded. See [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
 Raw merge speed is explicitly not a goal. The BPE merge loop is hash lookups,
 data dependent branching, and a priority selection. It does not vectorize.

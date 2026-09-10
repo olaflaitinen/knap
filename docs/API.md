@@ -87,7 +87,7 @@ Working space for the merge loop, owned by the caller and reused.
 
 | Function | Description |
 | --- | --- |
-| `def merge_piece_into(ranks: RankTable, data: Span[UInt8], start: Int, end: Int, mut out: List[Int], mut scratch: MergeScratch)` | Merge one piece into a buffer, using a scratch list the caller owns. |
+| `def merge_piece_into[emit: Bool = True](ranks: RankTable, data: Span[UInt8], start: Int, end: Int, mut out: List[Int], mut scratch: MergeScratch) -> Int` | Merge one piece, and say how many tokens it became. |
 | `def merge_piece(ranks: RankTable, data: Span[UInt8], start: Int, end: Int, mut out: List[Int])` | Merge one piece, allocating its own scratch space. |
 | `def merge_piece_to_list(ranks: RankTable, data: Span[UInt8], start: Int, end: Int) -> List[Int]` | Merge one piece and return its token ids. |
 
@@ -168,6 +168,7 @@ A bounded map from piece bytes to the token ids they encode to.
 | `def enabled(self) -> Bool` | Report whether this cache will ever store anything. |
 | `def count(self) -> Int` | Report how many entries are stored. |
 | `def lookup(self, data: Span[UInt8], start: Int, end: Int) -> Int` | Find the entry for a piece. |
+| `def value_count(self, entry: Int) -> Int` | Return how many ids are stored against one entry. |
 | `def append_value(self, entry: Int, mut out: List[Int])` | Append a stored entry's token ids to a buffer. |
 | `def insert(mut self, data: Span[UInt8], start: Int, end: Int, ids: Span[Int])` | Store the ids a piece encodes to, if there is room for them. |
 | `def record_hit(mut self)` | Count one lookup that was served from the table. |
@@ -319,6 +320,12 @@ A loaded encoding, ready to encode and decode.
 | `def encode_bytes_cached(self, data: Span[UInt8], allowed_special: List[String], mut cache: PieceCache) -> List[Int]` | Encode bytes, handling special tokens, with a piece cache. |
 | `def encode_cached(self, text: String, allowed_special: List[String], mut cache: PieceCache) -> List[Int]` | Encode text, handling special tokens, with a piece cache. |
 | `def encode(self, text: String, allowed_special: List[String]) -> List[Int]` | Encode text, handling special tokens. |
+| `def count_ordinary_bytes(self, data: Span[UInt8]) -> Int` | Count the tokens bytes would become, without building them. |
+| `def count_ordinary(self, text: String) -> Int` | Count the tokens text would become, without building them. |
+| `def count_ordinary_bytes_cached(self, data: Span[UInt8], mut cache: PieceCache) -> Int` | Count the tokens bytes would become, consulting a piece cache. |
+| `def count_ordinary_cached(self, text: String, mut cache: PieceCache) -> Int` | Count the tokens text would become, consulting a piece cache. |
+| `def count_bytes(self, data: Span[UInt8], allowed_special: List[String]) -> Int` | Count tokens with a special token policy, without building them. |
+| `def count(self, text: String, allowed_special: List[String]) -> Int` | Count tokens with a special token policy, without building them. |
 | `def decode_bytes(self, token_ids: List[Int]) -> List[UInt8]` | Decode token ids to the exact bytes they represent. |
 | `def decode(self, token_ids: List[Int]) -> String` | Decode token ids to text. |
 

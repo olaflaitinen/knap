@@ -37,15 +37,17 @@
 2. [The machine](#the-machine)
 3. [What is measured, and how](#what-is-measured-and-how)
 4. [Encode throughput](#encode-throughput)
-5. [How the merge loop got faster](#how-the-merge-loop-got-faster)
-6. [What the allocation cost](#what-the-allocation-cost)
-7. [The piece cache](#the-piece-cache)
-8. [The vectorised classifier](#the-vectorised-classifier)
-9. [Short string latency](#short-string-latency)
-10. [Batch encoding](#batch-encoding)
-11. [Decode](#decode)
-12. [What these numbers do not mean](#what-these-numbers-do-not-mean)
-13. [Reproducing this](#reproducing-this)
+5. [Counting](#counting)
+6. [How the merge loop got faster](#how-the-merge-loop-got-faster)
+7. [What the allocation cost](#what-the-allocation-cost)
+8. [The piece cache](#the-piece-cache)
+9. [The vectorised classifier](#the-vectorised-classifier)
+10. [Short string latency](#short-string-latency)
+11. [Batch encoding](#batch-encoding)
+12. [Decode](#decode)
+13. [Memory](#memory)
+14. [What these numbers do not mean](#what-these-numbers-do-not-mean)
+15. [Reproducing this](#reproducing-this)
 
 ---
 
@@ -267,6 +269,44 @@ others, and the reason is visible in the pre-tokenization figures below:
 that pattern costs 15.56 MB/s against `cl100k_base`'s 19.89, because it has
 two word alternatives whose character classes overlap and one of them
 genuinely backtracks. The merge side is not the problem there.
+
+## Counting
+
+`count_ordinary` walks the same scanner and the same merge loop as
+`encode_ordinary` and simply does not append the ids. It was written on the
+expectation that it would be faster, because counting is the most common
+thing anyone asks a tokenizer to do and the list of ids is usually thrown
+away immediately after its length is read.
+
+**It is not faster.** Measured in one run, on the same input, immediately
+after the encode rows:
+
+| Encoding | Encode | Count |
+| --- | --- | --- |
+| `cl100k_base` | 2.99 MB/s | 3.11 MB/s |
+| `o200k_base` | 3.10 MB/s | 2.85 MB/s |
+| `gpt2` | 3.09 MB/s | 3.24 MB/s |
+| `p50k_base` | 2.98 MB/s | 2.93 MB/s |
+
+Two rows up, two down, all inside the spread. Those figures are lower than
+the headline table because the machine was in a worse state that afternoon,
+which is exactly why the comparison is against the encode rows from the same
+run and not against the published ones.
+
+The reason is straightforward once measured. Appending an integer to a list
+is a store and an increment, and there are 1.2 million of them against a
+merge loop that is doing hash lookups. The list is not where the time goes.
+
+**Where it does pay is memory, and only once the input is large.** See
+[Memory](#memory): counting 80 MB peaks at 270 MB above the control and
+encoding the same input peaks at 584 MB, because the ids have become the
+largest thing in the process. At 4 MB the two are identical.
+
+So the entry point is kept, and it is documented as a memory entry point
+rather than a fast path. The prediction that it would save time is recorded
+here as refuted rather than removed, because the reasoning that produced it
+was the same reasoning that produced the allocation result below, and one of
+the two was right.
 
 ## How the merge loop got faster
 
@@ -629,6 +669,53 @@ Knap is about 2.7 times faster here. That is a real measurement and it is
 worth roughly nothing, which is why it is in the last section rather than
 the first. A tokenizer that led with its decode number would be choosing the
 metric that flatters it.
+
+## Memory
+
+Throughput is measured everywhere and memory almost nowhere, which is odd:
+on a serving machine, how many tokenizers you can hold is a harder limit
+than how fast one of them runs.
+
+Two rules make these figures mean something. **One stage per process**,
+because peak resident memory is a high water mark and a process that loads a
+vocabulary and then encodes reports one number for both. And **the control
+is always reported**, because without it a reader cannot separate the
+library from the language runtime.
+
+| Stage | Peak | Above control |
+| --- | --- | --- |
+| An empty Mojo program | 12.9 MB | control |
+| The vocabulary file read into memory | 15.4 MB | 2.5 MB |
+| The parsed vocabulary | 20.6 MB | 7.8 MB |
+| **The vocabulary and the rank table, ready to encode** | **20.8 MB** | **7.9 MB** |
+| 80 MB of input counted | 282.8 MB | 270.0 MB |
+| 80 MB of input encoded to a list of ids | 596.9 MB | 584.1 MB |
+
+And the same measurement on the Python side, in the same run:
+
+| Stage | Peak | Above control |
+| --- | --- | --- |
+| An empty Python interpreter | 13.0 MB | control |
+| `tiktoken` with `cl100k_base` loaded | 57.7 MB | 44.7 MB |
+
+**Knap holds `cl100k_base` in 7.9 MB where `tiktoken` needs 44.7 MB, which
+is 5.7 times less.** The control matters: both runtimes start at about 13 MB,
+so quoting the raw peaks would have made the difference look far smaller
+than it is.
+
+The last two rows are the counting result seen from the memory side. Both
+include the whole 115 MB corpus, because the benchmark harness reads the
+file and then slices it, so the interesting figure is the difference between
+them: 314 MB, which is the list of ids for 27372826 tokens.
+
+This measurement was nearly published wrong. The first version of it ran the
+tokenizer inside the throughput harness and reported 290 MB, which would
+have been a claim that Knap uses six times the memory `tiktoken` does. The
+290 MB was the corpus. The control and the per stage split are what turned a
+wrong number into the right one, and that is the only reason they are in the
+harness rather than in a notebook.
+
+Run it with `python bench/memory.py`.
 
 ## What these numbers do not mean
 

@@ -81,24 +81,37 @@ struct MergeScratch(Movable):
         self.part_ids = List[Int]()
 
 
-def merge_piece_into(
+def merge_piece_into[
+    emit: Bool = True
+](
     ranks: RankTable,
     data: Span[UInt8, _],
     start: Int,
     end: Int,
     mut out: List[Int],
     mut scratch: MergeScratch,
-) raises:
-    """Merge one piece into a buffer, using a scratch list the caller owns.
+) raises -> Int:
+    """Merge one piece, and say how many tokens it became.
+
+    Parameters:
+        emit: Whether to append the token ids to out. Compile time, so the
+            counting path carries no branch and the emitting path carries no
+            extra work. Counting a document is the most common thing anyone
+            asks a tokenizer to do, and the list of ids is usually thrown
+            away immediately after its length is read.
 
     Args:
         ranks: The merge rank table.
         data: The bytes containing the piece.
         start: Inclusive start offset of the piece.
         end: Exclusive end offset of the piece.
-        out: Buffer receiving the token ids, in order.
+        out: Buffer receiving the token ids, in order. Untouched when emit
+            is False.
         scratch: Working space the caller owns and reuses. Cleared on entry
             and meaningless on exit.
+
+    Returns:
+        How many tokens this piece became.
 
     Raises:
         Error: if a single byte piece is not in the vocabulary, which the
@@ -134,10 +147,11 @@ def merge_piece_into(
     """
     var length = end - start
     if length <= 0:
-        return
+        return 0
     if length == 1:
-        out.append(ranks.single_byte(data[start]))
-        return
+        comptime if emit:
+            out.append(ranks.single_byte(data[start]))
+        return 1
 
     # The whole piece shortcut.
     #
@@ -155,8 +169,9 @@ def merge_piece_into(
     # vocabulary small enough to check by hand.
     var whole = ranks.rank_of(data, start, end)
     if whole != UNRANKED:
-        out.append(whole)
-        return
+        comptime if emit:
+            out.append(whole)
+        return 1
 
     # Boundaries hold the split points of the piece, so part i spans
     # [boundaries[i], boundaries[i + 1]). Starting with every byte separate
@@ -239,8 +254,10 @@ def merge_piece_into(
                 scratch.boundaries[best_index + 1],
             )
 
-    for index in range(len(scratch.part_ids)):
-        out.append(scratch.part_ids[index])
+    comptime if emit:
+        for index in range(len(scratch.part_ids)):
+            out.append(scratch.part_ids[index])
+    return len(scratch.part_ids)
 
 
 def merge_piece(
@@ -267,7 +284,7 @@ def merge_piece(
     in a loop should use merge_piece_into and hand back the same list.
     """
     var scratch = MergeScratch()
-    merge_piece_into(ranks, data, start, end, out, scratch)
+    _ = merge_piece_into(ranks, data, start, end, out, scratch)
 
 
 def merge_piece_to_list(

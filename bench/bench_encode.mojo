@@ -84,6 +84,10 @@ def main() raises:
     the merge ranks and by nothing else, so the other three names would
     reproduce a number already in the table and cost three more passes over
     the corpus to do it.
+
+    Counting is measured after encoding, on the same input in the same run,
+    because the only interesting thing about the counting path is how it
+    compares with the encoding it optimises.
     """
     var args = argv()
     var megabytes = 16
@@ -140,6 +144,46 @@ def main() raises:
             else:
                 var ids = p50k.encode_ordinary_bytes(Span(data))
                 tokens = len(ids)
+            samples.add(now() - start)
+
+        report_throughput(name, len(data), tokens, samples)
+
+    # Counting, on the same input, in the same run, immediately after. The
+    # claim being measured is narrow: counting walks the same scanner and
+    # the same merge loop and differs only in not building the list of ids.
+    # If that list costs nothing, these rows will match the ones above and
+    # the counting path is not worth having.
+    for which in range(4):
+        var name = String("count_cl100k_base")
+        if which == 1:
+            name = String("count_o200k_base")
+        elif which == 2:
+            name = String("count_gpt2")
+        elif which == 3:
+            name = String("count_p50k_base")
+
+        for _ in range(WARMUP_ITERATIONS):
+            if which == 0:
+                var ignored = cl100k.count_ordinary_bytes(Span(data))
+            elif which == 1:
+                var ignored = o200k.count_ordinary_bytes(Span(data))
+            elif which == 2:
+                var ignored = gpt2.count_ordinary_bytes(Span(data))
+            else:
+                var ignored = p50k.count_ordinary_bytes(Span(data))
+
+        var samples = Samples()
+        var tokens = 0
+        for _ in range(MEASURED_ITERATIONS):
+            var start = now()
+            if which == 0:
+                tokens = cl100k.count_ordinary_bytes(Span(data))
+            elif which == 1:
+                tokens = o200k.count_ordinary_bytes(Span(data))
+            elif which == 2:
+                tokens = gpt2.count_ordinary_bytes(Span(data))
+            else:
+                tokens = p50k.count_ordinary_bytes(Span(data))
             samples.add(now() - start)
 
         report_throughput(name, len(data), tokens, samples)

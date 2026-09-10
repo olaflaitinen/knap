@@ -246,6 +246,21 @@ struct PieceCache(Movable):
                 return entry
             slot = (slot + 1) & self.mask
 
+    def value_count(self, entry: Int) -> Int:
+        """Return how many ids are stored against one entry.
+
+        Args:
+            entry: Index of a stored entry, as returned by lookup.
+
+        Returns:
+            The number of token ids.
+
+        The counting path needs this and nothing else from a cache hit.
+        Appending the ids in order to take their length would defeat the
+        point of not building the list.
+        """
+        return self.value_length[entry]
+
     def append_value(self, entry: Int, mut out: List[Int]):
         """Append a stored entry's token ids to a buffer.
 

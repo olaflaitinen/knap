@@ -14,7 +14,7 @@
 [workspace]
 name = "knap"
 version = "1.0.0"
-description = "A pure Mojo byte level BPE tokenizer with exact tiktoken parity."
+description = "A byte level BPE tokenizer written in pure Mojo, with no Python interpreter at run time."
 authors = ["Olaf Yunus Laitinen Imanov <yunus.imanov@metropolia.fi>"]
 license = "EUPL-1.2"
 license-file = "LICENSE"

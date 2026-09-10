@@ -66,16 +66,26 @@
     alt="Last commit"></a>
 </p>
 
-**A byte level Byte Pair Encoding tokenizer in pure Mojo, producing byte
-identical output to `tiktoken` on arbitrary input.**
+**A byte level Byte Pair Encoding tokenizer, written from scratch in pure
+Mojo.**
 
-Knap exists so that a Mojo or MAX program can tokenize without a Python
-interpreter in the process, without a foreign function boundary, and without
-having to take the result on trust. All seven `tiktoken` encodings are
-supported, and the evidence for that claim is published rather than asserted:
-191762320 tokens compared against the reference over a 110 MB corpus, every
+Knap exists so that a Mojo or MAX program can tokenize inside its own
+runtime, without a Python interpreter in the process, without a foreign
+function boundary, and without having to take the result on trust. It
+implements the seven encodings that OpenAI's models use, and it implements
+them: the pre-tokenizer is a hand written scanner rather than a regex
+engine, the Unicode tables are generated from the Character Database, and
+the merge loop, the rank table and the memory layout are this project's own.
+
+`tiktoken` appears throughout this repository as the **reference
+implementation**, which is a measuring instrument rather than a parent. An
+encoder whose output differs from what a model was trained on is useless
+however elegant it is, so the way to know an implementation is right is to
+differentially test it against one that is already trusted. That is what the
+numbers below are: 191762320 tokens compared over a 110 MB corpus, every
 token id in every encoding decoded and compared, and tens of millions of
-generated inputs fuzzed against the reference.
+generated inputs fuzzed. Knap would be a tokenizer without them. It would
+just be one nobody had any reason to believe.
 
 ## Contents
 
@@ -100,10 +110,10 @@ generated inputs fuzzed against the reference.
 | | |
 | --- | --- |
 | Language | Mojo 1.0.0, pinned exactly. No Python at run time. |
-| Algorithm | Byte level BPE, the same one `tiktoken` implements |
-| Encodings | All seven that `tiktoken` ships |
+| Algorithm | Byte level BPE |
+| Encodings | The seven that OpenAI's models use |
 | Interfaces | Mojo library, `knap` command line tool, Python extension |
-| Parity | Byte identical to `tiktoken`, measured rather than intended |
+| Verification | Byte identical to the reference, measured rather than intended |
 | Licence | EUPL-1.2, a reciprocal licence |
 
 Three properties are worth stating before anything else, because they are
@@ -176,6 +186,10 @@ def main() raises:
     var ids = knap.encode_ordinary("Knap tokenizes 1234 bytes.")
     print(len(ids), "tokens")
     print(knap.decode(ids))
+
+    # Counting never builds the list. On a large document that is the
+    # difference between holding the ids and not: see docs/BENCHMARKS.md.
+    print(knap.count_ordinary("How many tokens is this"), "tokens")
 ```
 
 Run it with `uv run mojo run -I src your_program.mojo`. The full surface is
@@ -195,7 +209,7 @@ knap vocab -e o200k_harmony
 
 | Command | Does |
 | --- | --- |
-| `knap count` | Prints one number, so `$(knap count -f x.txt)` works in a shell |
+| `knap count` | Prints one number, so `$(knap count -f x.txt)` works in a shell. Never builds the list of ids. |
 | `knap encode` | Prints token ids, as `space`, `lines`, or `json` |
 | `knap decode` | Turns token ids back into the exact bytes they represent |
 | `knap vocab` | Prints the size and the special tokens of an encoding |
@@ -277,6 +291,7 @@ correctness for speed, correctness wins.
 | Piece boundaries compared over the same corpus | 83025959 |
 | Token ids decoded and compared | 702463, every id in every encoding |
 | Unicode code points verified against an independent reference | 1114112 |
+| Memory to hold `cl100k_base`, above an empty runtime | 7.9 MB |
 | Strings fuzzed against `tiktoken` | 20000000, ten million each on two encodings |
 | Of those, compared token for token | 16661834 |
 | Of those, round trip checked because they are not valid UTF-8 | 3338166 |
@@ -342,6 +357,12 @@ argument:
   merged part is the rank the merge already found.
 - The probe table carries a tag from the key's hash, so a lookup that is
   going to fail usually fails after one load instead of four.
+
+**Memory, which almost nobody measures.** Knap holds `cl100k_base` in
+7.9 MB above an empty Mojo runtime. `tiktoken` needs 44.7 MB above an empty
+Python interpreter for the same table, measured in the same run with both
+controls reported. That is 5.7 times less, and on a machine deciding how
+many encodings it can hold it is a harder limit than throughput.
 
 Two further results, each a measurement rather than a claim:
 

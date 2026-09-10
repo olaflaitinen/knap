@@ -129,6 +129,9 @@ fi
   $MOJO run -I src -I bench -D KNAP_SIMD=1 bench/bench_pretokenize.mojo "$MEGABYTES" 2>/dev/null | grep -v Crashpad
   echo
 
+  echo "## knap memory, one child process per stage"
+  uv run python bench/memory.py 2>&1
+
   echo "## baseline tiktoken"
   uv run python bench/baselines/bench_tiktoken.py --megabytes "$MEGABYTES" 2>&1
   echo

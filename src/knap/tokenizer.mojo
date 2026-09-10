@@ -168,26 +168,33 @@ struct Tokenizer(Movable):
             scan_o200k(data, ends)
 
     def _encode_segment[
-        use_cache: Bool
+        use_cache: Bool, emit: Bool = True
     ](
         self,
         data: Span[UInt8, _],
         mut out: List[Int],
         mut cache: PieceCache,
-    ) raises:
+    ) raises -> Int:
         """Encode a segment that contains no special tokens.
 
         Parameters:
             use_cache: Whether to consult the piece cache. Compile time, so
                 the uncached path carries no branch at all rather than a
                 predictable one.
+            emit: Whether to append the ids to out. False counts them
+                without building the list, which is what every caller who
+                only wants a number is asking for.
 
         Args:
             data: The segment bytes.
-            out: Buffer receiving the token ids, in order.
+            out: Buffer receiving the token ids, in order. Untouched when
+                emit is False.
             cache: The piece cache. Ignored entirely when use_cache is
                 False, which is why the uncached callers can pass a cache
                 built with zero capacity.
+
+        Returns:
+            How many tokens the segment became.
 
         Raises:
             Error: if the scanner or the merge loop fails.
@@ -210,6 +217,7 @@ struct Tokenizer(Movable):
         # four megabytes of prose, for structures that die immediately.
         var scratch = MergeScratch()
 
+        var total = 0
         var start = 0
         for index in range(len(ends)):
             var end = ends[index]
@@ -218,7 +226,9 @@ struct Tokenizer(Movable):
                 var entry = cache.lookup(data, start, end)
                 if entry >= 0:
                     cache.record_hit()
-                    cache.append_value(entry, out)
+                    comptime if emit:
+                        cache.append_value(entry, out)
+                    total += cache.value_count(entry)
                     start = end
                     continue
 
@@ -226,17 +236,26 @@ struct Tokenizer(Movable):
                 # Merged into its own buffer rather than straight into out,
                 # because the cache has to store this piece's ids on their
                 # own and out already holds everything before it.
+                #
+                # This one merges with emit on even when the caller is only
+                # counting: a miss has to produce the ids so that the cache
+                # can store them, and a cache that stored nothing on a miss
+                # would never answer a hit.
                 var produced = List[Int]()
-                merge_piece_into(
+                total += merge_piece_into(
                     self.ranks, data, start, end, produced, scratch
                 )
                 cache.insert(data, start, end, Span(produced))
-                for slot in range(len(produced)):
-                    out.append(produced[slot])
+                comptime if emit:
+                    for slot in range(len(produced)):
+                        out.append(produced[slot])
             else:
-                merge_piece_into(self.ranks, data, start, end, out, scratch)
+                total += merge_piece_into[emit](
+                    self.ranks, data, start, end, out, scratch
+                )
 
             start = end
+        return total
 
     def encode_segment(self, data: Span[UInt8, _], mut out: List[Int]) raises:
         """Encode a segment that contains no special tokens, without a cache.
@@ -252,7 +271,7 @@ struct Tokenizer(Movable):
         what this produces, in tests/test_cache.mojo.
         """
         var scratch = PieceCache(0)
-        self._encode_segment[False](data, out, scratch)
+        _ = self._encode_segment[False](data, out, scratch)
 
     def encode_segment_cached(
         self,
@@ -270,7 +289,7 @@ struct Tokenizer(Movable):
         Raises:
             Error: if the scanner or the merge loop fails.
         """
-        self._encode_segment[True](data, out, cache)
+        _ = self._encode_segment[True](data, out, cache)
 
     def encode_ordinary_bytes(self, data: Span[UInt8, _]) raises -> List[Int]:
         """Encode bytes, treating any special token literal as ordinary text.
@@ -428,29 +447,34 @@ struct Tokenizer(Movable):
 
         return (best_offset, best_index)
 
-    def _encode_bytes[
-        use_cache: Bool
+    def _encode_bytes_into[
+        use_cache: Bool, emit: Bool = True
     ](
         self,
         data: Span[UInt8, _],
         allowed_special: List[String],
+        mut out: List[Int],
         mut cache: PieceCache,
-    ) raises -> List[Int]:
-        """Encode bytes, handling special tokens.
+    ) raises -> Int:
+        """Encode bytes into a buffer, handling special tokens.
 
         Parameters:
             use_cache: Whether the segments between markers consult the
                 piece cache.
+            emit: Whether to append the ids to out. False counts them
+                without building the list.
 
         Args:
             data: The bytes to encode.
             allowed_special: Literal texts of the special tokens permitted in
                 the input. Every other special token this encoding defines is
                 disallowed, and its presence is an error.
+            out: Buffer receiving the token ids. Untouched when emit is
+                False.
             cache: The piece cache, ignored when use_cache is False.
 
         Returns:
-            The token ids.
+            How many tokens the input became.
 
         Raises:
             Error: if a disallowed special token appears in the input, or if
@@ -485,24 +509,59 @@ struct Tokenizer(Movable):
                 self.vocabulary.specials.name_at(offending[1])
             )
 
-        var out = List[Int]()
+        var total = 0
         var position = 0
         while position < len(data):
             var hit = self._find_special(data, position, allowed_indices)
             if hit[0] == -1:
-                self._encode_segment[use_cache](
+                total += self._encode_segment[use_cache, emit](
                     data[position : len(data)], out, cache
                 )
                 break
 
             if hit[0] > position:
-                self._encode_segment[use_cache](
+                total += self._encode_segment[use_cache, emit](
                     data[position : hit[0]], out, cache
                 )
-            out.append(self.vocabulary.specials.id_at(hit[1]))
+            comptime if emit:
+                out.append(self.vocabulary.specials.id_at(hit[1]))
+            total += 1
             var name = self.vocabulary.specials.name_at(hit[1])
             position = hit[0] + name.byte_length()
 
+        return total
+
+    def _encode_bytes[
+        use_cache: Bool
+    ](
+        self,
+        data: Span[UInt8, _],
+        allowed_special: List[String],
+        mut cache: PieceCache,
+    ) raises -> List[Int]:
+        """Encode bytes, handling special tokens.
+
+        Parameters:
+            use_cache: Whether the segments between markers consult the
+                piece cache.
+
+        Args:
+            data: The bytes to encode.
+            allowed_special: Literal texts of the special tokens permitted in
+                the input.
+            cache: The piece cache, ignored when use_cache is False.
+
+        Returns:
+            The token ids.
+
+        Raises:
+            Error: if a disallowed special token appears in the input, or if
+                an allowed name is not a special token of this encoding.
+        """
+        var out = List[Int]()
+        _ = self._encode_bytes_into[use_cache](
+            data, allowed_special, out, cache
+        )
         return out^
 
     def encode_bytes(
@@ -590,6 +649,146 @@ struct Tokenizer(Movable):
             Error: if a disallowed special token appears in the input.
         """
         return self.encode_bytes(text.as_bytes(), allowed_special)
+
+    # -------------------------------------------------------------------------
+    # Counting
+    #
+    # Counting is the most common thing anyone asks a tokenizer to do. It is
+    # how a prompt is checked against a context window, how a document is
+    # priced, and how a corpus is budgeted, and in every one of those the
+    # list of ids is built, its length is read, and it is thrown away.
+    #
+    # These entry points never build it, and what that is worth was measured
+    # rather than assumed. It saves memory and it does not save time.
+    #
+    # On four megabytes of prose, counting and encoding are indistinguishable
+    # in throughput and identical in peak memory: the appends are cheap
+    # against the merge, and ten megabytes of ids is nothing against the
+    # process. On eighty megabytes the peak is 290 MB counting and 611 MB
+    # encoding, because the list of ids has grown past everything else.
+    #
+    # So the honest statement is that this is a memory entry point whose
+    # value grows with the input, not a fast path. The expectation when it
+    # was written was the other way round, and the measurement is in
+    # docs/BENCHMARKS.md.
+    # -------------------------------------------------------------------------
+
+    def count_ordinary_bytes(self, data: Span[UInt8, _]) raises -> Int:
+        """Count the tokens bytes would become, without building them.
+
+        Args:
+            data: The bytes to count.
+
+        Returns:
+            How many tokens the input would encode to.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+
+        The answer is exactly len(encode_ordinary_bytes(data)) and
+        tests/test_count.mojo asserts that over every fixture and over the
+        110 MB corpus. This is an optimisation, not a second definition of
+        what a token is.
+        """
+        var out = List[Int]()
+        var cache = PieceCache(0)
+        return self._encode_segment[False, False](data, out, cache)
+
+    def count_ordinary(self, text: String) raises -> Int:
+        """Count the tokens text would become, without building them.
+
+        Args:
+            text: The text to count.
+
+        Returns:
+            How many tokens the input would encode to.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+        """
+        return self.count_ordinary_bytes(text.as_bytes())
+
+    def count_ordinary_bytes_cached(
+        self, data: Span[UInt8, _], mut cache: PieceCache
+    ) raises -> Int:
+        """Count the tokens bytes would become, consulting a piece cache.
+
+        Args:
+            data: The bytes to count.
+            cache: The caller's piece cache, updated in place.
+
+        Returns:
+            How many tokens the input would encode to.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+
+        A cache miss still produces the ids, because a cache that stored
+        nothing on a miss would never answer a hit. What counting saves here
+        is the output list, not the merge.
+        """
+        var out = List[Int]()
+        return self._encode_segment[True, False](data, out, cache)
+
+    def count_ordinary_cached(
+        self, text: String, mut cache: PieceCache
+    ) raises -> Int:
+        """Count the tokens text would become, consulting a piece cache.
+
+        Args:
+            text: The text to count.
+            cache: The caller's piece cache, updated in place.
+
+        Returns:
+            How many tokens the input would encode to.
+
+        Raises:
+            Error: if the scanner or the merge loop fails.
+        """
+        return self.count_ordinary_bytes_cached(text.as_bytes(), cache)
+
+    def count_bytes(
+        self, data: Span[UInt8, _], allowed_special: List[String]
+    ) raises -> Int:
+        """Count tokens with a special token policy, without building them.
+
+        Args:
+            data: The bytes to count.
+            allowed_special: Literal texts of the special tokens permitted in
+                the input. Every other special token this encoding defines is
+                disallowed, and its presence is an error.
+
+        Returns:
+            How many tokens the input would encode to.
+
+        Raises:
+            Error: if a disallowed special token appears in the input.
+
+        The refusal happens here exactly as it does when encoding. Counting
+        a document that could not be encoded would be a number nobody can
+        act on.
+        """
+        var out = List[Int]()
+        var cache = PieceCache(0)
+        return self._encode_bytes_into[False, False](
+            data, allowed_special, out, cache
+        )
+
+    def count(self, text: String, allowed_special: List[String]) raises -> Int:
+        """Count tokens with a special token policy, without building them.
+
+        Args:
+            text: The text to count.
+            allowed_special: Literal texts of the special tokens permitted in
+                the input.
+
+        Returns:
+            How many tokens the input would encode to.
+
+        Raises:
+            Error: if a disallowed special token appears in the input.
+        """
+        return self.count_bytes(text.as_bytes(), allowed_special)
 
     # -------------------------------------------------------------------------
     # Decoding

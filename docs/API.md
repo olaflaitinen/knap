@@ -25,10 +25,10 @@
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
-| Website | <https://knap.lovable.app> |
 | Created | 2026-09-09 |
-| Updated | 2026-09-09 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 
@@ -51,22 +51,24 @@ changes this file.
 
 ## Contents
 
-1. [`bpe`](#bpe)
-2. [`byte_map`](#byte_map)
-3. [`cache`](#cache)
-4. [`config`](#config)
-5. [`errors`](#errors)
-6. [`flat_vocab`](#flat_vocab)
-7. [`ranks`](#ranks)
-8. [`special`](#special)
-9. [`tokenizer`](#tokenizer)
-10. [`vocab`](#vocab)
-11. [`classifier`](#classifier)
-12. [`classifier_simd`](#classifier_simd)
-13. [`pattern`](#pattern)
-14. [`scanner`](#scanner)
-15. [`unicode_tables`](#unicode_tables)
-16. [`utf8`](#utf8)
+1. [About this document](#about-this-document)
+2. [Modules](#modules)
+    - [`bpe`](#bpe)
+    - [`byte_map`](#byte_map)
+    - [`cache`](#cache)
+    - [`config`](#config)
+    - [`errors`](#errors)
+    - [`flat_vocab`](#flat_vocab)
+    - [`ranks`](#ranks)
+    - [`special`](#special)
+    - [`tokenizer`](#tokenizer)
+    - [`vocab`](#vocab)
+    - [`classifier`](#classifier)
+    - [`classifier_simd`](#classifier_simd)
+    - [`pattern`](#pattern)
+    - [`scanner`](#scanner)
+    - [`unicode_tables`](#unicode_tables)
+    - [`utf8`](#utf8)
 
 ---
 
@@ -565,7 +567,7 @@ The result of decoding one UTF-8 sequence.
 | Next | [docs/CORRECTNESS.md](CORRECTNESS.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-09 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

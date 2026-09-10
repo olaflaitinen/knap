@@ -85,10 +85,10 @@ HEADER = """<!--
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
-| Website | <https://knap.lovable.app> |
 | Created | 2026-09-09 |
-| Updated | 2026-09-09 |
+| Updated | 2026-09-10 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 
@@ -123,7 +123,7 @@ FOOTER = """
 | Next | [docs/CORRECTNESS.md](CORRECTNESS.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-09 |
+| Last reviewed | 2026-09-10 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied
@@ -357,12 +357,18 @@ def build() -> str:
     contents: list[str] = []
     walk(root, lines, contents)
 
+    # The Contents lists both top level sections, then the modules nested
+    # under the one they belong to. Listing only the modules left the two
+    # sections unlisted, which the Markdown gate now refuses: a Contents list
+    # that omits a section is one a reader trusts and stops scrolling past.
     head = [HEADER]
-    for index, name in enumerate(contents, start=1):
+    head.append("1. [About this document](#about-this-document)")
+    head.append("2. [Modules](#modules)")
+    for name in contents:
         # The forge keeps underscores in a heading slug and strips the
         # backticks. Replacing them produced anchors resolving to
         # nothing, which the Markdown gate caught.
-        head.append(f"{index}. [`{name}`](#{name})")
+        head.append(f"    - [`{name}`](#{name})")
     head.append("")
     head.append("---")
     head.append("")

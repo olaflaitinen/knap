@@ -78,6 +78,10 @@ REQUIRED_TABLE_FIELDS = (
     "Created",
     "Updated",
     "Licence",
+    # Added once nine documents carried this row and sixteen did not. A field
+    # that most documents have and some do not is worse than one nobody has,
+    # because a reader cannot tell an absence from an oversight.
+    "Website",
 )
 
 # Document control footer fields, in order.
@@ -113,6 +117,11 @@ WORDMARK_MINIMUM_WIDTH = 186
 CONTENTS_THRESHOLD = 3
 CONTENTS_HEADING = "## Contents"
 
+# One entry in a Contents list, numbered at the top level or bulleted where a
+# document nests, capturing the link text so it can be compared against the
+# heading it claims to point at.
+CONTENTS_ENTRY_PATTERN = re.compile(r"^\s*(?:\d+\.|[-*])\s+\[([^\]]+)\]\(#")
+
 # Markdown constructs.
 FENCE_MARKERS = ("```", "~~~")
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
@@ -141,6 +150,77 @@ class Problem:
     def render(self) -> str:
         """Format the problem as a single editor-navigable line."""
         return f"{self.path}:{self.line}: {self.message}"
+
+
+def check_contents_matches_sections(
+    relative_path: str, lines: list[str], mask: list[bool]
+) -> list[Problem]:
+    """Compare a document's Contents list against its top level sections.
+
+    Args:
+        relative_path: The document being checked, for the message.
+        lines: Its lines.
+        mask: Per line, True inside a fenced code block.
+
+    Returns:
+        One problem per section that is not listed and per entry that names
+        no section.
+
+    The two directions are checked against different sets, deliberately.
+    Every level two section must be listed, because those are what a reader
+    scrolling the document sees. An entry, on the other hand, may point at a
+    heading of any level, which is what lets `docs/API.md` nest one module
+    per subsection under its Modules section.
+
+    `Contents` itself and the `Document control` footer are excluded from the
+    first direction: the first cannot list itself, and the second is a footer
+    rather than content, which is the convention every document in this
+    repository already follows.
+    """
+    excluded = {"Contents", "Document control"}
+
+    sections: list[str] = []
+    headings: list[str] = []
+    entries: list[str] = []
+    inside_contents = False
+
+    for index, line in enumerate(lines):
+        if mask[index]:
+            continue
+        heading = HEADING_PATTERN.match(line)
+        if heading:
+            level = len(heading.group(1))
+            title = heading.group(2)
+            headings.append(title)
+            inside_contents = level == 2 and title == "Contents"
+            if level == 2 and title not in excluded:
+                sections.append(title)
+            continue
+        if inside_contents:
+            entry = CONTENTS_ENTRY_PATTERN.match(line)
+            if entry:
+                entries.append(entry.group(1))
+
+    problems: list[Problem] = []
+    for title in sections:
+        if title not in entries:
+            problems.append(
+                Problem(
+                    relative_path,
+                    1,
+                    f"section '{title}' is not in the Contents list",
+                )
+            )
+    for entry in entries:
+        if entry not in headings:
+            problems.append(
+                Problem(
+                    relative_path,
+                    1,
+                    f"Contents lists '{entry}', which is not a heading",
+                )
+            )
+    return problems
 
 
 def tracked_files() -> list[str]:
@@ -656,6 +736,16 @@ def check_document(relative_path: str) -> list[Problem]:
                 f"document has {body_sections} sections so it requires a "
                 f"'{CONTENTS_HEADING}' list",
             )
+        )
+
+    # A Contents list that has drifted from the document is worse than none,
+    # because a reader trusts it and stops scrolling. Every top level section
+    # must be listed, and nothing may be listed that is not a section.
+    # Document control is excluded by convention: it is the footer rather
+    # than content, and no document in this repository lists it.
+    if has_contents:
+        problems.extend(
+            check_contents_matches_sections(relative_path, lines, mask)
         )
 
     # Document control footer.

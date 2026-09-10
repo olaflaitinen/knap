@@ -110,6 +110,7 @@ CLEAN_MARKDOWN = """\
 | Created | 2026-09-07 |
 | Updated | 2026-09-07 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 
@@ -217,6 +218,70 @@ def build_cases() -> list[Case]:
     head, _, tail = marked.partition('<p align="center">')
     no_wordmark_md = head + tail.partition("</p>\n\n")[2]
 
+    # Violation 6: a document with enough sections to require a Contents
+    # list, whose Contents list omits one of them. This is the shape that
+    # rots on its own: a section is added, the list is not touched, and a
+    # reader trusts the list and stops scrolling.
+    incomplete_md = ".gate_selftest/planted_incomplete_contents.md"
+    complete_md = ".gate_selftest/clean_contents.md"
+    sections = (
+        "## Contents\n"
+        "\n"
+        "1. [First](#first)\n"
+        "2. [Second](#second)\n"
+        "{third_entry}"
+        "\n"
+        "---\n"
+        "\n"
+        "## First\n"
+        "\n"
+        "Temporary fixture written by the standards gate self test.\n"
+        "\n"
+        "## Second\n"
+        "\n"
+        "Temporary fixture written by the standards gate self test.\n"
+        "\n"
+        "## Third\n"
+        "\n"
+        "Temporary fixture written by the standards gate self test.\n"
+    )
+    complete_contents_md = CLEAN_MARKDOWN.format(path=complete_md).replace(
+        "## Body\n\nTemporary fixture written by the standards gate self test.",
+        sections.format(third_entry="3. [Third](#third)\n").rstrip("\n"),
+    )
+    incomplete_contents_md = CLEAN_MARKDOWN.format(
+        path=incomplete_md
+    ).replace(
+        "## Body\n\nTemporary fixture written by the standards gate self test.",
+        sections.format(third_entry="").rstrip("\n"),
+    )
+
+    # Violation 7: a toolchain findings document citing a file that does not
+    # exist. The environment row states the pinned compiler version so that
+    # the citation is the only thing wrong, which is what makes a rejection
+    # mean what it says.
+    bad_toolchain_md = ".gate_selftest/planted_bad_citation.md"
+    good_toolchain_md = ".gate_selftest/clean_citations.md"
+    toolchain_body = (
+        "| Property | Value |\n"
+        "| --- | --- |\n"
+        "| Mojo | 1.0.0, build `ed45d567` |\n"
+        "\n"
+        "| Assumption | Reality in Mojo 1.0.0 | Pinned by |\n"
+        "| --- | --- | --- |\n"
+        "| A fixture assumption | A fixture reality | `{cited}` |\n"
+    )
+    clean_citations_md = CLEAN_MARKDOWN.format(
+        path=good_toolchain_md
+    ).replace(
+        "Temporary fixture written by the standards gate self test.",
+        toolchain_body.format(cited="README.md"),
+    )
+    bad_citation_md = CLEAN_MARKDOWN.format(path=bad_toolchain_md).replace(
+        "Temporary fixture written by the standards gate self test.",
+        toolchain_body.format(cited="src/knap/does_not_exist.mojo"),
+    )
+
     return [
         Case(
             gate="lint_style.py",
@@ -257,6 +322,22 @@ def build_cases() -> list[Case]:
             bad_text=no_spdx_py,
             good_name=good_py,
             good_text=clean_py,
+        ),
+        Case(
+            gate="check_md_headers.py",
+            label="Contents list that omits a section",
+            bad_name=incomplete_md,
+            bad_text=incomplete_contents_md,
+            good_name=complete_md,
+            good_text=complete_contents_md,
+        ),
+        Case(
+            gate="check_toolchain_doc.py",
+            label="toolchain finding citing a file that does not exist",
+            bad_name=bad_toolchain_md,
+            bad_text=bad_citation_md,
+            good_name=good_toolchain_md,
+            good_text=clean_citations_md,
         ),
     ]
 

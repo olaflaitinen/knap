@@ -48,6 +48,7 @@ Exit status is 0 when every citation resolves and 1 otherwise.
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
@@ -174,13 +175,16 @@ def unresolved(cell: str, tracked: set[str]) -> list[str]:
     return [span for span in spans if span not in tracked]
 
 
-def version_agreement() -> str | None:
+def version_agreement(path: Path) -> str | None:
     """Check the document's compiler version against the project's pin.
+
+    Args:
+        path: The document to read.
 
     Returns:
         A description of the disagreement, or None when the two agree.
     """
-    document = DOCUMENT.read_text(encoding="utf-8")
+    document = path.read_text(encoding="utf-8")
     stated = None
     for line in document.splitlines():
         match = DOCUMENT_VERSION.match(line)
@@ -209,29 +213,61 @@ def main() -> int:
 
     Returns:
         0 when the document is consistent, 1 otherwise.
+
+    An explicit path may be given instead of the default document. That is
+    what lets `scripts/selftest_gates.py` plant a violation and watch this
+    gate reject it, which is the only way to know the gate works at all.
     """
-    if not DOCUMENT.exists():
-        print(
-            "check_toolchain_doc: docs/TOOLCHAIN.md is missing.",
-            file=sys.stderr,
-        )
-        return 1
+    parser = argparse.ArgumentParser(
+        description="Check the toolchain findings document."
+    )
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help=(
+            "Documents to check. Defaults to docs/TOOLCHAIN.md, which is the"
+            " only document in this repository written in this shape."
+        ),
+    )
+    arguments = parser.parse_args()
+
+    targets = (
+        [Path(p) if Path(p).is_absolute() else REPO_ROOT / p for p in arguments.paths]
+        if arguments.paths
+        else [DOCUMENT]
+    )
 
     tracked = tracked_paths()
-    lines = DOCUMENT.read_text(encoding="utf-8").splitlines()
-    cells = citations(lines)
-
     problems: list[str] = []
-    for number, cell in cells:
-        for path in unresolved(cell, tracked):
-            problems.append(
-                f"docs/TOOLCHAIN.md:{number}: cites {path}, which this "
-                "repository does not have"
-            )
+    total = 0
 
-    disagreement = version_agreement()
-    if disagreement is not None:
-        problems.append(f"docs/TOOLCHAIN.md: {disagreement}")
+    for target in targets:
+        relative = (
+            target.relative_to(REPO_ROOT)
+            if target.is_relative_to(REPO_ROOT)
+            else target
+        )
+        if not target.exists():
+            print(
+                f"check_toolchain_doc: {relative} is missing.",
+                file=sys.stderr,
+            )
+            return 1
+
+        lines = target.read_text(encoding="utf-8").splitlines()
+        cells = citations(lines)
+        total += len(cells)
+
+        for number, cell in cells:
+            for path in unresolved(cell, tracked):
+                problems.append(
+                    f"{relative}:{number}: cites {path}, which this "
+                    "repository does not have"
+                )
+
+        disagreement = version_agreement(target)
+        if disagreement is not None:
+            problems.append(f"{relative}: {disagreement}")
 
     if problems:
         for problem in problems:
@@ -243,7 +279,7 @@ def main() -> int:
         return 1
 
     print(
-        f"check_toolchain_doc: {len(cells)} citations resolve, and the "
+        f"check_toolchain_doc: {total} citations resolve, and the "
         "compiler version agrees with pyproject.toml."
     )
     return 0

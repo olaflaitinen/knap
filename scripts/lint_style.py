@@ -46,7 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 EM_DASH = chr(0x2014)
 
 # -----------------------------------------------------------------------------
-# The three exemptions
+# The four exemptions
 #
 # These are the only four exemptions permitted by docs/STYLE.md section 2.1.
 # Each is named and explained here so a future reader sees why it exists

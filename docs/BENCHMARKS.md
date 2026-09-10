@@ -28,6 +28,7 @@
 | Created | 2026-09-08 |
 | Updated | 2026-09-08 |
 | Licence | EUPL-1.2 |
+| Website | <https://knap.lovable.app> |
 
 ---
 

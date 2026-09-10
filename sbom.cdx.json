@@ -1,0 +1,684 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "pkg:pypi/anyio@4.15.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94"
+        }
+      ],
+      "name": "anyio",
+      "purl": "pkg:pypi/anyio@4.15.1",
+      "scope": "excluded",
+      "type": "library",
+      "version": "4.15.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/certifi@2026.7.22",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55"
+        }
+      ],
+      "name": "certifi",
+      "purl": "pkg:pypi/certifi@2026.7.22",
+      "scope": "excluded",
+      "type": "library",
+      "version": "2026.7.22"
+    },
+    {
+      "bom-ref": "pkg:pypi/charset-normalizer@3.5.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6117b84ea48435e5356dc737f5121485c30920ba43375fa7b434fd753df0eac3"
+        }
+      ],
+      "name": "charset-normalizer",
+      "purl": "pkg:pypi/charset-normalizer@3.5.1",
+      "scope": "excluded",
+      "type": "library",
+      "version": "3.5.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/click@8.5.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34"
+        }
+      ],
+      "name": "click",
+      "purl": "pkg:pypi/click@8.5.0",
+      "scope": "required",
+      "type": "library",
+      "version": "8.5.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/colorama@0.4.6",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"
+        }
+      ],
+      "name": "colorama",
+      "purl": "pkg:pypi/colorama@0.4.6",
+      "scope": "excluded",
+      "type": "library",
+      "version": "0.4.6"
+    },
+    {
+      "bom-ref": "pkg:pypi/exceptiongroup@1.3.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219"
+        }
+      ],
+      "name": "exceptiongroup",
+      "purl": "pkg:pypi/exceptiongroup@1.3.1",
+      "scope": "excluded",
+      "type": "library",
+      "version": "1.3.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/filelock@3.32.5",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f6a6a28f743f9b95ce19db5abe0f376f75eb56517dff21e1a4751e2657d3e83d"
+        }
+      ],
+      "name": "filelock",
+      "purl": "pkg:pypi/filelock@3.32.5",
+      "scope": "excluded",
+      "type": "library",
+      "version": "3.32.5"
+    },
+    {
+      "bom-ref": "pkg:pypi/fsspec@2026.7.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c803c40f4cf860b49dea58ee3e1c33cb9c790520e233537e1340049f89b82a88"
+        }
+      ],
+      "name": "fsspec",
+      "purl": "pkg:pypi/fsspec@2026.7.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "2026.7.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/h11@0.16.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1"
+        }
+      ],
+      "name": "h11",
+      "purl": "pkg:pypi/h11@0.16.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "0.16.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/hf-xet@1.6.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2e58454a340b3556dfa4972d5451aff4fba8dd42a236600ba1a1d2b1514f0fef"
+        }
+      ],
+      "name": "hf-xet",
+      "purl": "pkg:pypi/hf-xet@1.6.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "1.6.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/httpcore@1.0.9",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8"
+        }
+      ],
+      "name": "httpcore",
+      "purl": "pkg:pypi/httpcore@1.0.9",
+      "scope": "excluded",
+      "type": "library",
+      "version": "1.0.9"
+    },
+    {
+      "bom-ref": "pkg:pypi/httpx@0.28.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc"
+        }
+      ],
+      "name": "httpx",
+      "purl": "pkg:pypi/httpx@0.28.1",
+      "scope": "excluded",
+      "type": "library",
+      "version": "0.28.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/huggingface-hub@1.30.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e6a6120bc8c8e2723d03648434ee247088cceb55ba7067e7d34d692cad5fdb57"
+        }
+      ],
+      "name": "huggingface-hub",
+      "purl": "pkg:pypi/huggingface-hub@1.30.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "1.30.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/idna@3.19",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5e0811a4383b21dc5838069f801c4fb62113b7447663d2530d2bd6e77b49bf15"
+        }
+      ],
+      "name": "idna",
+      "purl": "pkg:pypi/idna@3.19",
+      "scope": "excluded",
+      "type": "library",
+      "version": "3.19"
+    },
+    {
+      "bom-ref": "pkg:pypi/mblack@26.5.0",
+      "name": "mblack",
+      "purl": "pkg:pypi/mblack@26.5.0",
+      "scope": "required",
+      "type": "library",
+      "version": "26.5.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mojo@1.0.0",
+      "name": "mojo",
+      "purl": "pkg:pypi/mojo@1.0.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mojo-compiler@1.0.0",
+      "name": "mojo-compiler",
+      "purl": "pkg:pypi/mojo-compiler@1.0.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mojo-compiler-mojo-libs@1.0.0",
+      "name": "mojo-compiler-mojo-libs",
+      "purl": "pkg:pypi/mojo-compiler-mojo-libs@1.0.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mojo-lldb-libs@1.0.0",
+      "name": "mojo-lldb-libs",
+      "purl": "pkg:pypi/mojo-lldb-libs@1.0.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.0.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mypy-extensions@1.1.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558"
+        }
+      ],
+      "name": "mypy-extensions",
+      "purl": "pkg:pypi/mypy-extensions@1.1.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.1.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/packaging@26.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79"
+        }
+      ],
+      "name": "packaging",
+      "purl": "pkg:pypi/packaging@26.3",
+      "scope": "excluded",
+      "type": "library",
+      "version": "26.3"
+    },
+    {
+      "bom-ref": "pkg:pypi/pathspec@1.1.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a"
+        }
+      ],
+      "name": "pathspec",
+      "purl": "pkg:pypi/pathspec@1.1.1",
+      "scope": "required",
+      "type": "library",
+      "version": "1.1.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/platformdirs@4.11.7",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4f41487eeeeeb07f3a6625e61d9bc0ae6809f92d3386dbd74392fbb76108104d"
+        }
+      ],
+      "name": "platformdirs",
+      "purl": "pkg:pypi/platformdirs@4.11.7",
+      "scope": "required",
+      "type": "library",
+      "version": "4.11.7"
+    },
+    {
+      "bom-ref": "pkg:pypi/pyyaml@6.0.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f"
+        }
+      ],
+      "name": "pyyaml",
+      "purl": "pkg:pypi/pyyaml@6.0.3",
+      "scope": "excluded",
+      "type": "library",
+      "version": "6.0.3"
+    },
+    {
+      "bom-ref": "pkg:pypi/regex@2026.9.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "aabd43208e335f4c3f0b56de3464b066dd425983a58f6eeb5738bcd7465403db"
+        }
+      ],
+      "name": "regex",
+      "purl": "pkg:pypi/regex@2026.9.3",
+      "scope": "excluded",
+      "type": "library",
+      "version": "2026.9.3"
+    },
+    {
+      "bom-ref": "pkg:pypi/requests@2.34.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed"
+        }
+      ],
+      "name": "requests",
+      "purl": "pkg:pypi/requests@2.34.2",
+      "scope": "excluded",
+      "type": "library",
+      "version": "2.34.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/rs-bpe@0.1.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1875d29abd920581bb418e830cc98c2f71f70a9840c7a8a3c817493a9b506657"
+        }
+      ],
+      "name": "rs-bpe",
+      "purl": "pkg:pypi/rs-bpe@0.1.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "0.1.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/tiktoken@0.14.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "231dec90efcdccf1b565a1416107736f1e09b1a08fe736ef9d6363e626d03874"
+        }
+      ],
+      "name": "tiktoken",
+      "purl": "pkg:pypi/tiktoken@0.14.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "0.14.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/tokenizers@0.23.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7f0f085686b9de0d0079e6f874ae053600db64c5d13049e0bbc0119926d25aac"
+        }
+      ],
+      "name": "tokenizers",
+      "purl": "pkg:pypi/tokenizers@0.23.2",
+      "scope": "excluded",
+      "type": "library",
+      "version": "0.23.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/tomli@2.4.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7c7e1a961a0b2f2472c1ac5b69affa0ae1132c39adcb67aba98568702b9cc23f"
+        }
+      ],
+      "name": "tomli",
+      "purl": "pkg:pypi/tomli@2.4.1",
+      "scope": "required",
+      "type": "library",
+      "version": "2.4.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/tqdm@4.70.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "55b0b0dbd97462d06ebee91e4dac24ed4d4702be82b24f07e6c1d27e08cea220"
+        }
+      ],
+      "name": "tqdm",
+      "purl": "pkg:pypi/tqdm@4.70.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "4.70.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5"
+        }
+      ],
+      "name": "typing-extensions",
+      "purl": "pkg:pypi/typing-extensions@4.16.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "4.16.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/urllib3@2.7.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c"
+        }
+      ],
+      "name": "urllib3",
+      "purl": "pkg:pypi/urllib3@2.7.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "2.7.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "dependsOn": [
+        "pkg:pypi/mojo@1.0.0"
+      ],
+      "ref": "pkg:generic/knap@1.0.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/exceptiongroup@1.3.1",
+        "pkg:pypi/idna@3.19",
+        "pkg:pypi/typing-extensions@4.16.0"
+      ],
+      "ref": "pkg:pypi/anyio@4.15.1"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/certifi@2026.7.22"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/charset-normalizer@3.5.1"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/click@8.5.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/colorama@0.4.6"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/typing-extensions@4.16.0"
+      ],
+      "ref": "pkg:pypi/exceptiongroup@1.3.1"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/filelock@3.32.5"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/fsspec@2026.7.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/h11@0.16.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/hf-xet@1.6.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/certifi@2026.7.22",
+        "pkg:pypi/h11@0.16.0"
+      ],
+      "ref": "pkg:pypi/httpcore@1.0.9"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/anyio@4.15.1",
+        "pkg:pypi/certifi@2026.7.22",
+        "pkg:pypi/httpcore@1.0.9",
+        "pkg:pypi/idna@3.19"
+      ],
+      "ref": "pkg:pypi/httpx@0.28.1"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/click@8.5.0",
+        "pkg:pypi/filelock@3.32.5",
+        "pkg:pypi/fsspec@2026.7.0",
+        "pkg:pypi/hf-xet@1.6.0",
+        "pkg:pypi/httpx@0.28.1",
+        "pkg:pypi/packaging@26.3",
+        "pkg:pypi/pyyaml@6.0.3",
+        "pkg:pypi/tqdm@4.70.0",
+        "pkg:pypi/typing-extensions@4.16.0"
+      ],
+      "ref": "pkg:pypi/huggingface-hub@1.30.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/idna@3.19"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/click@8.5.0",
+        "pkg:pypi/mypy-extensions@1.1.0",
+        "pkg:pypi/pathspec@1.1.1",
+        "pkg:pypi/platformdirs@4.11.7",
+        "pkg:pypi/tomli@2.4.1"
+      ],
+      "ref": "pkg:pypi/mblack@26.5.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/mblack@26.5.0",
+        "pkg:pypi/mojo-compiler@1.0.0",
+        "pkg:pypi/mojo-lldb-libs@1.0.0"
+      ],
+      "ref": "pkg:pypi/mojo@1.0.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/mojo-compiler-mojo-libs@1.0.0"
+      ],
+      "ref": "pkg:pypi/mojo-compiler@1.0.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/mojo-compiler-mojo-libs@1.0.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/mojo-lldb-libs@1.0.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/mypy-extensions@1.1.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/packaging@26.3"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/pathspec@1.1.1"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/platformdirs@4.11.7"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/pyyaml@6.0.3"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/regex@2026.9.3"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/certifi@2026.7.22",
+        "pkg:pypi/charset-normalizer@3.5.1",
+        "pkg:pypi/idna@3.19",
+        "pkg:pypi/urllib3@2.7.0"
+      ],
+      "ref": "pkg:pypi/requests@2.34.2"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/rs-bpe@0.1.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/regex@2026.9.3",
+        "pkg:pypi/requests@2.34.2"
+      ],
+      "ref": "pkg:pypi/tiktoken@0.14.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/huggingface-hub@1.30.0"
+      ],
+      "ref": "pkg:pypi/tokenizers@0.23.2"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/tomli@2.4.1"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/colorama@0.4.6"
+      ],
+      "ref": "pkg:pypi/tqdm@4.70.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/typing-extensions@4.16.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/urllib3@2.7.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      {
+        "email": "yunus.imanov@metropolia.fi",
+        "name": "Olaf Yunus Laitinen Imanov"
+      }
+    ],
+    "component": {
+      "bom-ref": "pkg:generic/knap@1.0.0",
+      "description": "A byte level BPE tokenizer written in pure Mojo, with no Python interpreter at run time.",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/olaflaitinen/knap"
+        },
+        {
+          "type": "website",
+          "url": "https://knap.lovable.app"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "EUPL-1.2"
+          }
+        }
+      ],
+      "name": "knap",
+      "properties": [
+        {
+          "name": "knap:runtime-dependencies",
+          "value": "none"
+        },
+        {
+          "name": "knap:runtime-interpreter",
+          "value": "none"
+        },
+        {
+          "name": "knap:vocabularies-bundled",
+          "value": "none"
+        }
+      ],
+      "purl": "pkg:generic/knap@1.0.0",
+      "type": "library",
+      "version": "1.0.0"
+    },
+    "tools": {
+      "components": [
+        {
+          "name": "gen_sbom.py",
+          "type": "application",
+          "version": "1.0.0"
+        }
+      ]
+    }
+  },
+  "serialNumber": "urn:uuid:33fdd26d-f6da-56be-abf3-560a596103a0",
+  "specVersion": "1.6",
+  "version": 1
+}

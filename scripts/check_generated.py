@@ -19,11 +19,12 @@
 # =============================================================================
 """Verify that committed generated files are current.
 
-Two files in this repository are generated and committed: the pattern
-constants and the Unicode tables. Committing them keeps the build free of a
-network dependency and makes the pattern reviewable in a diff, but it also
-creates a way for the committed copy to drift from what the generator would
-produce now, after a dependency upgrade.
+Four files in this repository are generated and committed: the pattern
+constants, the Unicode tables, the API reference, and the bill of materials.
+Committing them keeps the build free of a network dependency and makes each
+one reviewable in a diff, but it also creates a way for the committed copy
+to drift from what the generator would produce now, after a dependency
+upgrade.
 
 Drift matters here more than in most projects. If the pre-tokenization
 pattern changes upstream and the committed constant does not, Knap keeps
@@ -57,6 +58,7 @@ GENERATORS = (
         "src/knap/pretokenize/unicode_tables.mojo",
     ),
     ("scripts/gen_api_reference.py", "docs/API.md"),
+    ("scripts/gen_sbom.py", "sbom.cdx.json"),
 )
 
 

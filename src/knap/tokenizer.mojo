@@ -104,6 +104,85 @@ how text is split.
 
 
 @fieldwise_init
+struct PaddedBatch(Movable):
+    """A rectangle of token ids, with a mask saying which of them are real.
+
+    Row major: row `r`, column `c` is at `r * width + c`. Flat rather than a
+    list of lists because the next thing that happens to this is a copy into
+    a tensor, and a list of lists would have to be flattened first.
+    """
+
+    var ids: List[Int]
+    """Rows times width token ids, row major."""
+
+    var mask: List[UInt8]
+    """One per id. One where the id came from the input, zero where it is
+    padding.
+
+    **This is the only thing that distinguishes padding from content.** A
+    caller is free to pad with an id that is also a real token, and many do,
+    because no encoding this library ships defines a padding token and
+    reusing the end of text marker is the common workaround. Where that
+    happens the ids alone cannot tell the two apart and the mask can.
+    """
+
+    var lengths: List[Int]
+    """How many real tokens each row holds, before padding."""
+
+    var rows: Int
+    """How many documents are in the batch."""
+
+    var width: Int
+    """How many columns each row has, which is the longest row."""
+
+    def id_at(self, row: Int, column: Int) raises -> Int:
+        """Read one token id.
+
+        Args:
+            row: Which document.
+            column: Which position in it.
+
+        Returns:
+            The token id, which is the padding id past that row's length.
+
+        Raises:
+            Error: if either index is outside the rectangle. Out of range is
+                raised rather than clamped, because a clamped read returns a
+                real looking id from the wrong place.
+        """
+        if row < 0 or row >= self.rows or column < 0 or column >= self.width:
+            raise Error(
+                String(
+                    t"knap: ({row}, {column}) is outside a batch of"
+                    t" {self.rows} by {self.width}"
+                )
+            )
+        return self.ids[row * self.width + column]
+
+    def mask_at(self, row: Int, column: Int) raises -> Int:
+        """Read one mask value.
+
+        Args:
+            row: Which document.
+            column: Which position in it.
+
+        Returns:
+            One where the id is real, zero where it is padding.
+
+        Raises:
+            Error: if either index is outside the rectangle.
+        """
+        if row < 0 or row >= self.rows or column < 0 or column >= self.width:
+            raise Error(
+                String(
+                    t"knap: ({row}, {column}) is outside a batch of"
+                    t" {self.rows} by {self.width}"
+                )
+            )
+        return Int(self.mask[row * self.width + column])
+
+
+@fieldwise_init
 struct TokenWindow(Copyable, ImplicitlyCopyable, Movable, Writable):
     """One window of a document, as a byte range and a token count."""
 
@@ -1009,6 +1088,94 @@ struct Tokenizer(Movable):
                 self.encode_ordinary_bytes(documents[index].as_bytes())
             )
         return results^
+
+    def pad_ordinary_batch(
+        self,
+        documents: List[String],
+        pad_id: Int,
+        max_tokens: Int = 0,
+    ) raises -> PaddedBatch:
+        """Encode documents into one rectangle, padded and masked.
+
+        Args:
+            documents: The documents, in order. One row each.
+            pad_id: The id to fill the unused columns with. There is no
+                default and there cannot be one: not one of the seven
+                encodings this library ships defines a padding token, so any
+                value here is the caller's decision about their own model.
+            max_tokens: Truncate each row to at most this many tokens. Zero,
+                the default, truncates nothing and makes the rectangle as
+                wide as the longest document.
+
+        Returns:
+            The rectangle, the mask, and each row's real length.
+
+        Raises:
+            Error: if pad_id is outside this encoding's id space, if
+                max_tokens is negative, or if encoding fails.
+
+        Two decisions in here are worth stating.
+
+        **The padding id is required.** Every other tokenizer that offers
+        this has a padding token to default to, because it was built for
+        model families that define one. These encodings do not, and picking
+        one silently would put an id into a caller's tensor that their model
+        was never trained to see there.
+
+        **Truncation is by token and not by pre-token.** A row cut at
+        max_tokens keeps exactly that many ids, which may end inside a word.
+        That is what a fixed width model input requires and it is the
+        opposite of what `windows_ordinary` does, where the point is that a
+        window re-encodes to itself. Use windows to split a document for
+        retrieval; use this to fill a tensor.
+
+        One cost is worth knowing rather than discovering. A row longer than
+        max_tokens is encoded in full and then cut, so padding a batch of
+        long documents to a narrow width pays for the part it discards.
+        Avoiding that would mean an encoder that stops at a token count,
+        which is a third parameterisation of the merge loop, and nothing has
+        yet measured that it pays. Callers who know their documents are much
+        longer than the width can cut first with `truncate_ordinary`.
+        """
+        if max_tokens < 0:
+            raise Error(
+                String(t"knap: a width of {max_tokens} tokens is negative.")
+            )
+        if pad_id < 0 or pad_id >= self.vocabulary.id_space_size():
+            raise Error(
+                String(
+                    t"knap: padding id {pad_id} is outside this encoding's"
+                    t" id space of {self.vocabulary.id_space_size()}."
+                )
+            )
+
+        var rows = List[List[Int]]()
+        var lengths = List[Int]()
+        var width = 0
+        for index in range(len(documents)):
+            var encoded = self.encode_ordinary(documents[index])
+            var kept = len(encoded)
+            if max_tokens > 0 and kept > max_tokens:
+                kept = max_tokens
+            lengths.append(kept)
+            if kept > width:
+                width = kept
+            rows.append(encoded^)
+
+        var count = len(documents)
+        var ids = List[Int](capacity=count * width)
+        var mask = List[UInt8](capacity=count * width)
+        for index in range(count):
+            var kept = lengths[index]
+            for column in range(width):
+                if column < kept:
+                    ids.append(rows[index][column])
+                    mask.append(UInt8(1))
+                else:
+                    ids.append(pad_id)
+                    mask.append(UInt8(0))
+
+        return PaddedBatch(ids^, mask^, lengths^, count, width)
 
     def token_id_of_bytes(self, data: Span[UInt8, _]) raises -> Int:
         """Look up the id of a byte sequence that may be a single token.

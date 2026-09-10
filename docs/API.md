@@ -297,6 +297,23 @@ The Knap tokenizer.
 | `PATTERN_O200K` | Selects the o200k_base pre-tokenization pattern. |
 | `PATTERN_GPT2` | Selects the gpt2 pre-tokenization pattern. |
 
+#### `PaddedBatch`
+
+A rectangle of token ids, with a mask saying which of them are real.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `ids` | `List[Int]` | Rows times width token ids, row major. |
+| `mask` | `List[UInt8]` | One per id. One where the id came from the input, zero where it is padding. |
+| `lengths` | `List[Int]` | How many real tokens each row holds, before padding. |
+| `rows` | `Int` | How many documents are in the batch. |
+| `width` | `Int` | How many columns each row has, which is the longest row. |
+
+| Method | Description |
+| --- | --- |
+| `def id_at(self, row: Int, column: Int) -> Int` | Read one token id. |
+| `def mask_at(self, row: Int, column: Int) -> Int` | Read one mask value. |
+
 #### `TokenWindow`
 
 One window of a document, as a byte range and a token count.
@@ -344,6 +361,7 @@ A loaded encoding, ready to encode and decode.
 | `def fits_ordinary(self, text: String, max_tokens: Int) -> Bool` | Report whether text encodes to at most max_tokens tokens. |
 | `def encode_ordinary_batch_into(self, documents: List[String], mut out: List[Int], mut ends: List[Int])` | Encode several documents into one buffer the caller owns. |
 | `def encode_ordinary_batch(self, documents: List[String]) -> List[List[Int]]` | Encode several documents, one list of ids each. |
+| `def pad_ordinary_batch(self, documents: List[String], pad_id: Int, max_tokens: Int = Int(0)) -> PaddedBatch` | Encode documents into one rectangle, padded and masked. |
 | `def token_id_of_bytes(self, data: Span[UInt8]) -> Int` | Look up the id of a byte sequence that may be a single token. |
 | `def token_id_of(self, text: String) -> Int` | Look up the id of text that may be a single token. |
 | `def token_bytes(self, token_id: Int) -> List[UInt8]` | Return the bytes one token id decodes to. |

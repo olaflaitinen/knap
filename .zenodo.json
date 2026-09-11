@@ -1,0 +1,23 @@
+{
+  "access_right": "open",
+  "creators": [
+    {
+      "affiliation": "School of Information and Communication Technology, Metropolia University of Applied Sciences",
+      "name": "Laitinen Imanov, Olaf Yunus",
+      "orcid": "0009-0006-5184-0810"
+    }
+  ],
+  "description": "<p>Knap is a byte level Byte Pair Encoding tokenizer written in pure Mojo. It implements the seven encodings that OpenAI's models use and runs with no Python interpreter in the process, so that a Mojo or MAX application can tokenize inside its own runtime.</p><p>Correctness is treated as the product. Every encoding is differentially tested against the reference implementation over a 110 MB corpus, 191762320 tokens compared byte identically; every token id in every encoding is decoded and compared, all 702463 of them; and 20 million generated inputs were fuzzed against the reference with zero divergences outstanding. The benchmarks publish the cases where other implementations win, with the same prominence as the cases where Knap does.</p><p>Its contribution is as much the method as the library. Predictions were written down before they were tested and published when they were refuted, and the documentation records the assumptions that turned out to be wrong alongside the ones that held.</p>",
+  "keywords": [
+    "tokenization",
+    "byte pair encoding",
+    "bpe",
+    "mojo",
+    "natural language processing"
+  ],
+  "language": "eng",
+  "license": "eupl-1.2",
+  "title": "Knap: a pure Mojo byte level BPE tokenizer",
+  "upload_type": "software",
+  "version": "1.0.0"
+}

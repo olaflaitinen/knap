@@ -3,7 +3,7 @@
 # File        : scripts/extract_patterns.py
 # Purpose     : Extracts the pre-tokenization patterns from tiktoken and emits
 #               them as a generated Mojo source file.
-# Stage       : Milestone M2, pre-tokenizer. See docs/ROADMAP.md
+# Stage       : Pre-tokenization. See docs/ARCHITECTURE.md
 # Depends on  : tiktoken, as the source of the patterns.
 # Invariants  : The pattern is copied verbatim. Nothing here rewrites,
 #               normalises, or prettifies it, because a single changed

@@ -5,7 +5,7 @@
 #
 # Mojo installs as an ordinary Python package, which is what lets the Mojo
 # compiler, tiktoken and Hugging Face tokenizers share a single environment.
-# The differential fuzzing harness in milestone M4 depends on that: it drives
+# The differential fuzzing harness depends on that: it drives
 # Knap and tiktoken in one process, with no subprocess boundary and no
 # ambiguity about which tiktoken produced a reference token list.
 #

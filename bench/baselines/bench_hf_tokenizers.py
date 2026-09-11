@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/baselines/bench_hf_tokenizers.py
 # Purpose     : Runs the encode measurements against Hugging Face tokenizers.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : tokenizers, and tiktoken for the vocabulary definition.
 # Invariants  : Same corpus prefix, warmup, and estimators as every other
 #               benchmark in this directory.

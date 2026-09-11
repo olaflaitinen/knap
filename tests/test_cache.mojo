@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : tests/test_cache.mojo
 # Purpose     : Proves the piece cache cannot change what is encoded.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/ROADMAP.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : knap.cache, knap.tokenizer
 # Invariants  : Every cached result is compared against the reference the
 #               uncached path is held to, not merely against the uncached

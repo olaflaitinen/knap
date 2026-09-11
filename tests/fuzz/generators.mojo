@@ -3,7 +3,7 @@
 # File        : tests/fuzz/generators.mojo
 # Purpose     : Input generators for the differential fuzzer, one function
 #               per class of input listed in docs/CORRECTNESS.md.
-# Stage       : Milestone M4, differential fuzzing. See docs/ROADMAP.md
+# Stage       : Differential fuzzing. See docs/CORRECTNESS.md
 # Depends on  : Nothing outside the Mojo standard library.
 # Invariants  : Every generator is a pure function of the seed, so any
 #               reported run can be reproduced exactly from its seed.

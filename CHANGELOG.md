@@ -26,7 +26,7 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-10 |
+| Updated | 2026-09-11 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -35,7 +35,7 @@
 ## Contents
 
 1. [Format](#format)
-2. [1.0.0, not yet released](#100-not-yet-released)
+2. [1.0.0, 2026-09-11](#100-2026-09-11)
 3. [0.1.0, 2026-09-07](#010-2026-09-07)
 
 ---
@@ -55,16 +55,15 @@ thoroughly as a changed signature would. Entries that change output are marked
 No entry in this file changes tokenizer output yet, because Knap does not
 produce output yet.
 
-## 1.0.0, not yet released
+## 1.0.0, 2026-09-11
 
-Milestones M1 through M9. The version number is declared, the tag and the
-GitHub release are not, and the heading says so rather than implying
-otherwise. It becomes a dated release heading on the day the tag is created.
+The first release. Everything below was built, verified and published
+against one pinned compiler.
 
 Why 1.0.0 rather than another 0.x. The public interface is settled, every
-milestone gate has been run and observed, and the parity claim rests on 110
-MB of corpus and twenty million fuzzed inputs rather than on intention. Under
-the rule in [Format](#format) that makes any output change breaking, calling
+gate has been run and observed, and the parity claim rests on 110 MB of
+corpus and twenty million fuzzed inputs rather than on intention. Under the
+rule in [Format](#format) that makes any output change breaking, calling
 this 0.x would understate what a consumer can rely on.
 
 What it does not promise: the Mojo ABI is not stable and the compiler is
@@ -77,43 +76,86 @@ One entry below changes tokenizer output, and it is the Unicode version fix
 under Fixed. Everything else either adds a capability or leaves behaviour
 untouched.
 
+### Fixed, the conda package did not build
+
+- **The recipe pinned a commit older than its own build script.** Shell
+  completions were added to the build script long after the pinned revision,
+  so the package build ran `cp cli/completions/knap.bash` against a tree that
+  had no such directory and died. `scripts/check_recipe.py` reported the
+  recipe consistent throughout, because it verified that the revision was a
+  commit in this repository and stopped there.
+- **The gate now resolves every path the recipe's scripts read against the
+  tree of the pinned commit.** It reproduces that failure in under a second
+  rather than after a twenty second package build, and it has a planted
+  violation in `--selftest` like every other check here.
+- Two of the recipe gate's self test cases hardcoded the SHA that happened to
+  be in the recipe when they were written, so updating the recipe for a
+  release would have silently disarmed both. They read the revision out of
+  the recipe now. A self test that stops testing when the file it tests is
+  edited is the failure it exists to prevent.
+- Verified by building the package rather than by reading the fix:
+  `knap-1.0.0-hb0f4dca_0.conda`, 341 KiB, with its test section run against
+  the installed artefact, the completions present, and `knap version`
+  printing 1.0.0.
+
+### Changed, this is a released library rather than a project in progress
+
+- **Every document is marked Stable.** Fifteen still said Draft.
+- **The milestone scaffolding is gone**, from 47 file banners, nine
+  documents, four workflows and `pyproject.toml`. A milestone label says when
+  a file was written, which is history and belongs in this changelog. A
+  banner now says what the file is for and which document explains it, and
+  `docs/CORRECTNESS.md` replaced its Milestone column with a Checked by
+  column naming the test that establishes each row, which is the question a
+  reader actually has.
+- `docs/ROADMAP.md` is the verification record of a released library rather
+  than a plan. The two orderings that were not negotiable, scalar before
+  vectorised and parity before optimisation, are stated as the engineering
+  principles they are; the evidence tables are kept and grouped by what they
+  establish; the scaffolding sections are gone.
+- `CITATION.cff` carries the release date, and `docs/PACKAGING.md` records
+  the release as done rather than as prepared.
+
 ### Fixed, a documentation audit that found stale figures in eight documents
 
 Every Markdown file in the repository was read against the code it describes.
 What follows is what disagreed, because a list of corrections is more useful
 than a claim that everything is current.
 
-- **The unstable API inventory was three milestones out of date.**
-  `docs/ARCHITECTURE.md` reported M6: 14 targets, 17220 uses, 78 distinct
-  APIs. It now reports M9: 19 targets, 35957 uses, 86 APIs, with the top of
+- **The unstable API inventory was badly out of date.**
+  `docs/ARCHITECTURE.md` reported 14 targets, 17220 uses and 78 distinct
+  APIs. It now reports 19 targets, 35957 uses and 86 APIs, with the top of
   the per API table regenerated and the closing analysis rewritten around the
   real numbers. The reading has not changed and is worth repeating: the rise
   measures how much code was written, not how much risk was added, since the
-  newcomers since M6 are `UInt64` for the packed hash slots and the assertion
+  newcomers in the last two rows are `UInt64` for the packed hash slots and
+  the assertion
   helpers of three new test files.
 - **`docs/ARCHITECTURE.md` said two files are generated and committed.**
   There are four. The table and the diagram now name all four with their
   generators, and the section states why each must be deterministic and why
   the drift check runs before the generators rather than after.
-- **`docs/CORRECTNESS.md` said Knap is at M8.** It is at M9, and the status
+- **`docs/CORRECTNESS.md` named a superseded state.** The status
   table was missing counting, windowing, padding and the size of the test
   suite. All four are now rows, and padding has a section explaining why the
   mask is where correctness lives.
 - **`docs/ROADMAP.md` said the suite is 26 tests.** It is 138 across 19
-  files, 131 of them on every push. The M0 record keeps its original figures,
+  files, 131 of them on every push. The earliest record keeps its original
+  figures,
   which is the point of a record, but each row that has since moved now says
   what it moved to.
 - **`docs/STYLE.md` listed four enforcement scripts.** There are nine. All
   nine are now in the table with what each refuses, and the exemption count
   in one row said three where the document itself says four.
 - **`CONTRIBUTING.md` said the differential fuzzer is not yet present.** It
-  has been present since M4. That section now says how to run it, what the
+  has been present for most of the project. That section now says how to run
+  it, what the
   nightly job does, and why widening a fuzzing claim means committing the run
   rather than editing the sentence. The test section had also acquired a
   thread sanitizer instruction for a parallel path that does not exist,
   because Mojo 1.0.0 has no working task parallelism.
 - **`tests/fixtures/corpus/README.md` called six committed fixtures
-  planned.** They arrived at M2.
+  planned.** They arrived with the scalar pre-tokenizer.
 - **`tests/fixtures/hf/README.md` described a loader as experimental in
   Knap.** No such loader exists, and not writing one is a decision rather
   than a delay. That file now says so first and explains why the directory is
@@ -123,7 +165,7 @@ than a claim that everything is current.
   `scripts/check_md_headers.py` requires it, because a field most documents
   have and some do not is worse than one nobody has.
 - **Every document was redated.** `Updated` and `Last reviewed` now say
-  2026-09-10 in each one, which is when each was actually read.
+  2026-09-11 in each one, which is when each was actually read.
 
 ### Added, two gates for the two ways a document rots quietly
 
@@ -139,7 +181,7 @@ than a claim that everything is current.
   gates rather than five across four, and both new cases are for gates added
   this week.
 
-### Added, milestone M9, counting and memory
+### Added, counting and memory
 
 - **A counting entry point that never builds the list of ids.**
   `count_ordinary`, `count_ordinary_bytes`, `count`, `count_bytes` and their
@@ -156,7 +198,7 @@ than a claim that everything is current.
   measurement with one child process per stage and the empty runtime
   reported as a control every time.
 
-### Added, milestone M9, memory measured across every encoding
+### Added, memory measured across every encoding
 
 - `bench/memory.py` now surveys all seven encodings on both sides in one
   run, each in its own child process with its own language's empty runtime
@@ -168,7 +210,7 @@ than a claim that everything is current.
   two merge tables are identical, which `scripts/diff_vocabs.py` confirms
   token for token and rank for rank.
 
-### Changed, milestone M9, two things the memory measurement found
+### Changed, two things the memory measurement found
 
 - **The output list was grown into rather than sized.** A list that doubles
   holds both buffers while it copies, so its peak is about half again its
@@ -185,7 +227,7 @@ than a claim that everything is current.
   The Mojo and Python sides changed together and produce byte identical
   slices at 1, 4 and 16 MB.
 
-### Added, milestone M9, the helpers a caller would otherwise write
+### Added, the helpers a caller would otherwise write
 
 Each of these is something people write against a tokenizer, and write
 slightly wrong.
@@ -227,7 +269,7 @@ slightly wrong.
   changed under the fixtures would not fail a test, because the fixtures
   would be regenerated from it and agree with themselves.
 
-### Added, milestone M9, padding and attention masks
+### Added, padding and attention masks
 
 - **`pad_ordinary_batch`** and **`PaddedBatch`**: one row per document,
   padded to the longest row, row major so that the next thing that happens
@@ -307,14 +349,14 @@ slightly wrong.
   the project name and version, so regenerating an unchanged tree reproduces
   it byte for byte and the drift check means something.
 
-### Fixed, milestone M9, a silently ignored argument
+### Fixed, a silently ignored argument
 
 - `knap vocab " the"` took the argument and printed the summary, which is
   the worst of both: the caller believes a question was answered. It now
   answers it, saying whether the text is a single token and what it becomes
   if it is not.
 
-### Changed, milestone M9, what the measurements said
+### Changed, what the measurements said
 
 - **Counting is not faster than encoding.** It was written expecting to be,
   and over 4 MB of prose the two are indistinguishable in throughput: the
@@ -329,7 +371,7 @@ slightly wrong.
   needs 44.7 MB**, both measured above their own empty runtime in the same
   run. That is 5.7 times less and it had never been measured.
 
-### Fixed, milestone M9
+### Fixed
 
 - The first version of the memory measurement reported 290 MB for a loaded
   tokenizer and would have been published as Knap using six times the memory
@@ -391,7 +433,7 @@ and it is the author's to take. See [docs/PACKAGING.md](docs/PACKAGING.md).
   1.0.0 that warns. It writes a `.mojoc` now, which is what the recipe
   produces.
 
-### Changed, milestone M8, the merge path
+### Changed, the merge path
 
 **Encode is between 1.39 and 1.85 times faster, with byte identical
 output.** That took Knap past `tiktoken` on three of the four distinct
@@ -424,7 +466,7 @@ time was in the merge path and the other fifth was not worth touching.
   to three during this work, which would otherwise have been three breaking
   changes to a public signature.
 
-### Changed, milestone M8, results that moved under it
+### Changed, results that moved under it
 
 - **The piece cache is now slower than the uncached path on `cl100k_base`:**
   5.58 MB/s against 6.15, at a 92.7 percent hit rate. A cache is a bet that
@@ -440,7 +482,7 @@ time was in the merge path and the other fifth was not worth touching.
   hypothesis has now been eliminated: removing three quarters of the merge
   loop's lookups did not improve it in proportion.
 
-### Added, milestone M7, the remaining five encodings
+### Added, the remaining five encodings
 
 - `o200k_harmony`, `gpt2`, `r50k_base`, `p50k_base` and `p50k_edit`, taking
   Knap from two `tiktoken` encodings to all seven. Each is compared against
@@ -467,7 +509,7 @@ time was in the merge path and the other fifth was not worth touching.
   191762320 tokens in total, and for the third pattern, 28699602 piece
   boundaries. Decode is checked for all seven, 702463 ids.
 
-### Fixed, milestone M7
+### Fixed
 
 - **A special token sitting on a reserved merge rank could not be decoded.**
   `p50k_base` puts its end of text marker at 50256, which is a hole in its
@@ -496,7 +538,7 @@ time was in the merge path and the other fifth was not worth touching.
   which is what `p50k_base` needs.
 - The README's performance section said that no benchmarks had been
   measured and its limitations said that no fuzzing had run. Both were true
-  when written and had been false since M4 and M5. The headline table, the
+  when written and had been false for some time. The headline table, the
   losing result, and the pointer to the winners are now in the README where
   a reader meets them first.
 
@@ -529,7 +571,7 @@ time was in the merge path and the other fifth was not worth touching.
 - The conda package now installs the binary, so the package gives a working
   command rather than a library to write a program against.
 
-### Added, milestone M6, distribution
+### Added, distribution
 
 - `conda.recipe/recipe.yaml`, a conda recipe targeting the
   `modular-community`
@@ -545,7 +587,7 @@ time was in the merge path and the other fifth was not worth touching.
 - CI jobs that build the conda package and import it without the source
   tree, and that build and test the Python extension.
 
-### Added, milestone M5, vectorisation, caching and benchmarks
+### Added, vectorisation, caching and benchmarks
 
 - `src/knap/pretokenize/classifier_simd.mojo`, a vectorised byte classifier,
   and `tests/test_classifier_parity.mojo`, which holds it to the scalar one.
@@ -572,7 +614,7 @@ time was in the merge path and the other fifth was not worth touching.
   runs and states plainly that its numbers are not publishable, because a
   shared runner cannot produce a comparable one.
 
-### Added, milestone M4, differential fuzzing
+### Added, differential fuzzing
 
 - `tests/fuzz/`, a differential fuzzer running Knap and `tiktoken` in one
   process, with ten generator kinds and a driver that shards the work and
@@ -588,7 +630,7 @@ time was in the merge path and the other fifth was not worth touching.
 - `scripts/ucd.py`, which downloads and digest checks the Unicode Character
   Database rather than reading the interpreter's copy.
 
-### Added, milestone M3, BPE merge and encode
+### Added, BPE merge and encode
 
 - `src/knap/ranks.mojo`, the merge rank table. It refuses a vocabulary that
   is missing any of the 256 single byte tokens, because byte level BPE starts
@@ -610,7 +652,7 @@ time was in the merge path and the other fifth was not worth touching.
 - Encode references from `scripts/gen_encode_golden.py`: readable JSON Lines
   for the fixtures, and a packed varint stream for the corpus.
 
-### Added, milestone M2, pre-tokenizer
+### Added, pre-tokenizer
 
 - `scripts/extract_patterns.py`, which pulls both pre-tokenization patterns
   out of tiktoken and emits them as a generated Mojo constant. The pattern is
@@ -621,7 +663,7 @@ time was in the merge path and the other fifth was not worth touching.
 - `src/knap/pretokenize/utf8.mojo`, with a defined policy for malformed
   input: consumed one byte at a time, never rejected and never replaced.
 - `src/knap/pretokenize/classifier.mojo`, the scalar classifier, which stays
-  permanently as the reference the M5 SIMD classifier is tested against.
+  permanently as the reference the vectorised classifier is tested against.
 - `src/knap/pretokenize/scanner.mojo`, hand written matchers for both
   patterns, including the one alternative that genuinely backtracks.
 - `scripts/fetch_corpus.py` and `scripts/gen_pretoken_golden.py`, which
@@ -633,7 +675,7 @@ time was in the merge path and the other fifth was not worth touching.
 - 13 further tests, including an exhaustive check of all 1114112 Unicode code
   points.
 
-### Added, milestone M1, vocabulary and decode
+### Added, vocabulary and decode
 
 - `.tiktoken` vocabulary loading, strict on every malformed shape.
 - `FlatVocab`, contiguous token bytes with parallel offset and length arrays.
@@ -755,7 +797,8 @@ time was in the merge path and the other fifth was not worth touching.
 - **The command line tool and the Python bindings agree with `tiktoken` on
   all seven.** 112 inputs through the built binary, including through
   pipes, and every case through the native extension.
-- **What M7 did not verify, stated rather than implied.** The differential
+- **What the seven encoding work did not verify, stated rather than
+  implied.** The differential
   fuzzer, its driver and the sanitizer harness all take seven encodings and
   the nightly job runs seven, but the committed report covers the two that
   were fuzzed, and the figures quoted in this file are that report's.
@@ -805,7 +848,7 @@ time was in the merge path and the other fifth was not worth touching.
 Never tagged. Recorded here because the work happened and the date is
 accurate, not because an artefact under this number was ever published.
 
-Milestone M0, scaffold. The toolchain, the repository standard, and the
+The scaffold. The toolchain, the repository standard, and the
 machinery that enforces it. No tokenizer functionality.
 
 ### Added
@@ -814,7 +857,7 @@ machinery that enforces it. No tokenizer functionality.
   the primary `uv` environment and `pixi.toml` the alternate, and both were
   installed and run from clean rather than only written.
 - A single environment holding the Mojo compiler, `tiktoken`, and Hugging Face
-  `tokenizers`, which is what lets the M4 differential fuzzer run both
+  `tokenizers`, which is what lets the differential fuzzer run both
   implementations in one process with no subprocess boundary.
 - `tests/test_toolchain.mojo`, a four test suite that proves the compiler
   builds and runs, and that pins the standard library behaviour Knap depends
@@ -865,7 +908,7 @@ machinery that enforces it. No tokenizer functionality.
 | Next | [README.md](README.md) |
 | Index | [README.md](README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-10 |
+| Last reviewed | 2026-09-11 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

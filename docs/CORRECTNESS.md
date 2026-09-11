@@ -20,13 +20,13 @@
 | Document | `docs/CORRECTNESS.md` |
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
-| Status | Draft |
+| Status | Stable |
 | Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-10 |
+| Updated | 2026-09-11 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -104,7 +104,8 @@ Both run **in one process**. Mojo installs as an ordinary Python package, so
 the compiler, `tiktoken`, and Hugging Face `tokenizers` share a single
 environment. That removes the subprocess boundary, the serialisation of token
 lists across a pipe, and any ambiguity about which `tiktoken` produced a
-reference. The unified environment was verified at M0 and is recorded in
+reference. The unified environment was verified before any of this was
+written and is recorded in
 [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 
 Ten generators, one function each, selected uniformly per input:
@@ -194,7 +195,8 @@ explicit test in `tests/test_hazards.mojo`.
 | Special token substrings | A special token literal inside ordinary text must follow the allowed and disallowed sets, and the disallowed path must raise rather than encode. |
 
 The digit run row is not a prediction. It was measured against the reference
-implementation at M0 and the numbers are recorded in
+implementation before any of this was written, and the numbers are
+recorded in
 [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 
 ### Malformed UTF-8 has no reference
@@ -278,44 +280,43 @@ read returns a real looking id from the wrong place.
 
 ## Current status
 
-Knap is at M9. **Encode and decode parity are both established** for all
-seven `tiktoken` encodings, over a 110 MB corpus and over tens of millions
-of generated inputs, with zero divergences outstanding.
+This is Knap 1.0.0. **Encode and decode parity are both established** for
+all seven `tiktoken` encodings, over a 110 MB corpus and over tens of
+millions of generated inputs, with zero divergences outstanding.
 
-M9 added entry points rather than changing the encoder: counting without
-building the list of ids, windowing, truncation, batch encoding, and the
-padded batch described above. None of them can change a token, and each is
-held to the encoder rather than to a written down expectation, which is what
-the last four rows of the table below record.
+The entry points added last, counting without building the list of ids,
+windowing, truncation, batch encoding and the padded batch, cannot change
+a token, and each is held to the encoder rather than to a written down
+expectation. That is what the last four rows of the table below record.
 
-M8 rewrote the merge path for speed and changed no output. Each of its four
-changes was held to the whole gate below before it was kept, which is the
-reason a rewrite of the hottest code in the project is a footnote here
+The merge path was rewritten for speed late in the project and changed no
+output. Each of its four changes was held to the whole gate below before it
+was kept, which is why a rewrite of the hottest code here is a footnote
 rather than a section.
 
-| Measure | Value | Milestone |
+| Measure | Value | Checked by |
 | --- | --- | --- |
-| Decode parity, all seven encodings | Verified, all 702463 ids | M1, M7 |
-| Pre-tokenization parity, cl100k_base | Verified, 28075654 pieces over 110 MB | M2 |
-| Pre-tokenization parity, o200k_base | Verified, 26250703 pieces over 110 MB | M2 |
-| Pre-tokenization parity, gpt2 | Verified, 28699602 pieces over 110 MB | M7 |
-| Unicode tables | Verified, all 1114112 code points | M2 |
-| Encode parity, cl100k_base | Verified, 43529983 tokens over 110 MB | M3 |
-| Encode parity, o200k_base | Verified, 36927147 tokens over 110 MB | M3 |
-| Encode parity, gpt2 | Verified, 55723134 tokens over 110 MB | M7 |
-| Encode parity, p50k_base | Verified, 55582056 tokens over 110 MB | M7 |
-| Strings fuzzed | 20000000, ten million each on cl100k_base and o200k_base | M4 |
-| Of those, compared against the reference | 16661834 | M4 |
-| Of those, round trip checked only | 3338166 | M4 |
-| Divergences outstanding | 0 | M4 |
-| Divergences found and fixed | 1 class, see below | M4 |
-| Strings fuzzed under the address sanitizer | 200000, one hundred thousand each on the same two | M4 |
-| Strings driven under the address sanitizer with no interpreter present | 40000, no suppressions, no leaks | M4 |
-| Counting agrees with encoding | Verified, over the whole 110 MB corpus for each of the four distinct encode behaviours, and in six tests that compare a count against the length of the encode of the same input | M9 |
-| Windows re-encode to a slice of the whole | Verified at six window sizes from one token to a million, in nine tests | M9 |
-| Padded batches agree with the encoder at every position | Verified in six tests, including one where the padding id is also a real token so the mask is the only record | M9 |
-| Tests in the suite | 138 across 19 files, 131 of them on every push and 7 on the corpus schedule | M9 |
-| `tiktoken` version used as reference | 0.14.0 | Current |
+| Decode parity, all seven encodings | Verified, all 702463 ids | `tests/test_decode.mojo` |
+| Pre-tokenization parity, cl100k_base | Verified, 28075654 pieces over 110 MB | `tests/test_pretokenize_corpus.mojo` |
+| Pre-tokenization parity, o200k_base | Verified, 26250703 pieces over 110 MB | `tests/test_pretokenize_corpus.mojo` |
+| Pre-tokenization parity, gpt2 | Verified, 28699602 pieces over 110 MB | `tests/test_pretokenize_corpus.mojo` |
+| Unicode tables | Verified, all 1114112 code points | `tests/test_unicode_tables.mojo` |
+| Encode parity, cl100k_base | Verified, 43529983 tokens over 110 MB | `tests/test_encode_corpus.mojo` |
+| Encode parity, o200k_base | Verified, 36927147 tokens over 110 MB | `tests/test_encode_corpus.mojo` |
+| Encode parity, gpt2 | Verified, 55723134 tokens over 110 MB | `tests/test_encode_corpus.mojo` |
+| Encode parity, p50k_base | Verified, 55582056 tokens over 110 MB | `tests/test_encode_corpus.mojo` |
+| Strings fuzzed | 20000000, ten million each on cl100k_base and o200k_base | `tests/fuzz/run_fuzz.py` |
+| Of those, compared against the reference | 16661834 | `tests/fuzz/run_fuzz.py` |
+| Of those, round trip checked only | 3338166 | `tests/fuzz/run_fuzz.py` |
+| Divergences outstanding | 0 | `tests/fuzz/last_run.json` |
+| Divergences found and fixed | 1 class, see below | `tests/fuzz/corpus_seeds/` |
+| Strings fuzzed under the address sanitizer | 200000, one hundred thousand each on the same two | `tests/fuzz/last_run.address.json` |
+| Strings driven under the address sanitizer with no interpreter present | 40000, no suppressions, no leaks | `tests/fuzz/asan_solo.mojo` |
+| Counting agrees with encoding | Verified, over the whole 110 MB corpus for each of the four distinct encode behaviours, and in six tests that compare a count against the length of the encode of the same input | `tests/test_count.mojo` |
+| Windows re-encode to a slice of the whole | Verified at six window sizes from one token to a million, in nine tests | `tests/test_windows.mojo` |
+| Padded batches agree with the encoder at every position | Verified in six tests, including one where the padding id is also a real token so the mask is the only record | `tests/test_padding.mojo` |
+| Tests in the suite | 138 across 19 files, 131 of them on every push and 7 on the corpus schedule | `.github/workflows/ci.yml` |
+| `tiktoken` version used as reference | 0.14.0 | `scripts/check_reference.py` |
 
 Every one of those runs is reproducible. The seeds are not summarised here,
 they are written to `tests/fuzz/last_run.json` and
@@ -330,7 +331,7 @@ cannot be replayed is an anecdote:
 The sanitizer run is roughly an order of magnitude slower per input, which
 is the reason the sanitized subset is a subset.
 
-**The fuzzing figures cover two encodings, not seven.** At M7 the fuzzer,
+**The fuzzing figures cover two encodings, not seven.** The fuzzer,
 its driver and the sanitizer harness were all extended to take every
 encoding, and the nightly job runs all seven, but the report committed to
 this repository is the one that covered two. The figures above are read out
@@ -366,7 +367,8 @@ and compared byte for byte against `tiktoken.decode_single_token_bytes`:
 | p50k_edit | 50284 | 50284 | 0 | Byte identical |
 
 The unassigned columns are the part worth attention, and the zeros in them
-are the reason this gate had to change shape at M7. Two encodings leave
+are the reason this gate had to change shape once all seven were
+supported. Two encodings leave
 holes in their id space, because their special tokens do not sit flush
 against the merge ranks. `tiktoken` raises for those ids and so does Knap.
 An implementation that returned empty bytes instead would pass a naive
@@ -378,7 +380,7 @@ its 1091 special tokens land on exactly the nineteen ids `o200k_base` leaves
 empty and then continue to 201087, so the same merge table produces a fully
 dense id space under one name and a sparse one under another.
 
-Until M7 the gate asserted only that a golden fixture contained at least one
+The gate once asserted only that a golden fixture contained at least one
 unassigned id. That was true of both encodings shipped at the time, and it
 is false of four of the seven, so the assertion would have passed while
 checking nothing on them. It now asserts the exact count, which was read off
@@ -449,7 +451,7 @@ project has had. The corpus did not, and would not have.
 
 The whole suite passes under `--sanitize address`.
 
-This table is updated after every milestone gate, per the working agreement.
+This table is updated whenever a gate's result changes.
 
 ## Divergences found and fixed
 
@@ -502,7 +504,7 @@ rather than hidden, and the fuzzer is not narrowed to avoid it.
 | Next | [docs/STYLE.md](STYLE.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-10 |
+| Last reviewed | 2026-09-11 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

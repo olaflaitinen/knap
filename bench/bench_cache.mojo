@@ -3,7 +3,7 @@
 # File        : bench/bench_cache.mojo
 # Purpose     : Measures what the piece cache is worth, cold and warm, and
 #               what it costs in memory.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/ROADMAP.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : knap.cache, knap.tokenizer, harness.mojo
 # Invariants  : The uncached path is measured in the same run, on the same
 #               input, so the comparison is not against a remembered number.

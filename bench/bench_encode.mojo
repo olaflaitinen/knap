@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/bench_encode.mojo
 # Purpose     : Single document encode throughput, the headline metric.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : knap.tokenizer, harness.mojo
 # Invariants  : The vocabulary and the corpus are loaded before timing starts,
 #               so neither the file read nor the rank table build is counted.

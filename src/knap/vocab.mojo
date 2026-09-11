@@ -3,7 +3,7 @@
 # File        : src/knap/vocab.mojo
 # Purpose     : Parses .tiktoken vocabulary files, and joins merge tokens with
 #               special tokens into one addressable id space.
-# Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
+# Stage       : Vocabulary and decode. See docs/ARCHITECTURE.md
 # Depends on  : flat_vocab.mojo, special.mojo, errors.mojo, std.base64
 # Invariants  : Merge ranks must be unique, non-negative, and dense from zero.
 #               The combined id space is NOT dense: gaps between merges and

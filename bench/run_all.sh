@@ -3,7 +3,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/run_all.sh
 # Purpose     : Regenerates every published benchmark number from scratch.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : uv, the pinned Mojo compiler, the fetched corpus and vocabs.
 # Invariants  : Records the machine, the versions, and the effective build
 #               target alongside the numbers. A figure without them is not

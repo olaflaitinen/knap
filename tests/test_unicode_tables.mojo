@@ -3,7 +3,7 @@
 # File        : tests/test_unicode_tables.mojo
 # Purpose     : Verifies the generated Unicode class tables against an
 #               exhaustive reference, for every code point.
-# Stage       : Milestone M2, pre-tokenizer. See docs/UNICODE.md
+# Stage       : Pre-tokenization. See docs/UNICODE.md
 # Depends on  : knap.pretokenize.unicode_tables
 # Invariants  : Every one of the 1114112 code points is checked, not a
 #               sample. Run collapsing is exactly the kind of logic that is
@@ -86,7 +86,7 @@ def test_every_code_point_matches_the_reference() raises:
         Error: if the reference is missing, if it is the wrong length, or if
             any code point classifies differently.
 
-    This is the milestone M2 table gate. It is exhaustive on purpose: a
+    This is the Unicode table gate. It is exhaustive on purpose: a
     sample would pass with a boundary bug still present.
     """
     var text: String

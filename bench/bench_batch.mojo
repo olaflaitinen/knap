@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/bench_batch.mojo
 # Purpose     : Batch encode throughput across many documents.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : knap.tokenizer, harness.mojo
 # Invariants  : Sequential, not parallel. Mojo 1.0.0 exposes no usable
 #               parallelism primitive, which is recorded here rather than

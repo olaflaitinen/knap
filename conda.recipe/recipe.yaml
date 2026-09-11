@@ -46,7 +46,7 @@ package:
 # repository.
 source:
   - git: https://github.com/olaflaitinen/knap.git
-    rev: eebb252a41a6416bd73e1c300d5b3e0551e3e733
+    rev: d90b59d4c4f294c6d09a4590e85fda6bf6a6a481
 
 build:
   number: 0

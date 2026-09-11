@@ -3,7 +3,7 @@
 # File        : tests/test_windows.mojo
 # Purpose     : Holds windowing, truncation, budgets and batching to the
 #               encoder they are built on.
-# Stage       : Milestone M9, caller facing helpers. See docs/ROADMAP.md
+# Stage       : Caller facing helpers. See docs/API.md
 # Depends on  : knap.tokenizer
 # Invariants  : A window's encoding must be exactly the slice of the whole
 #               document's encoding that covers it. Everything else here is

@@ -3,7 +3,7 @@
 # File        : scripts/gen_unicode_tables.py
 # Purpose     : Emits the Unicode general category tables the pre-tokenizer
 #               needs, as a generated Mojo source file.
-# Stage       : Milestone M2, pre-tokenizer. See docs/UNICODE.md
+# Stage       : Pre-tokenization. See docs/UNICODE.md
 # Depends on  : Python unicodedata, as the source of the category data.
 # Invariants  : Runs are sorted, non overlapping, and exclude the OTHER class,
 #               so binary search over them is well defined.
@@ -103,9 +103,9 @@ LETTER_CLASSES = {"Lu": CLASS_LU, "Ll": CLASS_LL, "Lt": CLASS_LT,
 # token output. Unicode 16.0.0 matched 400 of 400. Unicode 15.1.0 matched 214,
 # the regex module 204, and unicodedata 196.
 #
-# The differential fuzzer in milestone M4 found this. A corpus of natural
-# language never contains these code points, which is exactly why fuzzing is
-# a separate milestone. See docs/UNICODE.md.
+# The differential fuzzer found this. A corpus of natural
+# language never contains these code points, which is exactly why the
+# fuzzer is a separate gate from the corpus. See docs/UNICODE.md.
 UNICODE_VERSION = "16.0.0"
 
 UCD_URL = (

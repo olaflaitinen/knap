@@ -1,9 +1,9 @@
 # =============================================================================
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : tests/test_encode_corpus.mojo
-# Purpose     : Milestone M3 gate. Compares every token Knap emits against
+# Purpose     : Encode gate. Compares every token Knap emits against
 #               tiktoken over the whole 110 MB corpus.
-# Stage       : Milestone M3, BPE merge and encode. See docs/ROADMAP.md
+# Stage       : BPE merge and encode. See docs/ARCHITECTURE.md
 # Depends on  : knap.tokenizer
 # Invariants  : The reference is decoded as a stream rather than into a list,
 #               because 43.5 million ids would otherwise cost hundreds of
@@ -19,7 +19,7 @@
 # =============================================================================
 """Encode parity over the full corpus.
 
-This is the milestone M3 acceptance gate: for both target encodings, every
+This is the encode parity gate: for both target encodings, every
 token Knap produces from the 110 MB mixed corpus must equal the token
 tiktoken produces at the same position.
 
@@ -74,7 +74,7 @@ comptime P50K_TOKENS = "bench/corpus/p50k_base_tokens.bin"
 """Reference token ids for p50k_base over the whole corpus."""
 
 comptime MINIMUM_CORPUS_BYTES = 100 * 1024 * 1024
-"""The corpus size the milestone gates require."""
+"""The corpus size the parity gates require."""
 
 
 def read_file_bytes(path: String) raises -> List[UInt8]:
@@ -190,7 +190,7 @@ def run_gate(
         len(corpus) >= MINIMUM_CORPUS_BYTES,
         String(
             t"the corpus is {len(corpus)} bytes, below the 100 MB the"
-            t" milestone gates require"
+            t" parity gates require"
         ),
     )
 

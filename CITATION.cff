@@ -34,7 +34,7 @@ repository-code: "https://github.com/olaflaitinen/knap"
 url: "https://github.com/olaflaitinen/knap"
 license: EUPL-1.2
 version: "1.0.0"
-date-released: "2026-09-07"
+date-released: "2026-09-11"
 keywords:
   - tokenization
   - byte pair encoding

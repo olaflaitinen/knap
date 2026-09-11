@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/baselines/bench_rs_bpe.py
 # Purpose     : Runs the encode measurements against rs-bpe.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : rs-bpe, and tiktoken to confirm the outputs agree.
 # Invariants  : Same corpus prefix, warmup, and estimators as every other
 #               benchmark in this directory.

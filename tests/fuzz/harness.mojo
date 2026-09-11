@@ -3,7 +3,7 @@
 # File        : tests/fuzz/harness.mojo
 # Purpose     : Drives Knap and tiktoken over one generated input and reports
 #               any difference.
-# Stage       : Milestone M4, differential fuzzing. See docs/ROADMAP.md
+# Stage       : Differential fuzzing. See docs/CORRECTNESS.md
 # Depends on  : knap.tokenizer, std.python, generators.mojo
 # Invariants  : Input that is not valid UTF-8 is never sent to the reference,
 #               which accepts only decoded text. It is checked against Knap's

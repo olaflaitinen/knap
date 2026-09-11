@@ -1,9 +1,9 @@
 # =============================================================================
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : tests/test_pretokenize_corpus.mojo
-# Purpose     : Milestone M2 gate. Compares the scanner's piece boundaries
+# Purpose     : Boundary gate. Compares the scanner's piece boundaries
 #               against the reference regex over the whole 110 MB corpus.
-# Stage       : Milestone M2, pre-tokenizer. See docs/ROADMAP.md
+# Stage       : Pre-tokenization. See docs/ARCHITECTURE.md
 # Depends on  : knap.pretokenize.scanner
 # Invariants  : Pieces must tile the input exactly, so the sum of the piece
 #               lengths always equals the corpus size.
@@ -18,7 +18,7 @@
 # =============================================================================
 """Pre-tokenization parity tests for Knap.
 
-This file is the milestone M2 acceptance gate: for a corpus of at least
+This file is the boundary parity gate: for a corpus of at least
 100 MB of mixed text, the piece boundaries the scanner produces must be
 identical to those the Python regex module produces from the same pattern.
 
@@ -52,7 +52,7 @@ comptime GPT2_LENGTHS = "bench/corpus/gpt2_lengths.bin"
 """Reference piece lengths for the gpt2 pattern over the whole corpus."""
 
 comptime MINIMUM_CORPUS_BYTES = 100 * 1024 * 1024
-"""The corpus size the milestone M2 gate requires."""
+"""The corpus size the boundary parity gate requires."""
 
 
 def read_file_bytes(path: String) raises -> List[UInt8]:
@@ -188,7 +188,7 @@ def test_cl100k_boundaries_match_the_reference() raises:
         len(corpus) >= MINIMUM_CORPUS_BYTES,
         String(
             t"the corpus is {len(corpus)} bytes, below the 100 MB the"
-            t" milestone M2 gate requires"
+            t" boundary parity gate requires"
         ),
     )
 

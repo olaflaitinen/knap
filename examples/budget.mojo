@@ -33,7 +33,7 @@ it has already blown the budget. `fits_ordinary` stops as soon as the budget
 is exceeded, which is the difference between checking a hundred megabyte
 file against a context window and tokenizing it.
 
-    mojo run -I src examples/budget.mojo 2048 LICENSE CODE_OF_CONDUCT.md
+    mojo run -I src examples/budget.mojo 2048 LICENSE tests/fixtures/corpus/ascii_en.txt
 """
 
 from std.sys import argv

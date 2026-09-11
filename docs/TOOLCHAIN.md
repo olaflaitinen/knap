@@ -20,13 +20,13 @@
 | Document | `docs/TOOLCHAIN.md` |
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
-| Status | Draft |
+| Status | Stable |
 | Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-10 |
-| Updated | 2026-09-10 |
+| Updated | 2026-09-11 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -155,7 +155,7 @@ Each row has three parts.
 | `external_call` lives under `std.sys` | `std.sys.ffi` fails to resolve. The module is `std.ffi`. | `cli/main.mojo` |
 | Compiler defines are read through a `std.defines` module | There is no such module, although the compiler's own `-D` help text points at one. The working spelling is `std.sys.is_defined["KEY"]()`, evaluated at compile time. | `src/knap/config.mojo` |
 | `open(path, "r").read()` can read any file | Only text. Binary references need `read_bytes()`, and there is no `"rb"` mode. | `cli/main.mojo` |
-| `Path.read_text()` returns the file's bytes as text | It applies universal newline translation, silently turning every carriage return and line feed pair into a single line feed. This produced a false failure in the M2 reference generator, where the scanner was right and the reference was wrong. Anything compared byte for byte must use `read_bytes()`. | `scripts/gen_pretoken_golden.py` |
+| `Path.read_text()` returns the file's bytes as text | It applies universal newline translation, silently turning every carriage return and line feed pair into a single line feed. This produced a false failure in the pre-token reference generator, where the scanner was right and the reference was wrong. Anything compared byte for byte must use `read_bytes()`. | `scripts/gen_pretoken_golden.py` |
 | `/dev/stdout` can always be opened for writing | It cannot. Opening it works when standard output is a file or a terminal and fails when it is a pipe, because the path resolves through `/proc/self/fd` to a pipe node. `FileDescriptor(1).write_bytes` works everywhere. Reading `/dev/stdin` from a pipe does work, which is what makes the asymmetry easy to miss: the tool read piped input correctly and could not write piped output. | `cli/main.mojo` |
 | Pointer arithmetic uses `+` | Deprecated. Use `unsafe_offset`. The same applies to `bitcast` and `load`, which are `unsafe_bitcast` and `unsafe_load`. All three still compile and only `--Werror` refuses them, so a deprecated spelling can pass a run and fail a build. | `src/knap/byte_map.mojo` |
 | A growing `List` costs only time | It costs peak memory, and on this workload that is the larger number. Pre-sizing the output of `encode_ordinary` with `List[Int](capacity=estimated_tokens(len(data)))` removed 137.7 MB of peak resident memory and left the arithmetic at 7.99 bytes per token. | `src/knap/tokenizer.mojo` |
@@ -295,7 +295,7 @@ makes the rest of the document worth reading.
 | Next | [docs/METHODOLOGY.md](METHODOLOGY.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-10 |
+| Last reviewed | 2026-09-11 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

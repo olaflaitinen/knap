@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/baselines/corpus_slice.py
 # Purpose     : Gives the baselines the same corpus slice the Mojo side uses.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/ROADMAP.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : Nothing outside the standard library.
 # Invariants  : Byte for byte identical to read_corpus_slice in
 #               bench/harness.mojo. A baseline reading different text is not

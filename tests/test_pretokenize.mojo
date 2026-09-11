@@ -3,7 +3,7 @@
 # File        : tests/test_pretokenize.mojo
 # Purpose     : Fast pre-tokenization parity tests against the committed
 #               edge case fixtures.
-# Stage       : Milestone M2, pre-tokenizer. See docs/ROADMAP.md
+# Stage       : Pre-tokenization. See docs/ARCHITECTURE.md
 # Depends on  : knap.pretokenize.scanner
 # Invariants  : These need no fetched corpus, so they run on every push. The
 #               110 MB gate lives in tests/test_pretokenize_corpus.mojo.

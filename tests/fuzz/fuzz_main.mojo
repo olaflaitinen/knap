@@ -3,7 +3,7 @@
 # File        : tests/fuzz/fuzz_main.mojo
 # Purpose     : Fuzzer entry point. Takes a seed and a count and reports what
 #               it compared.
-# Stage       : Milestone M4, differential fuzzing. See docs/ROADMAP.md
+# Stage       : Differential fuzzing. See docs/CORRECTNESS.md
 # Depends on  : generators.mojo, harness.mojo, knap.tokenizer
 # Invariants  : Output is machine readable on the last line, so the Python
 #               driver can aggregate many shards without parsing prose.

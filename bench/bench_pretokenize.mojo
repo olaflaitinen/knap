@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/bench_pretokenize.mojo
 # Purpose     : Pre-tokenization in isolation, scalar against vectorised.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : knap.pretokenize.scanner, knap.config, harness.mojo
 # Invariants  : Which classifier is compiled in is a build time choice, so
 #               this reports it rather than choosing it.

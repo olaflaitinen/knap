@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : tests/test_hazards.mojo
 # Purpose     : One test per correctness hazard listed in docs/CORRECTNESS.md.
-# Stage       : Milestone M3, BPE merge and encode. See docs/ROADMAP.md
+# Stage       : BPE merge and encode. See docs/ARCHITECTURE.md
 # Depends on  : knap.tokenizer
 # Invariants  : Every expected token list below was measured from tiktoken
 #               0.14.0, never recalled.

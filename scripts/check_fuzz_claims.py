@@ -3,7 +3,7 @@
 # File        : scripts/check_fuzz_claims.py
 # Purpose     : Checks every documented fuzzing figure against the committed
 #               run reports.
-# Stage       : Milestone M4, differential fuzzing. See docs/ROADMAP.md
+# Stage       : Differential fuzzing. See docs/CORRECTNESS.md
 # Depends on  : tests/fuzz/last_run.json and last_run.address.json.
 # Invariants  : A number quoted in prose must equal the number in the report
 #               that produced it. Nothing here reads the code; it compares

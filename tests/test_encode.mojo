@@ -3,7 +3,7 @@
 # File        : tests/test_encode.mojo
 # Purpose     : Encode parity against tiktoken on the committed fixtures,
 #               plus the special token allowed and disallowed paths.
-# Stage       : Milestone M3, BPE merge and encode. See docs/ROADMAP.md
+# Stage       : BPE merge and encode. See docs/ARCHITECTURE.md
 # Depends on  : knap.tokenizer
 # Invariants  : These need no fetched corpus, so they run on every push. The
 #               110 MB encode gate lives in tests/test_encode_corpus.mojo.

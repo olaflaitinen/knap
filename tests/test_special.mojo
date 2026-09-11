@@ -3,7 +3,7 @@
 # File        : tests/test_special.mojo
 # Purpose     : Tests the special token registry and the two built in
 #               encoding definitions.
-# Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
+# Stage       : Vocabulary and decode. See docs/ARCHITECTURE.md
 # Depends on  : knap.special, knap.vocab
 # Invariants  : The registry tests need no fetched file. The definition
 #               tests load a real vocabulary and are the check that keeps the

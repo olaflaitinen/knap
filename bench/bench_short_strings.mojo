@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/bench_short_strings.mojo
 # Purpose     : Short string encode latency, reported as percentiles.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : knap.tokenizer, harness.mojo
 # Invariants  : Every sample times one encode of one string, so a percentile
 #               describes a single call rather than an amortised batch.

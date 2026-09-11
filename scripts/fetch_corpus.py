@@ -3,7 +3,7 @@
 # File        : scripts/fetch_corpus.py
 # Purpose     : Downloads and prepares the mixed text corpus the pre-tokenizer
 #               parity gate runs against.
-# Stage       : Milestone M2, pre-tokenizer. See docs/ROADMAP.md
+# Stage       : Pre-tokenization. See docs/ARCHITECTURE.md
 # Depends on  : Python standard library only. No third party downloader.
 # Invariants  : The corpus is valid UTF-8 throughout, because the reference
 #               regex operates on decoded text and cannot be given anything
@@ -215,7 +215,7 @@ def build_hazard_text(target_bytes: int) -> str:
     Returns:
         Deterministic text exercising each hazard many times.
 
-    Deterministic on purpose. A fuzzer belongs in milestone M4 and has a
+    Deterministic on purpose. A fuzzer has a
     seed; this section is part of a corpus that should produce the same gate
     result on every machine and every run.
     """
@@ -344,7 +344,7 @@ def main() -> int:
     if len(encoded) < (100 << 20):
         print(
             "fetch_corpus: WARNING, the corpus is below the 100 MB the "
-            "milestone M2 gate requires."
+            "boundary parity gate requires."
         )
         return 1
     return 0

@@ -3,7 +3,7 @@
 # File        : scripts/gen_encode_golden.py
 # Purpose     : Generates the tiktoken derived golden fixtures Knap is
 #               verified against.
-# Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
+# Stage       : Vocabulary and decode. See docs/ARCHITECTURE.md
 # Depends on  : tiktoken, as the reference implementation.
 # Invariants  : One JSON object per line, written with no spaces, so that the
 #               strict reader in tests/test_decode.mojo can parse it without

@@ -3,7 +3,7 @@
 # File        : tests/test_bpe.mojo
 # Purpose     : Unit tests for the merge loop, using a synthetic vocabulary
 #               small enough to reason about by hand.
-# Stage       : Milestone M3, BPE merge and encode. See docs/ROADMAP.md
+# Stage       : BPE merge and encode. See docs/ARCHITECTURE.md
 # Depends on  : knap.bpe, knap.ranks, knap.flat_vocab
 # Invariants  : The synthetic vocabulary always holds all 256 single bytes,
 #               because a byte level vocabulary without them cannot encode.

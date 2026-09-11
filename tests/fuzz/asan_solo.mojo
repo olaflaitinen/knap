@@ -3,7 +3,7 @@
 # File        : tests/fuzz/asan_solo.mojo
 # Purpose     : Exercises Knap over generated input with no Python in the
 #               process, so a sanitizer run needs no suppressions.
-# Stage       : Milestone M4, differential fuzzing. See docs/ROADMAP.md
+# Stage       : Differential fuzzing. See docs/CORRECTNESS.md
 # Depends on  : The generators, and Knap itself. Deliberately not the
 #               harness, because the harness imports the reference.
 # Invariants  : Nothing here starts an interpreter. Any leak or memory error

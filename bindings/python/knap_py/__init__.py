@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bindings/python/knap_py/__init__.py
 # Purpose     : Public Python surface. Re-exports only, no logic.
-# Stage       : Milestone M6 Track B, Python consumers. See docs/ROADMAP.md
+# Stage       : Python bindings. See bindings/python/README.md
 # Depends on  : tokenizer.py
 # Invariants  : Importing this package must not build or load anything. The
 #               extension is located lazily, when a tokenizer is created.

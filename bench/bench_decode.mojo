@@ -3,7 +3,7 @@
 # File        : bench/bench_decode.mojo
 # Purpose     : Decode throughput, reported as a footnote and never as a
 #               headline.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : knap.tokenizer, harness.mojo
 # Invariants  : This number is not a selling point and must not be presented
 #               as one. See the docstring.

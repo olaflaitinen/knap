@@ -20,13 +20,13 @@
 | Document | `docs/METHODOLOGY.md` |
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
-| Status | Draft |
+| Status | Stable |
 | Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-10 |
-| Updated | 2026-09-10 |
+| Updated | 2026-09-11 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -77,10 +77,10 @@ changes four times.
 
 The rule has two practical consequences that are worth stating separately.
 
-**A claim carries its evidence.** Every milestone in
-[docs/ROADMAP.md](ROADMAP.md) is a table of conditions, and each condition
-names the file, the test, or the run that satisfies it. A condition whose
-evidence column says "by inspection" is not satisfied.
+**A claim carries its evidence.** The verification record in
+[docs/ROADMAP.md](ROADMAP.md) is a set of tables of conditions, and each
+condition names the file, the test, or the run that satisfies it. A
+condition whose evidence column says "by inspection" is not satisfied.
 
 **An unobserved gate is treated as a broken gate.** `scripts/selftest_gates.py`
 plants a specific violation for each standards gate, asserts the gate rejects
@@ -332,7 +332,7 @@ Reduced to the smallest set that still works:
 | Next | [docs/BENCHMARKS.md](BENCHMARKS.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-10 |
+| Last reviewed | 2026-09-11 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

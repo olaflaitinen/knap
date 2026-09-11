@@ -539,28 +539,27 @@ methodology itself.
 
 ## Project status
 
-All ten milestones, M0 through M9, are complete. Every claim was observed
-rather than inferred.
+**Knap 1.0.0 is released.** Every claim below was observed rather than
+inferred, and the table is the whole of what the library does.
 
-| Component | State | Milestone |
-| --- | --- | --- |
-| Toolchain, standards gates, CI | Working, nine gates, five of them self tested on every push | M0 |
-| Vocabulary loading and decode | Working, decode parity verified | M1 |
-| Pre-tokenizer, scalar | Working, boundary parity verified | M2 |
-| BPE merge and encode | Working, encode parity verified | M3 |
-| Differential fuzzing against `tiktoken` | 20 million inputs, zero divergences | M4 |
-| Vectorised classifier | Working, no measurable gain, off by default | M5 |
-| Piece cache | Working, parity verified, opt in | M5 |
-| Benchmarks against three baselines | Published, including where they win | M5 |
-| Conda packaging | Builds and imports without the source tree | M6 Track A |
-| Python bindings | Native extension, parity verified through them | M6 Track B |
-| Command line tool | `knap` with completions for bash, zsh and fish | After M6 |
-| All seven `tiktoken` encodings | Working, parity verified per encoding | M7 |
-| Merge path performance | 1.39 to 1.85 times faster, output unchanged | M8 |
-| Counting without building the list of ids | Working, agrees with encoding over the whole corpus | M9 |
-| Memory measured on both sides, every encoding | 4.4 to 11.7 times lighter than the reference | M9 |
-| Windowing, truncation, batching, padding and masks | Working, every position held to the encoder | M9 |
-| Test suite | 138 tests across 19 files | M9 |
+| Component | State |
+| --- | --- |
+| All seven `tiktoken` encodings | Parity verified against each encoding separately, not against a sibling that resembles it |
+| Vocabulary loading and decode | Byte exact over every id in every encoding, including the unassigned ones, which raise |
+| Pre-tokenizer | Boundary parity verified over 110 MB, for all three patterns |
+| BPE merge and encode | Encode parity verified over 110 MB, 191762320 tokens |
+| Differential fuzzing against `tiktoken` | 20 million generated inputs, zero divergences |
+| Counting without building the list of ids | Agrees with encoding over the whole corpus |
+| Windowing, truncation, batching, padding and masks | Every position held to the encoder |
+| Memory, measured on both sides for every encoding | 4.4 to 11.7 times lighter than the reference |
+| Merge path performance | Faster than `tiktoken` on three of the four distinct encode behaviours |
+| Vectorised classifier | Works, shows no measurable gain, off by default |
+| Piece cache | Works, parity verified, opt in |
+| Command line tool | `knap`, with completions for bash, zsh and fish |
+| Python bindings | Native extension, parity verified through it |
+| Conda packaging | Builds and imports without the source tree |
+| Test suite | 138 tests across 19 files |
+| Standards gates | Nine, five of them self tested against planted violations on every push |
 
 Two things are deliberately absent. There is no Hugging Face
 `tokenizer.json` loader: that format specifies its own pre-tokenizer, so a

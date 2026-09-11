@@ -20,13 +20,13 @@
 | Document | `docs/ARCHITECTURE.md` |
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
-| Status | Draft |
+| Status | Stable |
 | Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-10 |
+| Updated | 2026-09-11 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -191,7 +191,8 @@ the record of that change. The current numbers are higher again, because the
 merge path was rewritten the next day. See
 [How the merge loop got faster](BENCHMARKS.md#how-the-merge-loop-got-faster).
 
-**It was invisible for three milestones, and the reason is the interesting
+**It was invisible for most of the project, and the reason is the
+interesting
 part.** Every benchmark before this read a prefix of the mixed corpus, and
 the corpus opens with a large generated hazard section whose pieces are about
 two bytes long. At two bytes the quadratic term barely engages and the
@@ -573,12 +574,12 @@ achievable today. The goal is visible exposure.
 Regenerate this table with `python scripts/unstable_api_inventory.py`. The
 figure grows with the code:
 
-| Milestone | Targets compiled | Unstable uses | Distinct APIs |
+| Point in the project | Targets compiled | Unstable uses | Distinct APIs |
 | --- | --- | --- | --- |
-| M0 | 1 | 108 | 22 |
-| M1 | 5 | 2484 | 50 |
-| M6 | 14 | 17220 | 78 |
-| M9 | 19 | 35957 | 86 |
+| Scaffold only | 1 | 108 | 22 |
+| Vocabulary and decode | 5 | 2484 | 50 |
+| Through the Python bindings | 14 | 17220 | 78 |
+| 1.0.0, complete | 19 | 35957 | 86 |
 
 The top of that inventory, as measured on 2026-09-10:
 
@@ -608,9 +609,9 @@ API inventory cannot function as an action list.
 The count rising from 108 to 35957 across the project measures how much code
 was written, not how much risk was added. Compare the two columns: targets
 compiled went from 1 to 19 and uses went up by a factor of 333, while the
-distinct API count went from 22 to 86, and the newcomers between M6 and M9
-are `UInt64` for the packed hash slots and the assertion helpers of three new
-test files. No new class of exposure appeared; the same small set of
+distinct API count went from 22 to 86, and the newcomers in the last two
+rows are `UInt64` for the packed hash slots and the assertion helpers of
+three new test files. No new class of exposure appeared; the same small set of
 operators is simply used in more places. It is a record of what a toolchain
 upgrade might cost, and the proportionate response is to pin the compiler
 exactly, which this project does.
@@ -618,7 +619,7 @@ exactly, which this project does.
 Regenerate the figures with `python scripts/unstable_api_inventory.py`. The
 counts are per compiled target, so a use inside `src/knap` is counted once
 for every test binary that links it, which is why the totals are large. The
-milestone table is the number to read; the per API rows are for finding
+first table is the number to read; the per API rows are for finding
 where an upgrade would land.
 
 ## Dependency decisions
@@ -629,13 +630,13 @@ automatic no.
 
 | Package | Decision | Reason |
 | --- | --- | --- |
-| `EmberJson` | Accepted, adopted when its consumer is built | Evaluated at M1 against both acceptance criteria and it passed. A 12.2 MB document holding 600 thousand entries parsed in 521 ms, and escaped codepoints, surrogate pair emoji, CJK, escaped control characters, and escaped quotation marks all resolved to the correct keys. Version 0.3.4, Apache-2.0, pinned to `mojo-compiler >=1.0.0,<2.0a0`. It is deliberately not in `pixi.toml` yet: nothing imports it until the Hugging Face loader exists, and an unused dependency is still a dependency. |
+| `EmberJson` | Accepted, adopted when its consumer is built | Evaluated against both acceptance criteria and it passed. A 12.2 MB document holding 600 thousand entries parsed in 521 ms, and escaped codepoints, surrogate pair emoji, CJK, escaped control characters, and escaped quotation marks all resolved to the correct keys. Version 0.3.4, Apache-2.0, pinned to `mojo-compiler >=1.0.0,<2.0a0`. It is deliberately not in `pixi.toml` yet: nothing imports it until the Hugging Face loader exists, and an unused dependency is still a dependency. |
 | `extramojo` | Not adopted | Version 0.23.0 is available and pinned to `mojo-compiler 1.0.0.*`, so it is eligible. It is not needed: the standard library reads a 3.6 MB vocabulary and builds a FlatVocab in 88 ms, which is not a bottleneck worth a dependency. Revisit only if corpus loading shows up in a benchmark. |
 | `mojo-regex` | Rejected | Pinned to compiler 0.26.2, which predates 1.0, so it is an automatic no. It is also the wrong tool, since Knap writes a specialised scanner rather than using a regex engine. Reading its source for reference remains fine. |
 | `mtest` | Rejected for now | Pinned to a 1.0.0 beta compiler. The standard library `TestSuite` is the safer default and has proven adequate. |
 | `mojo-libc` | Rejected | No genuine libc need has appeared, and none is expected. |
 
-No third party Mojo dependency is in use as of M1. The only runtime
+No third party Mojo dependency is in use. The only runtime
 dependency is the pinned compiler itself.
 
 ## Open questions
@@ -645,9 +646,9 @@ dependency is the pinned compiler itself.
 | Can Knap beat `tiktoken` on encode throughput? | **Yes, on three of the four distinct encode behaviours, and level on the fourth.** Resolved 2026-09-09 by four changes to the merge path, none of them a language argument. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). `rs-bpe` still leads on the two encodings it ships. | Done |
 | Is the piece cache still worth having? | **Not on `cl100k_base`.** Measured 2026-09-09: 5.58 MB/s cached against 6.15 uncached, at a 92.7 percent hit rate. Making the uncached path faster moved the break even point. `o200k_base` still gains. The cache stays optional and off by default, which is what it always was. | Open, revisit if the uncached path changes again |
 | Can Mojo 1.0.0 build an importable Python extension module? | **Yes.** Resolved 2026-09-08. `PythonModuleBuilder` produces a real CPython extension, so the `ctypes` fallback was never built and the flat C surface it would have needed was never added. Three constraints were found while doing it, all recorded in [docs/TOOLCHAIN.md](TOOLCHAIN.md): no globals, `add_type` requires `Writable`, and the auto downcast pointer cannot mutate. | Done |
-| Scanner design and transition table | Resolved at M2. Written up under [The scanner](#the-scanner). Ordered alternation rather than a merged state machine, because alternation priority is load bearing. | Done |
-| Two stage table against sorted range binary search | Resolved at M2, remeasured on Unicode 16.0.0. Sorted runs hold 2391 runs in 15542 bytes; the best two stage layout needs 38272. Sorted runs chosen, because the ASCII fast path means these tables are reached only on the documented slow path. See [docs/UNICODE.md](UNICODE.md). | Done |
-| Piece cache hit rate on real text | Measured at M5. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). | Done |
+| Scanner design and transition table | Resolved. Written up under [The scanner](#the-scanner). Ordered alternation rather than a merged state machine, because alternation priority is load bearing. | Done |
+| Two stage table against sorted range binary search | Resolved, and remeasured on Unicode 16.0.0. Sorted runs hold 2391 runs in 15542 bytes; the best two stage layout needs 38272. Sorted runs chosen, because the ASCII fast path means these tables are reached only on the documented slow path. See [docs/UNICODE.md](UNICODE.md). | Done |
+| Piece cache hit rate on real text | Measured. Numbers in [docs/BENCHMARKS.md](BENCHMARKS.md). | Done |
 | Does the vectorised classifier pay for itself? | **Cannot be resolved on this machine.** Measured 2026-09-08: scalar and vectorised differ by less than one standard deviation over five repetitions. Kept behind `-D KNAP_SIMD=1`, default off, because an unmeasurable gain does not justify a second implementation. | Open, needs a quieter machine or a wider vector unit |
 | Should the encoding be a compile time parameter rather than a field? | **No.** Considered and rejected 2026-09-09. `Tokenizer[pattern: Int]` is the idiomatic Mojo shape and the argument for it was that it removes a branch from the hot path. It does not: `self.pattern` is read in exactly one place, inside `_scan`, which runs once per segment, and a segment is the whole document for the ordinary encode path. The branch executes once per document. Against no measurable gain it would break the public API, force a runtime dispatch at the top of the command line tool and the Python bindings, and double the compiled code. Recorded because the claim that it was a hot path branch was made in this project before it was checked. | Closed |
 | Why is the 99th percentile latency several times the reference, while the median is close to it? | **Open, and two hypotheses are now eliminated.** Allocation spikes were the obvious explanation and were written down as such. Removing the per-piece allocation moved the percentiles by less than the run to run spread, and so did removing three quarters of the merge loop's hash lookups. See [docs/BENCHMARKS.md](BENCHMARKS.md). The next candidates are the output buffer's growth sequence, which a capacity hint now covers and which should therefore also be eliminated, and the vocabulary's page fault behaviour on a cold table. Neither has been profiled. | Needs a profiler |
@@ -663,7 +664,7 @@ dependency is the pinned compiler itself.
 | Next | [docs/UNICODE.md](UNICODE.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-10 |
+| Last reviewed | 2026-09-11 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

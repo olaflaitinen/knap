@@ -102,7 +102,7 @@ CLEAN_MARKDOWN = """\
 | Document | `{path}` |
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
-| Status | Draft |
+| Status | Stable |
 | Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | 0009-0006-5184-0810 |

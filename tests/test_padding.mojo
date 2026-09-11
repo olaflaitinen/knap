@@ -3,7 +3,7 @@
 # File        : tests/test_padding.mojo
 # Purpose     : Holds the padded batch to the encoder, and holds the mask to
 #               the thing it is the only record of.
-# Stage       : Milestone M9, caller facing helpers. See docs/ROADMAP.md
+# Stage       : Caller facing helpers. See docs/API.md
 # Depends on  : knap.tokenizer
 # Invariants  : Every masked in id equals the id the encoder produced at
 #               that position. Every masked out id is the padding id.

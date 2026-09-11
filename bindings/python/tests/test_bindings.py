@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bindings/python/tests/test_bindings.py
 # Purpose     : Checks the Python bindings against tiktoken, end to end.
-# Stage       : Milestone M6 Track B, Python consumers. See docs/ROADMAP.md
+# Stage       : Python bindings. See bindings/python/README.md
 # Depends on  : knap_py, the built extension, and tiktoken as the reference.
 # Invariants  : The bindings are compared against the same reference the Mojo
 #               tests use. A binding that loses parity in translation would

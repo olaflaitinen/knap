@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: EUPL-1.2
 # Copyright 2026 Olaf Yunus Laitinen Imanov
 #
-# The milestone M2 pre-tokenization gate, at full scale.
+# The pre-tokenization parity gate, at full scale.
 #
 # This is separate from ci.yml because it is expensive: it downloads and
 # assembles a 110 MB corpus, spends several minutes generating references
@@ -54,13 +54,15 @@ jobs:
       - name: Generate encode references
         run: uv run python scripts/gen_encode_golden.py
 
-      # The milestone M2 gate, widened at M7. Every piece boundary the
+      # The boundary parity gate, across every distinct pattern. Every
+      # piece boundary the
       # scanner produces must equal the one the reference regex produces,
       # for all three patterns: 83.0 million boundaries.
       - name: Pre-tokenization parity
         run: uv run mojo run -I src tests/test_pretokenize_corpus.mojo
 
-      # The milestone M3 gate, widened at M7. Every token Knap emits must
+      # The encode parity gate, across every distinct encode behaviour.
+      # Every token Knap emits must
       # equal the token tiktoken emits at the same position, across the
       # whole corpus, for each of the four distinct encode behaviours the
       # seven encodings reduce to. That is 191.8 million tokens.

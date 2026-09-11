@@ -3,7 +3,7 @@
 # File        : bench/harness.mojo
 # Purpose     : Timing and statistics shared by every Knap benchmark, and the
 #               machine readable line format the driver collects.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : std.time
 # Invariants  : Every reported figure carries its sample count and a spread.
 #               A single number with no spread is not a measurement.

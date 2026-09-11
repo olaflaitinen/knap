@@ -50,6 +50,13 @@ RECIPE = REPO_ROOT / "conda.recipe" / "recipe.yaml"
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
+# A token in the build script that names a path in this repository, rather
+# than one inside the installed package. The leading directory is what tells
+# them apart: package paths are all written under ${PREFIX}.
+SOURCE_PATH_PATTERN = re.compile(
+    r"(?<![\w/$}])(?:src|cli|tests|bench|scripts|docs)/[\w./-]+"
+)
+
 # Files that declare a version or a compiler pin, and the pattern that finds
 # it. Each must match exactly once, so that a second declaration appearing
 # somewhere is a failure rather than a silently ignored disagreement.
@@ -322,6 +329,88 @@ def commit_exists(revision: str) -> bool:
     return done.returncode == 0
 
 
+def script_blocks(text: str) -> list[str]:
+    """Return the body of every `content: |` block in the recipe.
+
+    Args:
+        text: The recipe file, as one string.
+
+    Returns:
+        One entry per literal block, each still indented.
+
+    The reader in this file parses the subset of YAML the recipe needs and
+    deliberately does not implement literal block scalars, so the scripts are
+    taken from the raw text instead. Reading them from the raw text is also
+    the honest way round: what matters is what bash will run, not what a
+    partial parser made of it.
+    """
+    lines = text.splitlines()
+    blocks: list[str] = []
+    index = 0
+    while index < len(lines):
+        stripped = lines[index].strip()
+        if stripped in ("content: |", "content: |-"):
+            marker_indent = len(lines[index]) - len(lines[index].lstrip())
+            body: list[str] = []
+            index += 1
+            while index < len(lines):
+                line = lines[index]
+                if line.strip() and (
+                    len(line) - len(line.lstrip()) <= marker_indent
+                ):
+                    break
+                body.append(line)
+                index += 1
+            blocks.append("\n".join(body))
+            continue
+        index += 1
+    return blocks
+
+
+def build_script_paths(script: str) -> list[str]:
+    """Return the repository paths a recipe script reads.
+
+    Args:
+        script: One script from the recipe, as one string.
+
+    Returns:
+        Every token that names a path in this repository, in order and
+        without duplicates.
+
+    Tokens are matched rather than commands parsed, because parsing bash to
+    find an argument is a great deal of machinery for a question a regular
+    expression answers. A path is recognised by its leading directory, which
+    is the set of directories this repository has, so a token like
+    `${PREFIX}/bin/knap` is correctly ignored: it names a path in the
+    installed package rather than in the source tree.
+    """
+    found: list[str] = []
+    for match in SOURCE_PATH_PATTERN.finditer(script):
+        token = match.group(0)
+        if token not in found:
+            found.append(token)
+    return found
+
+
+def path_exists_at(revision: str, path: str) -> bool:
+    """Report whether a path exists in the tree of a given commit.
+
+    Args:
+        revision: A commit this clone holds.
+        path: A repository relative path.
+
+    Returns:
+        True when the commit's tree contains it, as a file or a directory.
+    """
+    done = subprocess.run(
+        ["git", "cat-file", "-e", f"{revision}:{path}"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        check=False,
+    )
+    return done.returncode == 0
+
+
 def is_shallow() -> bool:
     """Report whether this clone has a truncated history.
 
@@ -361,11 +450,15 @@ def get(document: dict, *path: str) -> object:
     return current
 
 
-def check(document: dict) -> list[str]:
+def check(document: dict, raw: str) -> list[str]:
     """Run every check against a parsed recipe.
 
     Args:
         document: The parsed recipe.
+        raw: The recipe file as text, for the parts a subset parser does not
+            reach, notably the literal block scripts. Taking it as an
+            argument rather than reading the file is what lets the self test
+            plant a violation in a copy.
 
     Returns:
         A list of problems, empty when the recipe is consistent.
@@ -450,6 +543,23 @@ def check(document: dict) -> list[str]:
                         "repository. Update it as part of preparing a "
                         "release."
                     )
+            else:
+                # The check this gate was missing, and the reason it was
+                # added. The recipe pins one commit and its build script is
+                # edited in another, so the two drift apart and nothing
+                # notices until somebody builds the package. That is exactly
+                # what happened: shell completions were added to the build
+                # script months after the pinned commit, and the build died
+                # on `cp cli/completions/knap.bash`.
+                for script in script_blocks(raw):
+                    for path in build_script_paths(script):
+                        if not path_exists_at(revision, path):
+                            problems.append(
+                                f"a recipe script reads {path}, which does "
+                                f"not exist at source.rev {revision[:12]}. "
+                                "The recipe pins a commit older than the "
+                                "script it runs."
+                            )
             url = entry.get("git")
             repository = get(document, "about", "repository")
             if url != repository:
@@ -524,15 +634,44 @@ def check(document: dict) -> list[str]:
 # the file it is supposed to be checking.
 # -----------------------------------------------------------------------------
 
-SELFTEST_CASES = [
+def revision_anchor(text: str) -> str:
+    """Return the recipe's `rev:` line, whatever commit it currently names.
+
+    Args:
+        text: The recipe file as text.
+
+    Returns:
+        The line, for the self test to replace.
+
+    Read rather than written down. The two revision cases used to hardcode
+    the SHA that happened to be in the recipe when they were written, so
+    updating the recipe for a release silently disarmed both of them. A self
+    test that stops testing when the file it tests is edited is the failure
+    it exists to prevent.
+    """
+    found = re.search(r"^\s*rev: \S+$", text, re.MULTILINE)
+    return found.group(0).strip() if found else "rev: "
+
+
+def selftest_cases(text: str) -> list[tuple[str, str, str]]:
+    """Build the planted violations against the recipe as it stands.
+
+    Args:
+        text: The recipe file as text.
+
+    Returns:
+        Label, anchor, and replacement for each planted violation.
+    """
+    revision = revision_anchor(text)
+    return [
     (
         "a branch name instead of a commit SHA",
-        "rev: eebb252a41a6416bd73e1c300d5b3e0551e3e733",
+        revision,
         "rev: main",
     ),
     (
         "a well formed SHA that is not a commit here",
-        "rev: eebb252a41a6416bd73e1c300d5b3e0551e3e733",
+        revision,
         'rev: "0000000000000000000000000000000000000000"',
     ),
     (
@@ -560,7 +699,15 @@ SELFTEST_CASES = [
         "  maintainers:\n    - olaflaitinen",
         "  maintainers: []",
     ),
-]
+    (
+        # The one this gate was missing. A path added to the build script
+        # after the pinned commit builds fine on a developer's tree and dies
+        # in the package build, which is how the shell completions broke it.
+        "a build script path that is not in the pinned commit",
+        "cp cli/completions/knap.bash",
+        "cp cli/completions/nosuch.bash",
+    ),
+    ]
 
 
 def selftest() -> int:
@@ -573,19 +720,19 @@ def selftest() -> int:
     original = RECIPE.read_text(encoding="utf-8")
     failures = 0
 
-    if check(parse_recipe(original)):
+    if check(parse_recipe(original), original):
         print("  FAIL  the unmodified recipe was rejected")
         failures += 1
     else:
         print("  PASS  accepts the real recipe")
 
-    for label, before, after in SELFTEST_CASES:
+    for label, before, after in selftest_cases(original):
         if original.count(before) != 1:
             print(f"  FAIL  {label}: the anchor text is not in the recipe")
             failures += 1
             continue
         planted = original.replace(before, after)
-        if check(parse_recipe(planted)):
+        if check(parse_recipe(planted), planted):
             print(f"  PASS  rejects {label}")
         else:
             print(f"  FAIL  accepts {label}")
@@ -604,7 +751,7 @@ def main() -> int:
         return selftest()
 
     document = read_recipe(RECIPE)
-    problems = check(document)
+    problems = check(document, RECIPE.read_text(encoding="utf-8"))
 
     if problems:
         print("check_recipe: the conda recipe is not ready")

@@ -3,7 +3,7 @@
 # File        : tests/test_toolchain.mojo
 # Purpose     : Toolchain smoke test. Proves the pinned compiler builds, runs,
 #               and exposes the standard library facilities Knap depends on.
-# Stage       : Milestone M0, scaffold. See docs/ROADMAP.md
+# Stage       : Toolchain smoke test. See docs/TOOLCHAIN.md
 # Depends on  : std.testing, std.sys. No Knap source, deliberately.
 # Invariants  : This file must never import from src/knap. Its whole value is
 #               that it fails only when the toolchain itself is broken.
@@ -93,7 +93,7 @@ def test_simd_width_comes_from_the_target() raises:
     parameter. "comptime" introduces a compile time constant.
 
     Knap must never hardcode 16, 32, or 64 lanes. Reading the width here
-    proves the mechanism the SIMD classifier will use in milestone M5.
+    proves the mechanism the vectorised classifier uses.
 
     Raises:
         Error: if the target reports a width that is not a positive power

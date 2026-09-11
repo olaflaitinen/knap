@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bindings/python/knap_py/tokenizer.py
 # Purpose     : Pythonic wrapper over the native extension module.
-# Stage       : Milestone M6 Track B, Python consumers. See docs/ROADMAP.md
+# Stage       : Python bindings. See bindings/python/README.md
 # Depends on  : knap_ext, the extension built from bindings/python/knap_ext.mojo
 # Invariants  : decode returns bytes. Turning them into text is the caller's
 #               decision, because a token slice need not be valid UTF-8.

@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bindings/python/build.py
 # Purpose     : Builds the native extension module from Mojo.
-# Stage       : Milestone M6 Track B, Python consumers. See docs/ROADMAP.md
+# Stage       : Python bindings. See bindings/python/README.md
 # Depends on  : The pinned Mojo compiler.
 # Invariants  : Records the toolchain version beside the built library, so a
 #               stale build can be recognised rather than guessed at.

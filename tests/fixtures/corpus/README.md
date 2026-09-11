@@ -26,7 +26,7 @@
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-07 |
-| Updated | 2026-09-10 |
+| Updated | 2026-09-11 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -56,8 +56,8 @@ arbitrary bytes.
 
 ## The fixtures
 
-All six arrived at milestone M2, alongside the scalar pre-tokenizer they
-exercise, and the test suite reads them on every push. Until they had
+All six arrived with the scalar pre-tokenizer they exercise, and the test
+suite reads them on every push. Until they had
 content they were absent rather than empty, because a fixture with no content
 would pass every test that reads it while proving nothing.
 
@@ -83,7 +83,7 @@ The hazards each of these targets are listed in
 | Next | [tests/fixtures/hf/README.md](../hf/README.md) |
 | Index | [README.md](../../../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-10 |
+| Last reviewed | 2026-09-11 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

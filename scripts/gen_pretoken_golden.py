@@ -3,7 +3,7 @@
 # File        : scripts/gen_pretoken_golden.py
 # Purpose     : Produces reference piece boundaries from the Python regex
 #               module for both patterns.
-# Stage       : Milestone M2, pre-tokenizer. See docs/ROADMAP.md
+# Stage       : Pre-tokenization. See docs/ARCHITECTURE.md
 # Depends on  : regex and tiktoken, as the reference implementations.
 # Invariants  : Boundaries are byte offsets into UTF-8, not character
 #               offsets. The reference regex works on decoded text, so every

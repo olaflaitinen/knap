@@ -3,7 +3,7 @@
 # File        : tests/test_classifier_parity.mojo
 # Purpose     : Checks the vectorised classifier never disagrees with the
 #               scalar rule it is meant to accelerate.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/ROADMAP.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : knap.pretokenize.classifier_simd
 # Invariants  : Whatever the vectorised scan consumes must be a prefix of
 #               what the scalar rule would consume, and a whole number of

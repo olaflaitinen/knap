@@ -3,7 +3,7 @@
 # File        : tests/test_flat_vocab.mojo
 # Purpose     : Tests the contiguous token store: construction validation,
 #               single token access, and the decode path.
-# Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
+# Stage       : Vocabulary and decode. See docs/ARCHITECTURE.md
 # Depends on  : knap.flat_vocab
 # Invariants  : These tests use hand built vocabularies only, so they run
 #               without any fetched file.

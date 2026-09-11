@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bindings/python/knap_ext.mojo
 # Purpose     : CPython extension module exposing Knap to Python.
-# Stage       : Milestone M6 Track B, Python consumers. See docs/ROADMAP.md
+# Stage       : Python bindings. See bindings/python/README.md
 # Depends on  : knap.tokenizer, std.python.bindings
 # Invariants  : The Mojo ABI is not stable, so this must be rebuilt for every
 #               toolchain version. Nothing detects a mismatch at run time.

@@ -3,7 +3,7 @@
 # File        : scripts/fetch_vocabs.py
 # Purpose     : Downloads the four vocabulary files the seven encodings
 #               need, and records where each came from and its digest.
-# Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
+# Stage       : Vocabulary and decode. See docs/ARCHITECTURE.md
 # Depends on  : tiktoken, for the canonical URLs and for verification.
 # Invariants  : The download is verified against the ranks tiktoken itself
 #               loads. A file that parses but disagrees is rejected.

@@ -212,7 +212,7 @@ jobs:
       # person to find out is a reader following the README.
       - name: Examples still run
         run: |
-          uv run mojo run -I src examples/budget.mojo 2048 LICENSE CODE_OF_CONDUCT.md
+          uv run mojo run -I src examples/budget.mojo 2048 LICENSE tests/fixtures/corpus/ascii_en.txt
           uv run mojo run -I src examples/chunker.mojo LICENSE 128 16
 
   scalar-and-simd:
@@ -291,7 +291,7 @@ jobs:
       - name: Sync the pinned environment
         run: uv sync --group dev
 
-      # Track A of the distribution milestone. A package that builds but
+      # A package that builds but
       # cannot be imported without the source tree is not a package.
       # The artefact is a .mojoc file. The .mojopkg extension this job used
       # to write is deprecated in Mojo 1.0.0 and warns.

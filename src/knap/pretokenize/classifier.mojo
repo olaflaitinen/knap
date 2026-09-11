@@ -21,8 +21,8 @@
 
 The scanner never looks at a raw code point value after this point. It asks
 only whether a position is a letter, a number, whitespace, a line break, or
-none of those, which is what lets the SIMD classifier planned for milestone
-M5 be swapped in without touching the state machine.
+none of those, which is what lets the vectorised classifier be swapped in
+without touching the state machine.
 
 Flags rather than a single class, because the patterns need overlapping
 membership. o200k_base in particular distinguishes an uppercase-ish set

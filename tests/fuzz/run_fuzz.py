@@ -3,7 +3,7 @@
 # File        : tests/fuzz/run_fuzz.py
 # Purpose     : Long running driver for the differential fuzzer. Shards the
 #               work, aggregates results, and keeps diverging inputs.
-# Stage       : Milestone M4, differential fuzzing. See docs/ROADMAP.md
+# Stage       : Differential fuzzing. See docs/CORRECTNESS.md
 # Depends on  : The compiled fuzzer, tiktoken, and the pinned Mojo compiler.
 # Invariants  : Every shard's seed is recorded, so any reported total can be
 #               reproduced shard by shard.

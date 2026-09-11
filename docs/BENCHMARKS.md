@@ -20,13 +20,13 @@
 | Document | `docs/BENCHMARKS.md` |
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
-| Status | Draft |
+| Status | Stable |
 | Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-08 |
-| Updated | 2026-09-10 |
+| Updated | 2026-09-11 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -472,7 +472,8 @@ this specific hypothesis:
 Every figure is inside the run to run spread. Whatever produces that tail, it
 is not this.
 
-A second hypothesis has since been eliminated the same way. The M8 work
+A second hypothesis has since been eliminated the same way. The merge
+path work
 removed roughly three quarters of the merge loop's hash lookups, and the
 tail did not improve in proportion either. Two of the obvious candidates are
 now gone and the cause is an open question in
@@ -839,7 +840,7 @@ drifting apart. A shared runner cannot produce a comparable measurement.
 | Next | [docs/ROADMAP.md](ROADMAP.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-10 |
+| Last reviewed | 2026-09-11 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

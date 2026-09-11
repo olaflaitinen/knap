@@ -3,7 +3,7 @@
 # File        : tests/test_count.mojo
 # Purpose     : Holds the counting path to the encoding path. A count is an
 #               optimisation, never a second opinion about what a token is.
-# Stage       : Milestone M9, the counting fast path. See docs/ROADMAP.md
+# Stage       : Counting without allocating. See docs/API.md
 # Depends on  : knap.tokenizer, knap.cache
 # Invariants  : Every assertion here compares count against len(encode) on
 #               the same input. Nothing is asserted against a number that

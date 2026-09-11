@@ -3,7 +3,7 @@
 # File        : tests/test_roundtrip.mojo
 # Purpose     : Encoding then decoding must reproduce the input bytes exactly,
 #               including for input that is not valid UTF-8.
-# Stage       : Milestone M3, BPE merge and encode. See docs/ROADMAP.md
+# Stage       : BPE merge and encode. See docs/ARCHITECTURE.md
 # Depends on  : knap.tokenizer
 # Invariants  : Round tripping is asserted on bytes, never on text. Comparing
 #               decoded Strings would compare something weaker.

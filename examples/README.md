@@ -20,13 +20,13 @@
 | Document | `examples/README.md` |
 | Project | Knap, a pure Mojo byte level BPE tokenizer |
 | Version | 1.0.0 |
-| Status | Draft |
+| Status | Stable |
 | Applies to | Knap 1.0.0, Mojo 1.0.0 |
 | Author | Olaf Yunus Laitinen Imanov |
 | ORCID | [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810) |
 | Affiliation | School of Information and Communication Technology, Metropolia University of Applied Sciences |
 | Created | 2026-09-10 |
-| Updated | 2026-09-10 |
+| Updated | 2026-09-11 |
 | Licence | EUPL-1.2 |
 | Website | <https://knap.lovable.app> |
 
@@ -69,18 +69,21 @@ uv run python scripts/fetch_vocabs.py
 Then, from the repository root:
 
 ```bash
-uv run mojo run -I src examples/budget.mojo 2048 LICENSE CODE_OF_CONDUCT.md
+uv run mojo run -I src examples/budget.mojo 2048 LICENSE tests/fixtures/corpus/ascii_en.txt
 uv run mojo run -I src examples/chunker.mojo LICENSE 128 16
 ```
 
 Both take their paths relative to the working directory, and both look for
 the vocabulary under `tests/fixtures/vocabs/`, so run them from the root.
 
-The outputs quoted below are from those two commands, on `LICENSE` and
-`CODE_OF_CONDUCT.md`. Those two files were chosen because they do not
-change, so the figures here stay true. Pointing the examples at a document
-that is edited every week would make this page wrong within a week, which is
-the same failure the examples themselves exist to demonstrate.
+The outputs quoted below are from those two commands, on `LICENSE` and a
+corpus fixture. Those are the two kinds of file in this repository whose
+bytes are not allowed to change: the licence is a legal instrument quoted
+verbatim, and a fixture whose bytes drift silently stops testing what it was
+written to test. An earlier version of this page pointed the example at
+`CODE_OF_CONDUCT.md` and went out of date by thirteen tokens the moment a
+row was added to that document's metadata table, which is the same failure
+the examples themselves exist to demonstrate.
 
 ---
 
@@ -108,7 +111,7 @@ only when the answer is no and the caller now needs a number:
 ```text
 budget: 2048 tokens, encoding cl100k_base
 LICENSE does not fit: 2919 tokens, over by 871 and fits up to byte 9968 of 13958
-CODE_OF_CONDUCT.md fits: 1547 tokens, with 501 spare
+tests/fixtures/corpus/ascii_en.txt fits: 113 tokens, with 1935 spare
 ```
 
 `truncate_ordinary_bytes` returns a byte offset rather than a shortened
@@ -203,7 +206,7 @@ above is output observed on this repository rather than an illustration.
 | Next | [docs/BENCHMARKS.md](../docs/BENCHMARKS.md) |
 | Index | [README.md](../README.md) |
 | Revision | 1.0.0 |
-| Last reviewed | 2026-09-10 |
+| Last reviewed | 2026-09-11 |
 
 Knap is licensed under the European Union Public Licence 1.2.
 Copyright 2026 Olaf Yunus Laitinen Imanov, Metropolia University of Applied

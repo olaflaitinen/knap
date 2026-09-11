@@ -1,9 +1,9 @@
 # =============================================================================
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : tests/test_decode.mojo
-# Purpose     : Milestone M1 gate. Decodes every token id in all seven
+# Purpose     : Decode gate. Decodes every token id in all seven
 #               shipped encodings and compares against a tiktoken fixture.
-# Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
+# Stage       : Vocabulary and decode. See docs/ARCHITECTURE.md
 # Depends on  : knap.vocab, knap.flat_vocab, std.base64
 # Invariants  : Every id in the space is checked, including the ones tiktoken
 #               refuses. An id the reference rejects must raise here too.
@@ -19,7 +19,7 @@
 # =============================================================================
 """Decode parity tests for Knap.
 
-This file is the milestone M1 acceptance gate. It decodes every single token
+This file is the decode parity gate. It decodes every single token
 id in all seven shipped encodings, 702463 ids in total, and compares the
 bytes against a fixture generated from tiktoken by
 scripts/gen_encode_golden.py.

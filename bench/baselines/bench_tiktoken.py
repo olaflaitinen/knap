@@ -2,7 +2,7 @@
 # Project     : Knap, a pure Mojo byte level BPE tokenizer
 # File        : bench/baselines/bench_tiktoken.py
 # Purpose     : Runs the same measurements against tiktoken, on this machine.
-# Stage       : Milestone M5, SIMD and benchmarks. See docs/BENCHMARKS.md
+# Stage       : Vectorisation and benchmarks. See docs/BENCHMARKS.md
 # Depends on  : tiktoken
 # Invariants  : Same inputs, same warmup, same estimators as the Mojo
 #               benchmarks. A comparison against differently measured

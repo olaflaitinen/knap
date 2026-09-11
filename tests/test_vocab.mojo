@@ -3,7 +3,7 @@
 # File        : tests/test_vocab.mojo
 # Purpose     : Tests the .tiktoken loader, especially every way a vocabulary
 #               file can be malformed.
-# Stage       : Milestone M1, vocabulary and decode. See docs/ROADMAP.md
+# Stage       : Vocabulary and decode. See docs/ARCHITECTURE.md
 # Depends on  : knap.vocab
 # Invariants  : Every fixture is written to a temporary path by the test
 #               itself, so these run without any fetched file.

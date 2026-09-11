@@ -35,6 +35,10 @@ url: "https://github.com/olaflaitinen/knap"
 license: EUPL-1.2
 version: "1.0.0"
 date-released: "2026-09-11"
+# The concept DOI, which always resolves to the most recent version. Cite
+# this one unless you need the exact version you used, in which case the
+# 1.0.0 DOI is 10.5281/zenodo.22701441.
+doi: "10.5281/zenodo.22701440"
 keywords:
   - tokenization
   - byte pair encoding

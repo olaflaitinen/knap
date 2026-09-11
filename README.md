@@ -46,6 +46,12 @@
 </p>
 
 <p align="center">
+  <a href="https://doi.org/10.5281/zenodo.22701440"><img
+    src="https://zenodo.org/badge/DOI/10.5281/zenodo.22701440.svg"
+    alt="DOI"></a>
+  <a href="https://github.com/olaflaitinen/knap/releases/latest"><img
+    src="https://img.shields.io/github/v/release/olaflaitinen/knap?label=release&color=blue"
+    alt="Latest release"></a>
   <a href="LICENSE"><img
     src="https://img.shields.io/github/license/olaflaitinen/knap?color=blue&label=licence"
     alt="Licence EUPL-1.2"></a>
@@ -55,9 +61,9 @@
   <a href="#supported-encodings"><img
     src="https://img.shields.io/badge/tiktoken%20encodings-7%20of%207-blue"
     alt="All seven tiktoken encodings"></a>
-  <a href="docs/PACKAGING.md"><img
-    src="https://img.shields.io/badge/conda-not%20published%20yet-lightgrey"
-    alt="Not published to a conda channel yet"></a>
+  <a href="https://github.com/modular/modular-community/pull/352"><img
+    src="https://img.shields.io/badge/modular--community-review%20open-lightgrey"
+    alt="Submitted to the modular-community channel, review open"></a>
   <a href="CODE_OF_CONDUCT.md"><img
     src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa"
     alt="Contributor Covenant 2.1"></a>
@@ -599,6 +605,13 @@ this repository, which GitHub renders as a "Cite this repository" control.
 Olaf Yunus Laitinen Imanov, School of Information and Communication
 Technology, Metropolia University of Applied Sciences.
 ORCID [0009-0006-5184-0810](https://orcid.org/0009-0006-5184-0810).
+
+Each release is archived on Zenodo and has a DOI.
+
+| DOI | Resolves to |
+| --- | --- |
+| [10.5281/zenodo.22701440](https://doi.org/10.5281/zenodo.22701440) | The most recent version. Cite this one unless you need to pin a version. |
+| [10.5281/zenodo.22701441](https://doi.org/10.5281/zenodo.22701441) | 1.0.0 exactly. |
 
 ## Author and contact
 

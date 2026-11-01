@@ -48,7 +48,7 @@ dependencies = [
 # a benchmark baseline and a consulted reference implementation.
 dev = [
     "tiktoken>=0.7.0",
-    "tokenizers>=0.20.0",
+    "tokenizers>=0.23.3",
     "regex>=2024.0.0",
     "rs-bpe>=0.1.0",
 ]
